@@ -2,8 +2,9 @@ import "Burner"
 import "FungibleToken"
 import "FungibleTokenStack"
 import "EVM"
-import "StackFiInterfaces"
 import "SwapRouter"
+
+import "StackFiInterfaces"
 
 access(all) contract IncrementSwapStack {
 

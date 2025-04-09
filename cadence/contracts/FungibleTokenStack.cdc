@@ -1,4 +1,5 @@
 import "FungibleToken"
+
 import "StackFiInterfaces"
 
 access(all) contract FungibleTokenStack {

@@ -162,13 +162,15 @@
 	"deployments": {
 		"emulator": {
 			"emulator-account": [
-				"StackFiInterfaces",
 				"SwapRouter",
 				"SwapFactory",
 				"SwapError",
 				"SwapConfig",
 				"SwapInterfaces",
-				"StableSwapFactory"
+				"StableSwapFactory",
+				"StackFiInterfaces",
+				"FungibleTokenStack",
+				"IncrementSwapStack"
 			]
 		}
 	}
