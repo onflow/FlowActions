@@ -46,11 +46,6 @@ access(all) contract IncrementSwapStack {
             return self.sink.minimumCapacity()
         }
 
-        access(all) fun setPath(_ path: [String]) {
-            self.validatePath(path)
-            self.path = path
-        }
-
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             // determine the limits of exchange
             let sinkCapacity = self.minimumCapacity()
@@ -125,17 +120,6 @@ access(all) contract IncrementSwapStack {
                 from.deposit(from: <-remainderSwap)
             } else {
                 Burner.burn(<-swapResult) // burn the resulting empty vault
-            }
-        }
-
-        access(self) view fun validatePath(_ path: [String]) {
-            pre {
-                path.length >= 2:
-                "Swap path must include at least 2 token identifiers"
-                self.inVault.identifier == path[0]:
-                "Swap path must begin with inVault \(self.inVault.identifier) but found \(path[0])"
-                self.outVault.identifier == path[path.length - 1]:
-                "Swap path must end with outVault \(self.outVault.identifier) but found \(path[path.length - 1])"
             }
         }
     }
