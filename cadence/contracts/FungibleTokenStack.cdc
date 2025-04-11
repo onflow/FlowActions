@@ -46,10 +46,10 @@ access(all) contract FungibleTokenStack {
 
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            if !self.depositVault.check() {
+            let minimumCapacity = self.minimumCapacity()
+            if !self.depositVault.check() || minimumCapacity == 0.0 {
                 return
             }
-            let minimumCapacity = self.minimumCapacity()
             // deposit the lesser of the originating vault balance and minimum capacity
             let capacity = minimumCapacity <= from.balance ? minimumCapacity : from.balance
             self.depositVault.borrow()!.deposit(from: <-from.withdraw(amount: capacity))
@@ -92,12 +92,12 @@ access(all) contract FungibleTokenStack {
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be 
         /// returned
         access(all) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            if !self.withdrawVault.check() {
+            let available = self.minimumAvailable()
+            if !self.withdrawVault.check() || available == 0.0 || maxAmount == 0.0 {
                 return <- FungibleTokenStack.getEmptyVault(forType: self.withdrawVaultType)
             }
-            let available = self.minimumAvailable()
             // take the lesser between the available and maximum requested amount
-            let withdrawalAmount = available < maxAmount ? available : maxAmount
+            let withdrawalAmount = available <= maxAmount ? available : maxAmount
             return <- self.withdrawVault.borrow()!.withdraw(amount: withdrawalAmount)
         }
     }
