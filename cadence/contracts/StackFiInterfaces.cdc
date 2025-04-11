@@ -16,7 +16,7 @@ access(all) contract StackFiInterfaces {
     access(all) struct interface Source {
         access(all) view fun getSourceType(): Type
         access(all) fun minimumAvailable(): UFix64
-        access(all) fun withdrawAvailable(): @{FungibleToken.Vault} {
+        access(all) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
                 result.getType() == self.getSourceType():
                 "Source \(self.getType().identifier) should return \(self.getSourceType().identifier) but returned \(result.getType().identifier)"
