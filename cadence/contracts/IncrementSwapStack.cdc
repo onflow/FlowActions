@@ -41,7 +41,14 @@ access(all) contract IncrementSwapStack {
         }
 
         access(all) fun minimumCapacity(): UFix64 {
-            return self.sink.minimumCapacity()
+            let innerSinkCapacity = self.sink.minimumCapacity()
+            if innerSinkCapacity == 0.0 {
+                // nothing to ingest as inner sink cannot accept post-conversion currency
+                return 0.0
+            }
+            // estimate pre-conversion currency capacity based on the inner Sink's post-conversion currency capacity
+            let amountsOut = SwapRouter.getAmountsIn(amountOut: innerSinkCapacity, tokenKeyPath: self.path)
+            return amountsOut[0]
         }
 
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
