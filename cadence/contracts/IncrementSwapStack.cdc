@@ -13,28 +13,25 @@ access(all) contract IncrementSwapStack {
         access(all) let outVault: Type
         access(all) var path: [String]
         access(self) let sink: {StackFiInterfaces.Sink}
-        view init(
+        init(
             inVault: Type,
-            outVault: Type,
             path: [String],
             sink: {StackFiInterfaces.Sink}
         ) {
             pre {
-                outVault == sink.getSinkType():
-                "Sink \(sink.getType().identifier) does not accept outVault \(outVault.identifier)"
                 inVault.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "inVault \(inVault.identifier) is not a FungibleToken.Vault instance"
-                outVault.isSubtype(of: Type<@{FungibleToken.Vault}>()):
-                "outVault \(outVault.identifier) is not a FungibleToken.Vault instance"
+                sink.getSinkType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                "Sink Vault Type \(sink.getSinkType().identifier) is not a FungibleToken.Vault instance"
                 path.length >= 2:
                 "Swap path must include at least 2 token identifiers"
                 inVault.identifier == path[0]:
                 "Swap path must begin with inVault \(inVault.identifier) but found \(path[0])"
-                outVault.identifier == path[path.length - 1]:
-                "Swap path must end with outVault \(outVault.identifier) but found \(path[path.length - 1])"
+                sink.getSinkType().identifier == path[path.length - 1]:
+                "Swap path must end with outVault \(sink.getSinkType().identifier) but found \(path[path.length - 1])"
             }
             self.inVault = inVault
-            self.outVault = outVault
+            self.outVault = sink.getSinkType()
             self.sink = sink
             self.path = path
         }
