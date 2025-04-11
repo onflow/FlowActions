@@ -4,47 +4,19 @@ import "StackFiInterfaces"
 
 access(all) contract FungibleTokenStack {
 
-    access(all) struct interface CapacityCheck {
-        access(all) view fun getCapacity(currentBalance: UFix64): UFix64
-    }
-
-    access(all) struct MinimumCapacityCheck : CapacityCheck {
-        access(all) let min: UFix64
-
-        view init(min: UFix64) {
-            self.min = min
-        }
-
-        access(all) view fun getCapacity(currentBalance: UFix64): UFix64 {
-            return currentBalance < self.min ? self.min - currentBalance : 0.0
-        }
-    }
-
-    access(all) struct MaximumCapacityCheck : CapacityCheck {
-        access(all) let max: UFix64
-
-        view init(max: UFix64) {
-            self.max = max
-        }
-
-        access(all) view fun getCapacity(currentBalance: UFix64): UFix64 {
-            return currentBalance < self.max ? self.max - currentBalance : 0.0
-        }
-    }
-
     access(all) struct VaultSink : StackFiInterfaces.Sink {
         access(all) let depositVaultType: Type
-        access(all) let capacityCheck: {CapacityCheck}
+        access(all) let maximumBalance: UFix64
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
         
         view init(
-            capacityCheck: {CapacityCheck}?,
+            maximumBalance: UFix64,
             depositVault: Capability<&{FungibleToken.Vault}>
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
             }
-            self.capacityCheck = capacityCheck != nil ? capacityCheck! : MaximumCapacityCheck(max: UFix64.max)
+            self.maximumBalance = maximumBalance
             self.depositVault = depositVault
             self.depositVaultType = depositVault.borrow()!.getType()
         }
@@ -55,7 +27,7 @@ access(all) contract FungibleTokenStack {
 
         access(all) fun minimumCapacity(): UFix64 {
             if let vault = self.borrowVault() {
-                return self.capacityCheck.getCapacity(currentBalance: vault.balance)
+                return vault.balance < self.maximumBalance ? self.maximumBalance - vault.balance : 0.0
             }
             return 0.0
         }
@@ -65,6 +37,7 @@ access(all) contract FungibleTokenStack {
                 self.checkVault(): "Contained FungibleToken Vault Capability is no longer valid"
             }
             let minimumCapacity = self.minimumCapacity()
+            // deposit the lesser of the originating vault balance and minimum capacity
             let capacity = minimumCapacity <= from.balance ? minimumCapacity : from.balance
             self.borrowVault()!.deposit(from: <-from.withdraw(amount: capacity))
         }
@@ -84,17 +57,17 @@ access(all) contract FungibleTokenStack {
 
     access(all) struct VaultSource : StackFiInterfaces.Source {
         access(all) let withdrawVaultType: Type
-        access(all) let capacityCheck: {CapacityCheck}
+        access(all) let minimumBalance: UFix64
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
         
         view init(
-            capacityCheck: {CapacityCheck}?,
+            minimumBalance: UFix64,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
             }
-            self.capacityCheck = capacityCheck != nil ? capacityCheck! : MaximumCapacityCheck(max: UFix64.max)
+            self.minimumBalance = minimumBalance
             self.withdrawVault = withdrawVault
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
@@ -105,17 +78,19 @@ access(all) contract FungibleTokenStack {
 
         access(all) fun minimumAvailable(): UFix64 {
             if let vault = self.borrowVault() {
-                let capacity = self.capacityCheck.getCapacity(currentBalance: vault.balance)
-                return capacity <= vault.balance ? capacity : vault.balance
+                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
             }
             return 0.0
         }
 
-        access(all) fun withdrawAvailable(): @{FungibleToken.Vault} {
+        access(all) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             pre {
                 self.checkVault(): "Contained FungibleToken Vault Capability is no longer valid"
             }
-            return <- self.borrowVault()!.withdraw(amount: self.minimumAvailable())
+            let available = self.minimumAvailable()
+            // take the lesser between the available and maximum requested amount
+            let withdrawalAmount = available < maxAmount ? available : maxAmount
+            return <- self.borrowVault()!.withdraw(amount: withdrawalAmount)
         }
 
         access(all) view fun checkVault(): Bool {
