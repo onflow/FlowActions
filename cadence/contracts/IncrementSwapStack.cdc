@@ -60,86 +60,45 @@ access(all) contract IncrementSwapStack {
                 return 0.0
             }
             // estimate pre-conversion currency capacity based on the inner Sink's post-conversion currency capacity
-            let amountsOut = SwapRouter.getAmountsIn(amountOut: innerSinkCapacity, tokenKeyPath: self.path)
-            return amountsOut[0]
+            let amountsIn = SwapRouter.getAmountsIn(amountOut: innerSinkCapacity, tokenKeyPath: self.path)
+            return amountsIn[0]
         }
 
         /// Deposits up to the Sink's capacity from the provided Vault, swapping the provided currency to the outVault
         /// Type along the set path. The resulting swapped currency is then deposited to the inner Sink
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            // determine the limits of exchange
-            let sinkCapacity = self.minimumCapacity()
-            var quote = SwapRouter.getAmountsOut(amountIn: from.balance, tokenKeyPath: self.path)
-            if sinkCapacity < quote[quote.length - 1] {
-                quote = SwapRouter.getAmountsIn(amountOut: self.minimumCapacity(), tokenKeyPath: self.path)
-                self.swapTokensForExactTokens(from: from, quote: quote)
-            } else {
-                self.swapExactTokensForTokens(from: from, quote: quote)
+            let preSwapCapacity = self.minimumCapacity()
+            if from.balance == 0.0 || preSwapCapacity == 0.0 {
+                // nothing to swap from or no capacity to ingest - do nothing
+                return
             }
-        }
 
-        access(self) fun swapTokensForExactTokens(
-            from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault},
-            quote: [UFix64]
-        ) {
-            pre {
-                quote.length > 0: "Quote must contain at least one estimate but received none"
-            }
+            // take the lesser of this Sink's capacity or the full balance of the `from` Vault
+            let amountIn = preSwapCapacity < from.balance ? preSwapCapacity : from.balance
+            // perform the swap & deposit to the inner Sink
+            var quote = SwapRouter.getAmountsOut(amountIn: amountIn, tokenKeyPath: self.path)
             let deadline = getCurrentBlock().timestamp
-            // perform the swap
-            let swapResult <- SwapRouter.swapTokensForExactTokens(
-                vaultInMax: <-from.withdraw(amount: quote[0]),
-                exactAmountOut: quote[quote.length - 1],
-                tokenKeyPath: self.path,
-                deadline: deadline
-            )
-            
-            // deposit the swap result
-            let outRef = &swapResult[0] as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
-            let remainingRef = &swapResult[1] as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
-            
-            // deposit to sink and return any remainder if exists
-            self.sink.depositCapacity(from: outRef)
-            if outRef.balance > 0.0 {
-                from.deposit(from: <-outRef.withdraw(amount: outRef.balance))
-            }
-            if remainingRef.balance > 0.0 {
-                from.deposit(from: <-remainingRef.withdraw(amount: remainingRef.balance))
-            }
-
-            Burner.burn(<-swapResult) // burn swapResult array
-        }
-
-        access(self) fun swapExactTokensForTokens(
-            from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault},
-            quote: [UFix64]
-        ) {
-            pre {
-                quote.length > 0: "Quote must contain at least one estimate but received none"
-            }
-            let deadline = getCurrentBlock().timestamp
-            // perform the swap
-            let swapResult <- SwapRouter.swapExactTokensForTokens(
-                exactVaultIn: <-from.withdraw(amount: from.balance),
+            let outVault <- SwapRouter.swapExactTokensForTokens(
+                exactVaultIn: <-from.withdraw(amount: amountIn),
                 amountOutMin: quote[quote.length - 1],
                 tokenKeyPath: self.path,
                 deadline: deadline
             )
+            self.sink.depositCapacity(from: &outVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
-            // deposit the swap result
-            self.sink.depositCapacity(from: &swapResult as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-            
-            // handle remainder by swapping back and depositing to from vault
-            if swapResult.balance > 0.0 {
-                let remainderSwap <- SwapRouter.swapExactTokensForTokens(
-                    exactVaultIn: <-swapResult,
-                    amountOutMin: 0.0,
-                    tokenKeyPath: self.path.reverse(),
+            if outVault.balance > 0.0 {
+                // deal with any remainder by swapping back & depositing to `from` Vault
+                let reversePath = self.path.reverse()
+                quote = SwapRouter.getAmountsOut(amountIn: outVault.balance, tokenKeyPath: reversePath)
+                let remainder <- SwapRouter.swapExactTokensForTokens(
+                    exactVaultIn: <-outVault,
+                    amountOutMin: quote[quote.length - 1],
+                    tokenKeyPath: reversePath,
                     deadline: deadline
                 )
-                from.deposit(from: <-remainderSwap)
+                from.deposit(from: <-remainder)
             } else {
-                Burner.burn(<-swapResult) // burn the resulting empty vault
+                Burner.burn(<-outVault) // burn the empty Vault
             }
         }
     }

@@ -18,7 +18,7 @@ access(all) contract FungibleTokenStack {
         access(all) let maximumBalance: UFix64
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
-        
+
         init(
             maximumBalance: UFix64,
             depositVault: Capability<&{FungibleToken.Vault}>
@@ -30,7 +30,7 @@ access(all) contract FungibleTokenStack {
             self.depositVault = depositVault
             self.depositVaultType = depositVault.borrow()!.getType()
         }
-        
+
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type {
             return self.depositVaultType
@@ -63,7 +63,7 @@ access(all) contract FungibleTokenStack {
         access(all) let minimumBalance: UFix64
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
-        
+
         init(
             minimumBalance: UFix64,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
@@ -89,7 +89,7 @@ access(all) contract FungibleTokenStack {
             return 0.0
         }
 
-        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be 
+        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(all) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let available = self.minimumAvailable()
