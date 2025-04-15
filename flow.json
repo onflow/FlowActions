@@ -1,25 +1,25 @@
 {
 	"contracts": {
 		"DeFiAdapters": {
-			"source": "cadence/contracts/DeFiAdapters.cdc",
+			"source": "cadence/contracts/interfaces/DeFiAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
 		},
 		"FungibleTokenStack": {
-			"source": "cadence/contracts/FungibleTokenStack.cdc",
+			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
 		},
 		"IncrementSwapStack": {
-			"source": "cadence/contracts/IncrementSwapStack.cdc",
+			"source": "cadence/contracts/connectors/IncrementSwapStack.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
 		},
 		"StackFiInterfaces": {
-			"source": "cadence/contracts/StackFiInterfaces.cdc",
+			"source": "cadence/contracts/interfaces/StackFiInterfaces.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
