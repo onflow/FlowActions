@@ -25,7 +25,7 @@ access(all) contract FungibleTokenStack {
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
-                FungibleTokenStack.definingContractIsFungibleToken(depositVault.getType()):
+                FungibleTokenStack.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = maximumBalance
@@ -72,7 +72,7 @@ access(all) contract FungibleTokenStack {
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
-                FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.getType()):
+                FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.minimumBalance = minimumBalance
