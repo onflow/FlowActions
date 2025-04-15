@@ -8,7 +8,6 @@ import "DeFiAdapters"
 ///
 /// DeFi adapter implementations fitting IncrementFi protocols to the data structure defined in DeFiAdapters.
 ///
-///
 access(all) contract IncrementFiAdapters {
 
     /// Adapts IncrementFi's SwapRouter contract swap methods to DeFiAdapters.UniswapV2SwapAdapter struct interface
