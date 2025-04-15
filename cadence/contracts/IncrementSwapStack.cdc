@@ -72,8 +72,8 @@ access(all) contract IncrementSwapStack {
         /// Type along the set path. The resulting swapped currency is then deposited to the inner Sink
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             let preSwapCapacity = self.minimumCapacity()
-            if from.balance == 0.0 || preSwapCapacity == 0.0 { // TODO: No-op if from.getType() != self.inVault
-                // nothing to swap from or no capacity to ingest - do nothing
+            if from.balance == 0.0 || preSwapCapacity == 0.0 || !from.getType().isInstance(self.inVault) { 
+                // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
                 return
             }
 
