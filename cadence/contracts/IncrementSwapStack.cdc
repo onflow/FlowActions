@@ -170,6 +170,10 @@ access(all) contract IncrementSwapStack {
             let quoteIn = availableIn < quotesIn[0] ? availableIn : quotesIn[0]
 
             let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quoteIn)
+            if sourceLiquidity.balance == 0.0 {
+                Burner.burn(<-sourceLiquidity)
+                return <- IncrementSwapStack.getEmptyVault(self.outVault)
+            }
             if sourceLiquidity.balance > amountOut {
                 // TODO - what to do if inner source exceeds the expected amount which will likely exceed `amountOut`?
             }
