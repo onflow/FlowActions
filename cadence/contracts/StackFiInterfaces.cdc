@@ -43,6 +43,6 @@ access(all) contract StackFiInterfaces {
         access(all) fun minimumAvailable(): UFix64
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
-        access(all) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault}
+        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault}
     }
 }
