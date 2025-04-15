@@ -1,5 +1,11 @@
 {
 	"contracts": {
+		"DeFiAdapters": {
+			"source": "cadence/contracts/DeFiAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
 		"FungibleTokenStack": {
 			"source": "cadence/contracts/FungibleTokenStack.cdc",
 			"aliases": {
