@@ -20,7 +20,7 @@ access(all) contract FungibleTokenStack {
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
-            maximumBalance: UFix64,
+            maximumBalance: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>
         ) {
             pre {
@@ -28,7 +28,7 @@ access(all) contract FungibleTokenStack {
                 FungibleTokenStack.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
-            self.maximumBalance = maximumBalance
+            self.maximumBalance = maximumBalance ?? UFix64.max // assume no maximum if none provided
             self.depositVault = depositVault
             self.depositVaultType = depositVault.borrow()!.getType()
         }
@@ -67,7 +67,7 @@ access(all) contract FungibleTokenStack {
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
-            minimumBalance: UFix64,
+            minimumBalance: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
         ) {
             pre {
@@ -75,7 +75,7 @@ access(all) contract FungibleTokenStack {
                 FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
-            self.minimumBalance = minimumBalance
+            self.minimumBalance = minimumBalance ?? 0.0 // assume no minimum if none provided
             self.withdrawVault = withdrawVault
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
