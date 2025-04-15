@@ -20,7 +20,7 @@ access(all) contract FungibleTokenStack {
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
-            maximumBalance: UFix64?,
+            max: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>
         ) {
             pre {
@@ -28,7 +28,7 @@ access(all) contract FungibleTokenStack {
                 FungibleTokenStack.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
-            self.maximumBalance = maximumBalance ?? UFix64.max // assume no maximum if none provided
+            self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
             self.depositVault = depositVault
             self.depositVaultType = depositVault.borrow()!.getType()
         }
@@ -67,7 +67,7 @@ access(all) contract FungibleTokenStack {
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
-            minimumBalance: UFix64?,
+            min: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
         ) {
             pre {
@@ -75,7 +75,7 @@ access(all) contract FungibleTokenStack {
                 FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
-            self.minimumBalance = minimumBalance ?? 0.0 // assume no minimum if none provided
+            self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
             self.withdrawVault = withdrawVault
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
@@ -115,19 +115,19 @@ access(all) contract FungibleTokenStack {
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
-            minimumBalance: UFix64?,
-            maximumBalance: UFix64?,
+            min: UFix64?,
+            max: UFix64?,
             vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
                 FungibleTokenStack.definingContractIsFungibleToken(vault.getType()):
                 "The contract defining Vault \(vault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
-                minimumBalance ?? 0.0 < maximumBalance ?? UFix64.max:
+                min ?? 0.0 < max ?? UFix64.max:
                 "Minimum balance must be less than maximum balance if either is declared"
             }
-            self.minimumBalance = minimumBalance ?? 0.0
-            self.maximumBalance = maximumBalance ?? UFix64.max
+            self.minimumBalance = min ?? 0.0
+            self.maximumBalance = max ?? UFix64.max
             self.vaultType = vault.borrow()!.getType()
             self.vault = vault
         }
