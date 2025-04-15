@@ -26,7 +26,7 @@ access(all) contract FungibleTokenStack {
             pre {
                 depositVault.check(): "Provided invalid Capability"
                 FungibleTokenStack.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
-                "The contract defining Vault \(depositVault.getType().identifier) does not conform to FungibleToken contract interface"
+                "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = maximumBalance
             self.depositVault = depositVault
@@ -73,7 +73,7 @@ access(all) contract FungibleTokenStack {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
                 FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
-                "The contract defining Vault \(withdrawVault.getType().identifier) does not conform to FungibleToken contract interface"
+                "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.minimumBalance = minimumBalance
             self.withdrawVault = withdrawVault
@@ -103,6 +103,76 @@ access(all) contract FungibleTokenStack {
             // take the lesser between the available and maximum requested amount
             let withdrawalAmount = available <= maxAmount ? available : maxAmount
             return <- self.withdrawVault.borrow()!.withdraw(amount: withdrawalAmount)
+        }
+    }
+
+    access(all) struct VaultSinkAndSource : StackFiInterfaces.Sink, StackFiInterfaces.Source {
+        access(all) let minimumBalance: UFix64
+        access(all) let maximumBalance: UFix64
+        /// The type of Vault this connector accepts (as a Sink) and provides (as a Source)
+        access(all) let vaultType: Type
+        /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
+        access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+
+        init(
+            minimumBalance: UFix64?,
+            maximumBalance: UFix64?,
+            vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+        ) {
+            pre {
+                vault.check(): "Invalid Vault Capability provided"
+                FungibleTokenStack.definingContractIsFungibleToken(vault.getType()):
+                "The contract defining Vault \(vault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
+                minimumBalance ?? 0.0 < maximumBalance ?? UFix64.max:
+                "Minimum balance must be less than maximum balance if either is declared"
+            }
+            self.minimumBalance = minimumBalance ?? 0.0
+            self.maximumBalance = maximumBalance ?? UFix64.max
+            self.vaultType = vault.borrow()!.getType()
+            self.vault = vault
+        }
+
+        /// Returns the Vault type accepted by this Sink
+        access(all) view fun getSinkType(): Type {
+            return self.vaultType
+        }
+
+        /// Returns the Vault type provided by this Source
+        access(all) view fun getSourceType(): Type {
+            return self.vaultType
+        }
+
+        /// Returns an estimate of how much of the associated Vault can be accepted by this Sink
+        access(all) fun minimumCapacity(): UFix64 {
+            if let vault = self.vault.borrow() {
+                return vault.balance < self.maximumBalance ? self.maximumBalance - vault.balance : 0.0
+            }
+            return 0.0
+        }
+
+        /// Returns an estimate of how much of the associated Vault can be provided by this Source
+        access(all) fun minimumAvailable(): UFix64 {
+            if let vault = self.vault.borrow() {
+                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
+            }
+            return 0.0
+        }
+
+        /// Deposits up to the Sink's capacity from the provided Vault
+        access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            if let vault = self.vault.borrow() {
+                vault.deposit(from: <-from.withdraw(amount: from.balance))
+            }
+        }
+
+        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
+        /// returned
+        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
+            if let vault = self.vault.borrow() {
+                let finalAmount = vault.balance < maxAmount ? vault.balance : maxAmount
+                return <-vault.withdraw(amount: finalAmount)
+            }
+            return <- FungibleTokenStack.getEmptyVault(self.vaultType)
         }
     }
 
