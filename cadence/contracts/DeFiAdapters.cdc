@@ -10,13 +10,34 @@ access(all) contract DeFiAdapters {
     /// Struct interface adapting UniswapV2 style swaps routers. These interfaces borrow heavily from IncrementFi's
     /// SwapRouter contract as it's the leading UniswapV2 style DeFi protocol written in Cadence as of this writing.
     ///
-    access(all) struct interface SwapAdapter {
+    access(all) struct interface UniswapV2SwapAdapter {
+        /// Quotes the input amounts for some desired amount in along the provided path
+        ///
+        /// @param amountOut: The desired post-conversion amout out
+        /// @param path: The routing path through which to route swaps - may be pool or vault identifiers or serialized
+        ///     EVM addresses if the router is in EVM
+        ///
+        /// @return An array of input values for each step along the swap path
+        ///
+        access(all) fun getAmountsIn(amountOut: UFix64, path: [String]): [UFix64]
+
+        /// Quotes the output amounts for some amount in along the provided path
+        ///
+        /// @param amountIn: The input amount (in pre-conversion currency) available for the swap
+        /// @param path: The routing path through which to route swaps - may be pool or vault identifiers or serialized
+        ///     EVM addresses if the router is in EVM
+        ///
+        /// @return An array of output values for each step along the swap path
+        ///
+        access(all) fun getAmountsOut(amountIn: UFix64, path: [String]): [UFix64]
+
         /// Port of UniswapV2Router.swapExactTokensForTokens swapping the exact amount provided along the given path,
         /// returning the final output Vault
         ///
         /// @param exactVaultIn: The exact balance to swap as pre-converted currency
         /// @param amountOutMin: The minimum output balance expected as post-converted currency, useful for slippage
-        /// @param path: The routing path through which to route swaps
+        /// @param path: The routing path through which to route swaps - may be pool or vault identifiers or serialized
+        ///     EVM addresses if the router is in EVM
         /// @param deadline: The block timestamp beyond which the swap should not execute
         ///
         /// @return The requested post-conversion currency
@@ -39,7 +60,8 @@ access(all) contract DeFiAdapters {
         ///
         /// @param exactAmountOut: The exact desired balance to expect as a swap output
         /// @param vaultInMax: The maximum balance to use as pre-converted currency, useful for slippage
-        /// @param path: The routing path through which to route swaps
+        /// @param path: The routing path through which to route swaps - may be pool or vault identifiers or serialized
+        ///     EVM addresses if the router is in EVM
         /// @param deadline: The block timestamp beyond which the swap should not execute
         ///
         /// @return A two item array containing the output vault and the remainder of the provided Vault
