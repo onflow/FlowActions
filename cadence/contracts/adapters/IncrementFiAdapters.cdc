@@ -12,7 +12,7 @@ access(all) contract IncrementFiAdapters {
 
     /// Adapts IncrementFi's SwapRouter contract swap methods to DeFiAdapters.UniswapV2SwapAdapter struct interface
     ///
-    access(all) struct SwapAdapter : DeFiAdapters.UniswapV2SwapAdapter {
+    access(all) struct SwapRouterAdapter : DeFiAdapters.UniswapV2SwapAdapter {
         /// Quotes the input amounts for some desired amount in along the provided path. This implementation routes
         /// calls to IncrementFi's SwapRouter contract.
         ///

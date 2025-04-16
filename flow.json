@@ -12,8 +12,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"IncrementSwapStack": {
-			"source": "cadence/contracts/connectors/IncrementSwapStack.cdc",
+		"IncrementFiAdapters": {
+			"source": "cadence/contracts/adapters/IncrementFiAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -22,6 +22,12 @@
 			"source": "cadence/contracts/interfaces/StackFiInterfaces.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
+			}
+		},
+		"TestTokenMinter": {
+			"source": "cadence/tests/contracts/TestTokenMinter.cdc",
+			"aliases": {
+				"testing": "0000000000000010"
 			}
 		},
 		"TokenA": {
@@ -203,7 +209,7 @@
 				"StableSwapFactory",
 				"StackFiInterfaces",
 				"FungibleTokenStack",
-				"IncrementSwapStack",
+				"IncrementFiAdapters",
 				"SwapPair"
 			]
 		}

@@ -2,6 +2,8 @@ import "FungibleToken"
 import "MetadataViews"
 import "FungibleTokenMetadataViews"
 
+import "TestTokenMinter"
+
 access(all) contract TokenB: FungibleToken {
 
     /// The event that is emitted when new tokens are minted
@@ -171,7 +173,7 @@ access(all) contract TokenB: FungibleToken {
     ///
     /// Resource object that token admin accounts can hold to mint new tokens.
     ///
-    access(all) resource Minter {
+    access(all) resource Minter : TestTokenMinter.Minter {
         /// mintTokens
         ///
         /// Function that mints new tokens, adds them to the total supply,
