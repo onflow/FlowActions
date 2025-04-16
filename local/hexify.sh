@@ -5,26 +5,49 @@
 
 set -e
 
-FILE="$1"
-FLOW_JSON="./flow.json"
+# Default network
 ENV="testing"
+FILE=""
+
+# Parse flags and file argument
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -n|--network)
+      ENV="$2"
+      shift 2
+      ;;
+    -*)
+      echo "Unknown option: $1"
+      exit 1
+      ;;
+    *)
+      FILE="$1"
+      shift
+      ;;
+  esac
+done
 
 if [ -z "$FILE" ]; then
-  echo "Usage: $0 <PATH_TO_FILE>"
+  echo "Usage: $0 [--network <name>] <PATH_TO_FILE>"
   exit 1
 fi
+
+FLOW_JSON="./flow.json"
 
 if [ ! -f "$FLOW_JSON" ]; then
   echo "Error: $FLOW_JSON not found"
   exit 1
 fi
 
+# Extract imported contract names from source file
 IMPORTS=$(grep -oE 'import "[^"]+"' "$FILE" | sed 's/import "\(.*\)"/\1/')
 
+# Prepare temp files
 TMP_SED=$(mktemp)
 TMP_MAP=$(mktemp)
 TMP_MISSING=$(mktemp)
 
+# Process each import
 echo "$IMPORTS" | while read -r name; do
   # check if dependency exists
   exists=$(jq -r --arg name "$name" '.dependencies[$name] != null' "$FLOW_JSON")
@@ -50,7 +73,7 @@ echo
 
 # Output diagnostics
 if [ -s "$TMP_MAP" ]; then
-  echo -e "\n\n✅ Resolved contract addresses:"
+  echo -e "\n\n✅ Resolved contract addresses (network: $ENV):"
   cat "$TMP_MAP"
 fi
 
@@ -59,4 +82,5 @@ if [ -s "$TMP_MISSING" ]; then
   cat "$TMP_MISSING"
 fi
 
+# Clean up
 rm -f "$TMP_SED" "$TMP_MAP" "$TMP_MISSING"
