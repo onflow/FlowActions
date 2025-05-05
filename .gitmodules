@@ -10,3 +10,6 @@
 [submodule "solidity/lib/v2-periphery"]
 	path = solidity/lib/v2-periphery
 	url = https://github.com/uniswap/v2-periphery
+[submodule "solidity/lib/openzeppelin-contracts"]
+	path = solidity/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
