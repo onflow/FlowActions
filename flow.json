@@ -60,6 +60,13 @@
 				"mainnet": "1e4aa0b87d10b141"
 			}
 		},
+		"CrossVMToken": {
+			"source": "mainnet://1e4aa0b87d10b141.CrossVMToken",
+			"hash": "6d5c16804247ab9f1234b06383fa1bed42845211dba22582748abd434296650c",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
 		"EVM": {
 			"source": "mainnet://e467b9dd11fa00df.EVM",
 			"hash": "df2065d3eebc1e690e0b52a3f293bdf6c22780c7a9e7ef48a708a651b87abdf0",
@@ -67,6 +74,13 @@
 				"emulator": "f8d6e0586b0a20c7",
 				"mainnet": "e467b9dd11fa00df",
 				"testnet": "8c5303eaa26202d6"
+			}
+		},
+		"FlowEVMBridge": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridge",
+			"hash": "343f27c27af6c75b2c541fee46339c857f2b8a9f1f37bdda0ffd01716d6f7f22",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
 			}
 		},
 		"FlowEVMBridgeConfig": {
@@ -79,6 +93,27 @@
 		"FlowEVMBridgeHandlerInterfaces": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeHandlerInterfaces",
 			"hash": "7e0e28eb8fb30595249384cb8c7a44eae3884700d0a6c3139240c0d19e4dc173",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"FlowEVMBridgeNFTEscrow": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeNFTEscrow",
+			"hash": "ea7054bd06f978d09672ab2d6a1e7ad04df4b46410943088d555dd9ca6e64240",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"FlowEVMBridgeTemplates": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeTemplates",
+			"hash": "8f27b22450f57522d93d3045038ac9b1935476f4216f57fe3bb82929c71d7aa6",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"FlowEVMBridgeTokenEscrow": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeTokenEscrow",
+			"hash": "b5ec7c0a16e1c49004b2ed072c5eadc8c382e43351982b4a3050422f116b8f46",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141"
 			}
@@ -152,6 +187,34 @@
 		"ICrossVMAsset": {
 			"source": "mainnet://1e4aa0b87d10b141.ICrossVMAsset",
 			"hash": "aa1fbd979c9d7806ea8ea66311e2a4257c5a4051eef020524a0bda4d8048ed57",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"IEVMBridgeNFTMinter": {
+			"source": "mainnet://1e4aa0b87d10b141.IEVMBridgeNFTMinter",
+			"hash": "65ec734429c12b70cd97ad8ea2c2bc4986fab286744921ed139d9b45da92e77e",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"IEVMBridgeTokenMinter": {
+			"source": "mainnet://1e4aa0b87d10b141.IEVMBridgeTokenMinter",
+			"hash": "223adb675415984e9c163d15c5922b5c77dc5036bf6548d0b87afa27f4f0a9d9",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"IFlowEVMNFTBridge": {
+			"source": "mainnet://1e4aa0b87d10b141.IFlowEVMNFTBridge",
+			"hash": "3d5bfa663a7059edee8c51d95bc454adf37f17c6d32be18eb42134b550e537b3",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141"
+			}
+		},
+		"IFlowEVMTokenBridge": {
+			"source": "mainnet://1e4aa0b87d10b141.IFlowEVMTokenBridge",
+			"hash": "573a038b1e9c26504f6aa32a091e88168591b7f93feeff9ac0343285488a8eb3",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141"
 			}
@@ -290,7 +353,16 @@
 				"CrossVMNFT",
 				"ICrossVMAsset",
 				"ICrossVM",
-				"IBridgePermissions"
+				"IBridgePermissions",
+				"FlowEVMBridge",
+				"IEVMBridgeNFTMinter",
+				"IEVMBridgeTokenMinter",
+				"IFlowEVMNFTBridge",
+				"IFlowEVMTokenBridge",
+				"CrossVMToken",
+				"FlowEVMBridgeNFTEscrow",
+				"FlowEVMBridgeTokenEscrow",
+				"FlowEVMBridgeTemplates"
 			]
 		}
 	}
