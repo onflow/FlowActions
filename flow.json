@@ -6,6 +6,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"EVMStackFiAdapters": {
+			"source": "cadence/contracts/adapters/EVMStackFiAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"FungibleTokenStack": {
 			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
 			"aliases": {

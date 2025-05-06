@@ -5,7 +5,7 @@ import "EVM"
 
 /// Deploys a compiled solidity contract from bytecode to the EVM, with the signer's COA as the deployer
 ///
-transaction(bytecode: String, gasLimit: UInt64, value: UFix64) {
+transaction(bytecode: String, gasLimit: UInt64, value: UInt) {
 
     let coa: auth(EVM.Deploy) &EVM.CadenceOwnedAccount
     var sentVault: @FlowToken.Vault?
@@ -17,14 +17,14 @@ transaction(bytecode: String, gasLimit: UInt64, value: UFix64) {
             ?? panic("Could not borrow reference to the signer's bridged account")
 
         // Rebalance Flow across VMs if there is not enough Flow in the EVM account to cover the value
-        let evmFlowBalance: UFix64 = self.coa.balance().inFLOW()
-        if self.coa.balance().inFLOW() < value {
-            let withdrawAmount: UFix64 = value - evmFlowBalance
+        let evmFlowBalance = self.coa.balance().attoflow
+        if self.coa.balance().attoflow < value {
+            let withdrawAmount = value - evmFlowBalance
             let vaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &FlowToken.Vault>(
                     from: /storage/flowTokenVault
                 ) ?? panic("Could not borrow reference to the owner's Vault!")
 
-            self.sentVault <- vaultRef.withdraw(amount: withdrawAmount) as! @FlowToken.Vault
+            self.sentVault <- vaultRef.withdraw(amount: EVM.Balance(attoflow: withdrawAmount).inFLOW()) as! @FlowToken.Vault
         } else {
             self.sentVault <- nil
         }
@@ -39,8 +39,7 @@ transaction(bytecode: String, gasLimit: UInt64, value: UFix64) {
             destroy self.sentVault
         }
 
-        let valueBalance = EVM.Balance(attoflow: 0)
-        valueBalance.setFLOW(flow: value)
+        let valueBalance = EVM.Balance(attoflow: value)
         // Finally deploy the contract
         let evmResult = self.coa.deploy(
            code: bytecode.decodeHex(),
