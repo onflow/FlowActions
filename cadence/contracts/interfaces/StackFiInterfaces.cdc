@@ -24,7 +24,7 @@ access(all) contract StackFiInterfaces {
     access(all) struct interface Sink {
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
-        /// Returns an estimate of how much of the associated Vault can be accepted by this Sink
+        /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
         access(all) fun minimumCapacity(): UFix64
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
@@ -39,7 +39,7 @@ access(all) contract StackFiInterfaces {
     access(all) struct interface Source {
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type
-        /// Returns an estimate of how much of the associated Vault can be provided by this Source
+        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
         access(all) fun minimumAvailable(): UFix64
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
