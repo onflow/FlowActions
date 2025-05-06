@@ -3,6 +3,8 @@ import BlockchainHelpers
 import "test_helpers.cdc"
 
 access(all) let serviceAccount = Test.serviceAccount()
+access(all) let bridgeAccount = Test.getAccount(0x0000000000000007)
+
 access(all) let uniV2DeployerAccount = Test.createAccount()
 access(all) var uniV2DeployerCOAHex = ""
 
@@ -13,14 +15,17 @@ access(all) var uniV2RouterHex = ""
 
 access(all)
 fun setup() {
+    setupBridge(bridgeAccount: bridgeAccount, serviceAccount: serviceAccount, unpause: true)
+    
     transferFlow(signer: serviceAccount, recipient: uniV2DeployerAccount.address, amount: 10.0)
     createCOA(uniV2DeployerAccount, fundingAmount: 1.0)
-    uniV2DeployerCOAHex = getCOAAddressHex(atFlowAddress: uniV2DeployerAccount.address)
 
     wflowHex = deployWFLOW(uniV2DeployerAccount)
-    uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
+    createWFLOWHandler(bridgeAccount, wflowAddress: wflowHex)    
+    
+    uniV2DeployerCOAHex = getCOAAddressHex(atFlowAddress: uniV2DeployerAccount.address)
 
-    // TODO: Setup bridge contracts
+    uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
 }
 
 access(all)
