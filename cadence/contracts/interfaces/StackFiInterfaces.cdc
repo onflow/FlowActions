@@ -51,13 +51,13 @@ access(all) contract StackFiInterfaces {
     ///
     access(all) struct interface Swapper {
         /// The type of Vault this Swapper accepts when performing a swap
-        access(all) view fun inVault(): Type
+        access(all) view fun inVaultType(): Type
         /// The type of Vault this Swapper provides when performing a swap
-        access(all) view fun outVault(): Type
+        access(all) view fun outVaultType(): Type
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun amountIn(forDesired: UFix64): UFix64
+        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): UFix64
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun amountOut(forProvided: UFix64): UFix64
+        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): UFix64
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
