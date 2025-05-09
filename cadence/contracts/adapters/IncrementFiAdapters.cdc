@@ -2,7 +2,7 @@ import "FungibleToken"
 import "Burner"
 
 import "SwapRouter"
-import "StackFiInterfaces"
+import "DFB"
 
 /// IncrementFiAdapters
 ///
@@ -10,10 +10,10 @@ import "StackFiInterfaces"
 ///
 access(all) contract IncrementFiAdapters {
 
-    /// An implementation of StackFiInterfaces.Swapper connector that swaps between tokens using IncrementFi's
+    /// An implementation of DFB.Swapper connector that swaps between tokens using IncrementFi's
     /// SwapRouter contract
     ///
-    access(all) struct Swapper : StackFiInterfaces.Swapper {
+    access(all) struct Swapper : DFB.Swapper {
         /// A swap path as defined by IncrementFi's SwapRouter
         ///  e.g. [A.f8d6e0586b0a20c7.FUSD, A.f8d6e0586b0a20c7.FlowToken, A.f8d6e0586b0a20c7.USDC]
         access(all) let path: [String]

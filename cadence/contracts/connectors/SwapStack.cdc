@@ -3,7 +3,7 @@ import "FungibleToken"
 import "FungibleTokenStack"
 import "EVM"
 
-import "StackFiInterfaces"
+import "DFB"
 
 /// SwapStack
 ///
@@ -16,15 +16,15 @@ access(all) contract SwapStack {
     /// effectively be used as an aggregator across all contained Swapper implementations, though it is limited to the
     /// routes and pools exposed by its inner Swappers as well as runtime computation limits.
     ///
-    access(all) struct MultiSwapper : StackFiInterfaces.Swapper {
+    access(all) struct MultiSwapper : DFB.Swapper {
         access(self) let inVault: Type
         access(self) let outVault: Type
-        access(self) let swappers: [{StackFiInterfaces.Swapper}]
+        access(self) let swappers: [{DFB.Swapper}]
 
         init(
             inVault: Type,
             outVault: Type,
-            swappers: [{StackFiInterfaces.Swapper}]
+            swappers: [{DFB.Swapper}]
         ) {
             for swapper in swappers {
                 assert(swapper.inVaultType() == inVault,
@@ -61,7 +61,7 @@ access(all) contract SwapStack {
         /// to use multiple Flow swap protocols.
         access(all) fun swap(inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let estimate = self.estimate(amount: inVault.balance, out: true, reverse: false)
-            let optimalSwapper = &self.swappers[Int(estimate[0])] as &{StackFiInterfaces.Swapper}
+            let optimalSwapper = &self.swappers[Int(estimate[0])] as &{DFB.Swapper}
             return <- optimalSwapper.swap(inVault: <-inVault)
         }
 
@@ -70,7 +70,7 @@ access(all) contract SwapStack {
         /// to use multiple Flow swap protocols.
         access(all) fun swapBack(residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let estimate = self.estimate(amount: residual.balance, out: false, reverse: true)
-            let optimalSwapper = &self.swappers[Int(estimate[0])] as &{StackFiInterfaces.Swapper}
+            let optimalSwapper = &self.swappers[Int(estimate[0])] as &{DFB.Swapper}
             return <- optimalSwapper.swapBack(residual: <-residual) // assumes optimal via set path is also optimal in reverse
         }
 
@@ -95,11 +95,11 @@ access(all) contract SwapStack {
     /// SwapSink StackFi connector that deposits the resulting post-conversion currency of a token swap to an inner
     /// StackFi Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
-    access(all) struct SwapSink : StackFiInterfaces.Sink {
-        access(self) let swapper: {StackFiInterfaces.Swapper}
-        access(self) let sink: {StackFiInterfaces.Sink}
+    access(all) struct SwapSink : DFB.Sink {
+        access(self) let swapper: {DFB.Swapper}
+        access(self) let sink: {DFB.Sink}
 
-        init(swapper: {StackFiInterfaces.Swapper}, sink: {StackFiInterfaces.Sink}) {
+        init(swapper: {DFB.Swapper}, sink: {DFB.Sink}) {
             pre {
                 swapper.outVaultType() == sink.getSinkType():
                 "Swapper outputs \(swapper.outVaultType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
@@ -149,11 +149,11 @@ access(all) contract SwapStack {
     /// SwapSource StackFi connector that deposits the resulting post-conversion currency of a token swap to an inner
     /// StackFi Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
-    access(all) struct SwapSource : StackFiInterfaces.Source {
-        access(self) let swapper: {StackFiInterfaces.Swapper}
-        access(self) let source: {StackFiInterfaces.Source}
+    access(all) struct SwapSource : DFB.Source {
+        access(self) let swapper: {DFB.Swapper}
+        access(self) let source: {DFB.Source}
 
-        init(swapper: {StackFiInterfaces.Swapper}, source: {StackFiInterfaces.Source}) {
+        init(swapper: {DFB.Swapper}, source: {DFB.Source}) {
             pre {
                 source.getSourceType() == swapper.inVaultType():
                 "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inVaultType().identifier) - "

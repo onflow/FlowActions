@@ -1,7 +1,7 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "StackFiInterfaces"
+import "DFB"
 
 /// FungibleTokenStack
 ///
@@ -11,7 +11,7 @@ import "StackFiInterfaces"
 ///
 access(all) contract FungibleTokenStack {
 
-    access(all) struct VaultSink : StackFiInterfaces.Sink {
+    access(all) struct VaultSink : DFB.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
         /// The maximum balance of the linked Vault, checked before executing a deposit
@@ -58,7 +58,7 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSource : StackFiInterfaces.Source {
+    access(all) struct VaultSource : DFB.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
         /// The minimum balance of the linked Vault
@@ -106,7 +106,7 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSinkAndSource : StackFiInterfaces.Sink, StackFiInterfaces.Source {
+    access(all) struct VaultSinkAndSource : DFB.Sink, DFB.Source {
         access(all) let minimumBalance: UFix64
         access(all) let maximumBalance: UFix64
         /// The type of Vault this connector accepts (as a Sink) and provides (as a Source)

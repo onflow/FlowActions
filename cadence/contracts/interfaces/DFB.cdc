@@ -1,12 +1,12 @@
 import "EVM"
 import "FungibleToken"
 
-/// StackFi
+/// DeFiBlocks Interfaces
 ///
-/// StackFi is a library of small DeFi components that act as glue to connect typical DeFi primitives (dexes, lending
+/// DeFiBlocks is a library of small DeFi components that act as glue to connect typical DeFi primitives (dexes, lending
 /// pools, farms) into individual aggregations.
 ///
-/// The core component of StackFi is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
+/// The core component of DeFiBlocks is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
 /// Connectors isn’t to do anything especially complex, but make it simple and straightforward to connect the
 /// traditional DeFi pieces together into new, custom aggregations.
 ///
@@ -14,7 +14,7 @@ import "FungibleToken"
 /// connected with pipe operations instead of being operated individually. All Connectors are either a “Source” or
 /// “Sink”.
 ///
-access(all) contract StackFiInterfaces {
+access(all) contract DFB {
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
