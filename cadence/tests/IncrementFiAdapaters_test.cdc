@@ -5,6 +5,7 @@ import "test_helpers.cdc"
 import "TokenA"
 import "TokenB"
 
+import "DFB"
 import "IncrementFiAdapters"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
@@ -22,8 +23,20 @@ fun setup() {
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
-        name: "DeFiAdapters",
-        path: "../contracts/interfaces/DeFiAdapters.cdc",
+        name: "DFB",
+        path: "../contracts/interfaces/DFB.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "FungibleTokenStack",
+        path: "../contracts/connectors/FungibleTokenStack.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "SwapStack",
+        path: "../contracts/connectors/SwapStack.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -75,24 +88,26 @@ fun setup() {
 
 access(all)
 fun testAdapterGetAmountsInSucceeds() {
+    let outAmount = 1.0
     let path = [tokenAKey, tokenBKey]
     let amountsInRes = executeScript(
             "../scripts/increment_fi_adapters/get_amounts_in.cdc",
-            [0.0000001, path]
+            [outAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsInRes, Test.beSucceeded())
-    let amountsIn = amountsInRes.returnValue! as! [UFix64]
-    Test.assertEqual(path.length, amountsIn.length)
+    let quote = amountsInRes.returnValue! as! {DFB.Quote}
+    Test.assertEqual(outAmount, quote.outAmount)
 }
 
 access(all)
 fun testAdapterGetAmountsOutSucceeds() {
+    let inAmount = 1.0
     let path = [tokenAKey, tokenBKey]
     let amountsOutRes = executeScript(
             "../scripts/increment_fi_adapters/get_amounts_out.cdc",
-            [0.0000001, path]
+            [inAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
-    let amountsOut = amountsOutRes.returnValue! as! [UFix64]
-    Test.assertEqual(path.length, amountsOut.length)
+    let quote = amountsOutRes.returnValue! as! {DFB.Quote}
+    Test.assertEqual(inAmount, quote.inAmount)
 }
