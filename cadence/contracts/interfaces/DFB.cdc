@@ -46,6 +46,21 @@ access(all) contract DFB {
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault}
     }
 
+    /// An interface for an estimate to be returned by a Swapper when asking for a swap estimate. This may be helpful
+    /// for passing additional parameters to a Swapper relevant to the use case. Implementations may choose to add
+    /// fields relevant to their Swapper implementation and downcast in swap() and/or swapBack() scope.
+    ///
+    access(all) struct interface Quote {
+        /// The quoted pre-swap Vault type
+        access(all) let inVault: Type
+        /// The quoted post-swap Vault type
+        access(all) let outVault: Type
+        /// The quoted amount of pre-swap currency
+        access(all) let inAmount: UFix64
+        /// The quoted amount of post-swap currency for the defined inAmount
+        access(all) let outAmount: UFix64
+    }
+
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
     ///
@@ -55,16 +70,16 @@ access(all) contract DFB {
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outVaultType(): Type
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): UFix64
+        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): UFix64
+        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault}
+        access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault}
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(residual: @{FungibleToken.Vault}): @{FungibleToken.Vault}
+        access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault}
     }
 }
