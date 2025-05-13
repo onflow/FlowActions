@@ -1,7 +1,7 @@
 {
 	"contracts": {
-		"EVMStackFiAdapters": {
-			"source": "cadence/contracts/adapters/EVMStackFiAdapters.cdc",
+		"DeFiBlocksEVMAdapters": {
+			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}

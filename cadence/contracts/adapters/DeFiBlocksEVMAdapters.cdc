@@ -14,7 +14,7 @@ import "DeFiAdapters"
 /// DeFi adapter implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiAdapters. These
 /// adapters are originally intended for use in StackFi components, but may have broader use cases.
 ///
-access(all) contract EVMStackFiAdapters {
+access(all) contract DeFiBlocksEVMAdapters {
 
     /// Adapts an EVM-based UniswapV2Router contract methods to DeFiAdapters.UniswapV2SwapAdapter struct interface
     ///
