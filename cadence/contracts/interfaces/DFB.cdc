@@ -15,6 +15,47 @@ import "FungibleToken"
 /// “Sink”.
 ///
 access(all) contract DFB {
+
+    /* --- INTERFACE-LEVEL EVENTS --- */
+
+    /// Emitted when value is deposited to a Sink
+    access(all) event Deposited(
+        type: String,
+        amount: UFix64,
+        inUUID: UInt64,
+        uniqueIDType: String?,
+        uniqueID: UInt64?,
+        sinkType: String
+    )
+    /// Emitted when value is withdrawn from a Source
+    access(all) event Withdrawn(
+        type: String,
+        amount: UFix64,
+        outUUID: UInt64,
+        uniqueIDType: String?,
+        uniqueID: UInt64?,
+        sourceType: String
+    )
+    /// Emitted when a Swapper executes a Swap
+    access(all) event Swapped(
+        inVault: String,
+        outVault: String,
+        inAmount: UFix64,
+        outAmount: UFix64,
+        inUUID: UInt64,
+        outUUID: UInt64,
+        uniqueIDType: String?,
+        uniqueID: UInt64?,
+        swapperType: String
+    )
+
+    /// This interface enables protocols to trace stack operations via the interface-level events, identifying their
+    /// UniqueIdentifier types and IDs. Implementations should ensure ID values are unique on initialization.
+    ///
+    access(all) struct interface UniqueIdentifier {
+        access(all) let id: UInt64
+    }
+
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
@@ -22,12 +63,26 @@ access(all) contract DFB {
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
     access(all) struct interface Sink {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {UniqueIdentifier}?
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
         access(all) fun minimumCapacity(): UFix64
         /// Deposits up to the Sink's capacity from the provided Vault
-        access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+        access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            post {
+                emit Deposited(
+                    type: from.getType().identifier,
+                    amount: before(from.balance) >= from.balance ? before(from.balance) - from.balance : 0.0,
+                    inUUID: from.uuid,
+                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    sinkType: self.getType().identifier
+                )
+            }
+        }
     }
 
     /// A Source Connector (or just “Source”) is analogous to the Fungible Token Provider interface that provides funds
@@ -37,13 +92,27 @@ access(all) contract DFB {
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
     access(all) struct interface Source {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {UniqueIdentifier}?
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
         access(all) fun minimumAvailable(): UFix64
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
-        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault}
+        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
+            post {
+                emit Withdrawn(
+                    type: result.getType().identifier,
+                    amount: result.balance,
+                    outUUID: result.uuid,
+                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    sourceType: self.getType().identifier
+                )
+            }
+        }
     }
 
     /// An interface for an estimate to be returned by a Swapper when asking for a swap estimate. This may be helpful
@@ -65,6 +134,9 @@ access(all) contract DFB {
     /// to fit any given swap protocol or set of protocols.
     ///
     access(all) struct interface Swapper {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {UniqueIdentifier}?
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inVaultType(): Type
         /// The type of Vault this Swapper provides when performing a swap
@@ -83,6 +155,19 @@ access(all) contract DFB {
                 (quote?.inVault ?? inVault.getType()) == inVault.getType():
                 "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(inVault.getType().identifier)"
             }
+            post {
+                emit Swapped(
+                    inVault: before(inVault.getType().identifier),
+                    outVault: result.getType().identifier,
+                    inAmount: before(inVault.balance),
+                    outAmount: result.balance,
+                    inUUID: before(inVault.uuid),
+                    outUUID: result.uuid,
+                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    swapperType: self.getType().identifier
+                )
+            }
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
@@ -93,6 +178,19 @@ access(all) contract DFB {
                 "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outVaultType().identifier)"
                 (quote?.inVault ?? residual.getType()) == residual.getType():
                 "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(residual.getType().identifier)"
+            }
+            post {
+                emit Swapped(
+                    inVault: before(residual.getType().identifier),
+                    outVault: result.getType().identifier,
+                    inAmount: before(residual.balance),
+                    outAmount: result.balance,
+                    inUUID: before(residual.uuid),
+                    outUUID: result.uuid,
+                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    swapperType: self.getType().identifier
+                )
             }
         }
     }
