@@ -1,11 +1,5 @@
 {
 	"contracts": {
-		"DeFiAdapters": {
-			"source": "cadence/contracts/interfaces/DeFiAdapters.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
-		},
 		"FungibleTokenStack": {
 			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
 			"aliases": {
@@ -18,8 +12,14 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"StackFiInterfaces": {
-			"source": "cadence/contracts/interfaces/StackFiInterfaces.cdc",
+		"SwapStack": {
+			"source": "cadence/contracts/connectors/SwapStack.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
+		"DFB": {
+			"source": "cadence/contracts/interfaces/DFB.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -207,7 +207,7 @@
 				"SwapConfig",
 				"SwapInterfaces",
 				"StableSwapFactory",
-				"StackFiInterfaces",
+				"DFB",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
 				"SwapPair"
