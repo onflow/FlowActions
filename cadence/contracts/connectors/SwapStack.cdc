@@ -68,13 +68,15 @@ access(all) contract SwapStack {
     ///
     access(all) struct MultiSwapper : DFB.Swapper {
         access(all) let swappers: [{DFB.Swapper}]
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         access(self) let inVault: Type
         access(self) let outVault: Type
 
         init(
             inVault: Type,
             outVault: Type,
-            swappers: [{DFB.Swapper}]
+            swappers: [{DFB.Swapper}],
+            uniqueID: {DFB.UniqueIdentifier}?
         ) {
             pre {
                 inVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
@@ -90,6 +92,7 @@ access(all) contract SwapStack {
             }
             self.inVault = inVault
             self.outVault = outVault
+            self.uniqueID = uniqueID
             self.swappers = swappers
         }
 
@@ -182,8 +185,9 @@ access(all) contract SwapStack {
     access(all) struct SwapSink : DFB.Sink {
         access(self) let swapper: {DFB.Swapper}
         access(self) let sink: {DFB.Sink}
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
 
-        init(swapper: {DFB.Swapper}, sink: {DFB.Sink}) {
+        init(swapper: {DFB.Swapper}, sink: {DFB.Sink}, uniqueID: {DFB.UniqueIdentifier}?) {
             pre {
                 swapper.outVaultType() == sink.getSinkType():
                 "Swapper outputs \(swapper.outVaultType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
@@ -191,6 +195,7 @@ access(all) contract SwapStack {
             }
             self.swapper = swapper
             self.sink = sink
+            self.uniqueID = uniqueID
         }
 
         access(all) view fun getSinkType(): Type {
@@ -237,8 +242,9 @@ access(all) contract SwapStack {
     access(all) struct SwapSource : DFB.Source {
         access(self) let swapper: {DFB.Swapper}
         access(self) let source: {DFB.Source}
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
 
-        init(swapper: {DFB.Swapper}, source: {DFB.Source}) {
+        init(swapper: {DFB.Swapper}, source: {DFB.Source}, uniqueID: {DFB.UniqueIdentifier}) {
             pre {
                 source.getSourceType() == swapper.inVaultType():
                 "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inVaultType().identifier) - "
@@ -246,6 +252,7 @@ access(all) contract SwapStack {
             }
             self.swapper = swapper
             self.source = source
+            self.uniqueID = uniqueID
         }
 
         access(all) view fun getSourceType(): Type {
