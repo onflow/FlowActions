@@ -18,6 +18,9 @@ access(all) contract IncrementFiAdapters {
         /// A swap path as defined by IncrementFi's SwapRouter
         ///  e.g. [A.f8d6e0586b0a20c7.FUSD, A.f8d6e0586b0a20c7.FlowToken, A.f8d6e0586b0a20c7.USDC]
         access(all) let path: [String]
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -26,7 +29,8 @@ access(all) contract IncrementFiAdapters {
         init(
             path: [String],
             inVault: Type,
-            outVault: Type
+            outVault: Type,
+            uniqueID: {DFB.UniqueIdentifier}?
         ) {
             pre {
                 path.length >= 2:
@@ -37,6 +41,7 @@ access(all) contract IncrementFiAdapters {
             self.path = path
             self.inVault = inVault
             self.outVault = outVault
+            self.uniqueID = uniqueID
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
