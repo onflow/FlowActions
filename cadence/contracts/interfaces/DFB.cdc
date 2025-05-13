@@ -76,10 +76,24 @@ access(all) contract DFB {
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault}
+        access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre {
+                inVault.getType() == self.inVaultType():
+                "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inVaultType().identifier)"
+                (quote?.inVault ?? inVault.getType()) == inVault.getType():
+                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(inVault.getType().identifier)"
+            }
+        }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault}
+        access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre {
+                residual.getType() == self.outVaultType():
+                "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outVaultType().identifier)"
+                (quote?.inVault ?? residual.getType()) == residual.getType():
+                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(residual.getType().identifier)"
+            }
+        }
     }
 }

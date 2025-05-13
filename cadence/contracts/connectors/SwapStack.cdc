@@ -132,12 +132,6 @@ access(all) contract SwapStack {
         /// requested and the optimal Swapper used to fulfill the swap.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
         access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre {
-                inVault.getType() == self.inVaultType():
-                "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inVaultType().identifier)"
-                (quote?.inVault ?? inVault.getType()) == inVault.getType():
-                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(inVault.getType().identifier)"
-            }
             return <-self._swap(quote: quote, from: <-inVault, reverse: false)
         }
 
@@ -146,12 +140,6 @@ access(all) contract SwapStack {
         /// to use multiple Flow swap protocols.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
         access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre {
-                residual.getType() == self.outVaultType():
-                "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outVaultType().identifier)"
-                (quote?.inVault ?? residual.getType()) == residual.getType():
-                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(residual.getType().identifier)"
-            }
             return <-self._swap(quote: quote, from: <-residual, reverse: true)
         }
 
