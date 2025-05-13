@@ -2,6 +2,7 @@ import "FungibleToken"
 import "Burner"
 
 import "SwapRouter"
+import "SwapStack"
 import "DFB"
 
 /// IncrementFiAdapters
@@ -47,20 +48,30 @@ access(all) contract IncrementFiAdapters {
             return self.outVault
         }
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): UFix64 {
-            let amountsIn = SwapRouter.getAmountsIn(amountOut: forDesired, tokenKeyPath: self.path)
-            return amountsIn.length == 0 ? 0.0 : amountsIn[0]
+        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
+            let amountsIn = SwapRouter.getAmountsIn(amountOut: forDesired, tokenKeyPath: reverse ? self.path.reverse() : self.path)
+            return SwapStack.BasicQuote(
+                inVault: reverse ? self.outVaultType() : self.inVaultType(),
+                outVault: reverse ? self.inVaultType() : self.outVaultType(),
+                inAmount: amountsIn.length == 0 ? 0.0 : amountsIn[0],
+                outAmount: forDesired
+            )
         }
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): UFix64 {
-            let amountsOut = SwapRouter.getAmountsOut(amountIn: forProvided, tokenKeyPath: self.path)
-            return amountsOut.length == 0 ? 0.0 : amountsOut[amountsOut.length - 1]
+        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
+            let amountsOut = SwapRouter.getAmountsOut(amountIn: forProvided, tokenKeyPath: reverse ? self.path.reverse() : self.path)
+            return SwapStack.BasicQuote(
+                inVault: reverse ? self.outVaultType() : self.inVaultType(),
+                outVault: reverse ? self.inVaultType() : self.outVaultType(),
+                inAmount: forProvided,
+                outAmount: amountsOut.length == 0 ? 0.0 : amountsOut[amountsOut.length - 1]
+            )
         }
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let amountOut = self.amountOut(forProvided: inVault.balance, reverse: false)
+        access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            let amountOut = self.amountOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-inVault,
                 amountOutMin: amountOut,
@@ -71,8 +82,8 @@ access(all) contract IncrementFiAdapters {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let amountOut = self.amountOut(forProvided: residual.balance, reverse: true)
+        access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            let amountOut = self.amountOut(forProvided: residual.balance, reverse: true).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-residual,
                 amountOutMin: amountOut,
