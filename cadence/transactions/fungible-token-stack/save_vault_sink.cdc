@@ -4,7 +4,7 @@ import "FlowToken"
 
 import "FungibleTokenStack"
 
-transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: StoragePath, min: UFix64?, max: UFix64?) {
+transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: StoragePath, max: UFix64?) {
 
     let depositVault: Capability<&{FungibleToken.Vault}>
     let signer: auth(SaveValue) &Account
@@ -24,16 +24,10 @@ transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: Sto
     }
 
     execute {
-        var capacityCheck: {FungibleTokenStack.CapacityCheck}? = nil
-        if min != nil {
-            capacityCheck = FungibleTokenStack.MinimumCapacityCheck(min: min!)
-        } else if max != nil {
-            capacityCheck = FungibleTokenStack.MaximumCapacityCheck(max: max!)
-        }
-
         let sink = FungibleTokenStack.VaultSink(
-                capacityCheck: capacityCheck,
-                depositVault: self.depositVault
+                max: max,
+                depositVault: self.depositVault,
+                uniqueID: nil
             )
         self.signer.storage.save(sink, to: sinkStoragePath)
     }
