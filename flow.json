@@ -12,6 +12,12 @@
 				"testing": "0000000000000007"
 			}
 		},
+		"SwapStack": {
+			"source": "cadence/contracts/connectors/SwapStack.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
 		"DFB": {
 			"source": "cadence/contracts/interfaces/DFB.cdc",
 			"aliases": {
