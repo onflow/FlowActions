@@ -92,6 +92,7 @@ access(all) contract DeFiBlocksEVMAdapters {
                 outAmount: amounts.length > 0 ? amounts[amounts.length - 1] : 0.0
             )
         }
+
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. This implementation swaps
         /// along a path defined on init routing the swap to the pre-defined UniswapV2Router implementation on Flow EVM.
         /// Any Quote provided defines the amountOutMin value - if none is provided, the current quoted outAmount is
@@ -101,6 +102,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             let amountOutMin = quote?.outAmount ?? self.amountOut(forProvided: inVault.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
         }
+
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
@@ -115,6 +117,7 @@ access(all) contract DeFiBlocksEVMAdapters {
                 reverse: true
             )
         }
+
         /// Port of UniswapV2Router.swapExactTokensForTokens swapping the exact amount provided along the given path,
         /// returning the final output Vault
         access(self) fun swapExactTokensForTokens(
@@ -135,14 +138,28 @@ access(all) contract DeFiBlocksEVMAdapters {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // bridge the provided to the COA's EVM address
+            let inTokenAddress = reverse ? self.path[self.path.length - 1] : self.path[0]
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 exactVaultIn.balance,
-                erc20Address: reverse ? self.path[self.path.length - 1] : self.path[0]
+                erc20Address: inTokenAddress
             )
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
+            // approve the router to swap tokens
+            var res = self.call(to: inTokenAddress,
+                signature: "approve(address,uint256)",
+                args: [self.routerAddress, evmAmountIn],
+                gasLimit: 15_000_000,
+                value: 0,
+                dryCall: false
+            )!
+            if res.status != EVM.Status.successful {
+                // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
+                DeFiBlocksEVMAdapters.callError("approve(address,uint256)",
+                    res, inTokenAddress, idType, id, self.getType())
+            }
             // perform the swap
-            let res = self.call(
+            res = self.call(to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint,uint,address[],address,uint)", // amountIn, amountOutMin, path, to, deadline (timestamp)
                 args: [evmAmountIn, UInt256(0), (reverse ? self.path.reverse() : self.path), coa.address(), UInt256(getCurrentBlock().timestamp)],
                 gasLimit: 15_000_000,
@@ -152,24 +169,28 @@ access(all) contract DeFiBlocksEVMAdapters {
             // Resolve if the call was unsuccessful
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                panic("Call to \(self.routerAddress.toString()).swapExactTokensForTokens from Swapper \(self.getType().identifier) "
-                    .concat("with UniqueIdentifier \(idType) ID \(id) failed: \n\t"
-                    .concat("Status value: \(res.status.rawValue)\n\t"))
-                    .concat("Error code: \(res.errorCode)\n\t")
-                    .concat("ErrorMessage: \(res.errorMessage)\n"))
+                DeFiBlocksEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                    res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
             let amountsOut = decoded[0] as! [UInt256]
+
             // withdraw tokens from EVM
-            let outVault <- coa.withdrawTokens(type: self.outVaultType(), amount: amountsOut[amountsOut.length - 1], feeProvider: feeVaultRef)
+            let outVault <- coa.withdrawTokens(type: self.outVaultType(),
+                    amount: amountsOut[amountsOut.length - 1],
+                    feeProvider: feeVaultRef
+                )
 
             // clean up the remaining feeVault & return the swapped out Vault
             self.handleRemainingFeeVault(<-feeVault)
             return <- outVault
         }
+
+        /* --- Internal --- */
+
         /// Retrieves the amounts in/out given the amount out/in along the provided path. Values are returned in
         access(self) fun getAmounts(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): [UFix64] {
-            let callRes = self.call(
+            let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
                 args: [amount],
                 gasLimit: 5_000_000,
@@ -182,6 +203,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: callRes!.data) // can revert if the type cannot be decoded
             return decoded.length > 0 ? DeFiBlocksEVMAdapters.convertEVMAmountsToCadenceAmounts(decoded[0] as! [UInt256], path: path) : []
         }
+
         /// Deposits any remainder in the provided Vault or burns if it it's empty
         access(self) fun handleRemainingFeeVault(_ vault: @FlowToken.Vault) {
             if vault.balance > 0.0 {
@@ -190,14 +212,17 @@ access(all) contract DeFiBlocksEVMAdapters {
                 Burner.burn(<-vault)
             }
         }
+
         /// Returns a reference to the Swapper's COA or `nil` if the contained Capability is invalid
         access(self) view fun borrowCOA(): auth(EVM.Owner) &EVM.CadenceOwnedAccount? {
             return self.coaCapability.borrow()
         }
+
         /// Makes a call to the Swapper's routerEVMAddress via the contained COA Capability with the provided signature,
         /// args, and value. If flagged as dryCall, the more efficient and non-mutating COA.dryCall is used. A result is
         /// returned as long as the COA Capability is valid, otherwise `nil` is returned.
         access(self) fun call(
+            to: EVM.EVMAddress,
             signature: String,
             args: [AnyStruct],
             gasLimit: UInt64,
@@ -208,8 +233,8 @@ access(all) contract DeFiBlocksEVMAdapters {
             let valueBalance = EVM.Balance(attoflow: value)
             if let coa = self.borrowCOA() {
                 let res: EVM.Result = dryCall
-                    ? coa.dryCall(to: self.routerAddress, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                    : coa.call(to: self.routerAddress, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                    ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                    : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
                 return res
             }
             return nil
@@ -225,5 +250,15 @@ access(all) contract DeFiBlocksEVMAdapters {
             convertedAmounts.append(FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(amount, erc20Address: path[i]))
         }
         return convertedAmounts
+    }
+
+    /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
+    access(self)
+    fun callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
+        panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) "
+            .concat("with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\t"
+            .concat("Status value: \(res.status.rawValue)\n\t"))
+            .concat("Error code: \(res.errorCode)\n\t")
+            .concat("ErrorMessage: \(res.errorMessage)\n"))
     }
 }
