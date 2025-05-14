@@ -221,7 +221,7 @@ access(all) contract DFB {
         /// Returns the fee amount (denominated by `getRequestFeeType()`) due to serve oracle requests if any
         access(all) fun getRequestFee(): UFix64
         /// Returns the timestamp at which the price data was last updated for a given asset type
-        access(all) fun getLastUpdateTimestamp(forAsset: String): {PriceData}?
+        access(all) fun getLastUpdateTimestamp(forAsset: Type): UFix64?
         /// Returns the latest price data for a given BASE/QUOTE pair, allowing for an optional fee to be provided if
         /// one is required by the oracle protocol
         access(all) fun getLatestPrice(base: Type, quote: Type, fee: @{FungibleToken.Vault}?): {PriceData}?
