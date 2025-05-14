@@ -22,87 +22,58 @@ access(all) contract BandOracleAdapters {
 
     /* CONSTRUCTS */
 
-    // PriceData
-    //
-    /// A data structure containing data relevant to PriceOracle requests serving data about onchain assets
-    access(all) struct PriceData : DFB.PriceData {
-        /// The fixed point rate between the BASE/QUOTE pair limited to UFix64 decimal precision of 8 places
-        access(all) let rate: UFix64
-        /// The integer rate between the BASE/QUOTE pair enabling greater decimal precision
-        access(all) let integerRate: UInt256
-        /// The integerRate decimal places
-        access(all) let integerDecimals: UInt8
-        /// The base asset type in the BASE/QUOTE pair
-        access(all) let baseType: Type
-        /// The quote asset type in the BASE/QUOTE pair
-        access(all) let quoteType: Type
-        /// Timestamp at which the baseType price data was last updated
-        access(all) let baseTimestamp: UFix64
-        /// Timestamp at which the quoteType price data was last updated
-        access(all) let quoteTimestamp: UFix64
-        init(
-            rate: UFix64,
-            integerRate: UInt256,
-            integerDecimals: UInt8,
-            baseType: Type,
-            quoteType: Type,
-            baseTimestamp: UFix64,
-            quoteTimestamp: UFix64
-        )
-        {
-            self.rate = rate
-            self.integerRate = integerRate
-            self.integerDecimals = integerDecimals
-            self.baseType = baseType
-            self.quoteType = quoteType
-            self.baseTimestamp = baseTimestamp
-            self.quoteTimestamp = quoteTimestamp
-        }
-    }
-
     // PriceOracle
     //
     /// An adapter for BandOracle as an implementation of the DeFiBlocks PriceOracle interface
     access(all) struct PriceOracle : DFB.PriceOracle {
-        /// Returns the Vault type denominating any required request fee if one is required
-        access(all) fun getRequestFeeType(): Type? {
-            return Type<@FlowToken.Vault>()
-        }
+        /// The token type serving as the price basis - e.g. USD in FLOW/USD
+        access(self) let quote: Type
+        /// A Source providing the FlowToken necessary for BandOracle price data requests
+        access(self) let feeSource: {DFB.Source}
+        /// The amount of seconds beyond which a price is considered stale and a price() call reverts
+        access(self) let staleThreshold: UInt64?
 
-        /// Returns the fee amount (denominated by `getRequestFeeType()`) due to serve oracle requests if any
-        access(all) fun getRequestFee(): UFix64 {
-            return BandOracle.getFee()
-        }
-
-        /// Returns the timestamp at which the price data was last updated for a given asset type
-        access(all) fun getLastUpdateTimestamp(forAsset: Type): UFix64? {
-            return getCurrentBlock().timestamp // TODO - tmp
-        }
-
-        /// Returns the latest price data for a given BASE/QUOTE pair, allowing for an optional fee to be provided if
-        /// one is required by the oracle protocol
-        access(all) fun getLatestPrice(base: Type, quote: Type, fee: @{FungibleToken.Vault}?): {DFB.PriceData}? {
-            let baseSymbol = BandOracleAdapters.assetSymbols[base]
-            let quoteSymbol = BandOracleAdapters.assetSymbols[base]
-            if fee == nil {
-                Burner.burn(<-fee)
-                return nil
-            } else if baseSymbol == nil {
-                panic("Base asset type \(base.identifier) does not have an assigned symbol")
-            } else if quoteSymbol == nil {
-                panic("Quote asset type \(quote.identifier) does not have an assigned symbol")
+        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: {DFB.Source}) {
+            pre {
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
+                unitOfAccount.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                "Invalid unitOfAccount - \(unitOfAccount.identifier) is not a FungibleToken.Vault implementation"
+                BandOracleAdapters.assetSymbols[unitOfAccount] != nil:
+                "Could not find a BandOracle symbol assigned to unitOfAccount \(unitOfAccount.identifier)"
             }
-            let refData = BandOracle.getReferenceData(baseSymbol: baseSymbol!, quoteSymbol: quoteSymbol!, payment: <-fee!)
-            // TODO
-            return PriceData(
-                rate: refData.fixedPointRate,
-                integerRate: refData.integerE18Rate,
-                integerDecimals: 18,
-                baseType: base,
-                quoteType: quote,
-                baseTimestamp: UFix64(refData.baseTimestamp),
-                quoteTimestamp: UFix64(refData.quoteTimestamp)
-            )
+            self.feeSource = feeSource
+            self.quote = unitOfAccount
+            self.staleThreshold = staleThreshold
+        }
+
+        /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
+        access(all) view fun unitOfAccount(): Type {
+            return self.quote
+        }
+
+        /// Returns the latest price data for a given asset denominated in unitOfAccount()
+        access(all) fun price(ofToken: Type): UFix64 {
+            // lookup the symbols
+            let baseSymbol = BandOracleAdapters.assetSymbols[ofToken]
+                ?? panic("Base asset type \(ofToken.identifier) does not have an assigned symbol")
+            let quoteSymbol = BandOracleAdapters.assetSymbols[self.unitOfAccount()]!
+            // withdraw the oracle fee & get the price data from BandOracle
+            let fee <- self.feeSource.withdrawAvailable(maxAmount: BandOracle.getFee())
+            let priceData = BandOracle.getReferenceData(baseSymbol: baseSymbol, quoteSymbol: quoteSymbol, payment: <-fee)
+
+            // check timestamp thresholds are not stale
+            let now = UInt64(getCurrentBlock().timestamp)
+            if self.staleThreshold != nil {
+                assert(now < priceData.baseTimestamp + self.staleThreshold!, 
+                    message: "Price data's base timestamp \(priceData.baseTimestamp) exceeds the staleThreshold "
+                        .concat("\(priceData.baseTimestamp + self.staleThreshold!) at current timestamp \(now)"))
+                assert(now < priceData.quoteTimestamp + self.staleThreshold!,
+                    message: "Price data's quote timestamp \(priceData.quoteTimestamp) exceeds the staleThreshold "
+                        .concat("\(priceData.quoteTimestamp + self.staleThreshold!) at current timestamp \(now)"))
+            }
+
+            return priceData.fixedPointRate
         }
     }
 
