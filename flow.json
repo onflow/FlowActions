@@ -1,5 +1,11 @@
 {
 	"contracts": {
+		"DFB": {
+			"source": "cadence/contracts/interfaces/DFB.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiBlocksEVMAdapters": {
 			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
 			"aliases": {
@@ -22,12 +28,6 @@
 			"source": "cadence/contracts/connectors/SwapStack.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
-			}
-		},
-		"DFB": {
-			"source": "cadence/contracts/interfaces/DFB.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
 			}
 		},
 		"TestTokenMinter": {
