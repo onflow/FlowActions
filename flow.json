@@ -1,5 +1,17 @@
 {
 	"contracts": {
+		"BandOracleAdapters": {
+			"source": "cadence/contracts/adapters/BandOracleAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
+		"DFB": {
+			"source": "cadence/contracts/interfaces/DFB.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
 		"FungibleTokenStack": {
 			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
 			"aliases": {
@@ -17,15 +29,18 @@
 			"aliases": {
 				"testing": "0000000000000007"
 			}
-		},
-		"DFB": {
-			"source": "cadence/contracts/interfaces/DFB.cdc",
-			"aliases": {
-				"testing": "0000000000000007"
-			}
 		}
 	},
 	"dependencies": {
+		"BandOracle": {
+			"source": "mainnet://6801a6222ebf784a.BandOracle",
+			"hash": "be8c986f46eccfe55a25447e1b7fa07e95769ac4ca11918833130a4bf3297b16",
+			"aliases": {
+				"mainnet": "6801a6222ebf784a",
+				"testing": "0000000000000007",
+				"testnet": "2c71de7af78d1adf"
+			}
+		},
 		"Burner": {
 			"source": "mainnet://f233dcee88fe0abe.Burner",
 			"hash": "71af18e227984cd434a3ad00bb2f3618b76482842bae920ee55662c37c8bf331",
@@ -37,7 +52,7 @@
 		},
 		"EVM": {
 			"source": "mainnet://e467b9dd11fa00df.EVM",
-			"hash": "68e203784a1fde2a491ddcf522417bf43403efe1795f3b88e76a8ee961e5940b",
+			"hash": "df2065d3eebc1e690e0b52a3f293bdf6c22780c7a9e7ef48a708a651b87abdf0",
 			"aliases": {
 				"emulator": "f8d6e0586b0a20c7",
 				"mainnet": "e467b9dd11fa00df",
@@ -55,7 +70,7 @@
 		},
 		"FungibleToken": {
 			"source": "mainnet://f233dcee88fe0abe.FungibleToken",
-			"hash": "050328d01c6cde307fbe14960632666848d9b7ea4fef03ca8c0bbfb0f2884068",
+			"hash": "23c1159cf99b2b039b6b868d782d57ae39b8d784045d81597f100a4782f0285b",
 			"aliases": {
 				"emulator": "ee82856bf20e2aa6",
 				"mainnet": "f233dcee88fe0abe",
@@ -176,7 +191,8 @@
 				"StableSwapFactory",
 				"DFB",
 				"FungibleTokenStack",
-				"IncrementSwapStack"
+				"IncrementSwapStack",
+				"BandOracle"
 			]
 		}
 	}
