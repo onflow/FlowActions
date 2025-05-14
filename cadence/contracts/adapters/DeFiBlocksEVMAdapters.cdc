@@ -64,12 +64,10 @@ access(all) contract DeFiBlocksEVMAdapters {
         access(all) view fun inVaultType(): Type {
             return self.inVault
         }
-
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outVaultType(): Type {
             return self.outVault
         }
-
         /// The estimated amount required to provide a Vault with the desired output balance returned as a BasicQuote
         /// struct containing the in and out Vault types and quoted in and out amounts
         /// NOTE: Cadence only supports decimal precision of 8
@@ -117,18 +115,8 @@ access(all) contract DeFiBlocksEVMAdapters {
                 reverse: true
             )
         }
-
         /// Port of UniswapV2Router.swapExactTokensForTokens swapping the exact amount provided along the given path,
         /// returning the final output Vault
-        ///
-        /// @param exactVaultIn: The exact balance to swap as pre-converted currency
-        /// @param amountOutMin: The minimum output balance expected as post-converted currency, useful for slippage
-        /// @param path: The routing path through which to route swaps - may be pool or vault identifiers or serialized
-        ///     EVM addresses if the router is in EVM
-        /// @param deadline: The block timestamp beyond which the swap should not execute
-        ///
-        /// @return The requested post-conversion currency
-        ///
         access(self) fun swapExactTokensForTokens(
             exactVaultIn: @{FungibleToken.Vault},
             amountOutMin: UFix64,
@@ -179,7 +167,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             self.handleRemainingFeeVault(<-feeVault)
             return <- outVault
         }
-
+        /// Retrieves the amounts in/out given the amount out/in along the provided path. Values are returned in
         access(self) fun getAmounts(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): [UFix64] {
             let callRes = self.call(
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
@@ -194,7 +182,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: callRes!.data) // can revert if the type cannot be decoded
             return decoded.length > 0 ? DeFiBlocksEVMAdapters.convertEVMAmountsToCadenceAmounts(decoded[0] as! [UInt256], path: path) : []
         }
-
+        /// Deposits any remainder in the provided Vault or burns if it it's empty
         access(self) fun handleRemainingFeeVault(_ vault: @FlowToken.Vault) {
             if vault.balance > 0.0 {
                 self.borrowCOA()!.deposit(from: <-vault)
@@ -202,11 +190,13 @@ access(all) contract DeFiBlocksEVMAdapters {
                 Burner.burn(<-vault)
             }
         }
-
+        /// Returns a reference to the Swapper's COA or `nil` if the contained Capability is invalid
         access(self) view fun borrowCOA(): auth(EVM.Owner) &EVM.CadenceOwnedAccount? {
             return self.coaCapability.borrow()
         }
-
+        /// Makes a call to the Swapper's routerEVMAddress via the contained COA Capability with the provided signature,
+        /// args, and value. If flagged as dryCall, the more efficient and non-mutating COA.dryCall is used. A result is
+        /// returned as long as the COA Capability is valid, otherwise `nil` is returned.
         access(self) fun call(
             signature: String,
             args: [AnyStruct],
@@ -226,6 +216,8 @@ access(all) contract DeFiBlocksEVMAdapters {
         }
     }
 
+    /// Converts the given amounts from their ERC20 UInt256 to UFix64 amounts according to the ERC20 defined decimals.
+    /// Assumes each EVM address in path is an ERC20 contract
     access(self)
     fun convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
         let convertedAmounts: [UFix64]= []
