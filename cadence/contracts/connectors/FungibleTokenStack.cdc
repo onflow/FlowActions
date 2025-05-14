@@ -1,7 +1,7 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "StackFiInterfaces"
+import "DFB"
 
 /// FungibleTokenStack
 ///
@@ -11,17 +11,21 @@ import "StackFiInterfaces"
 ///
 access(all) contract FungibleTokenStack {
 
-    access(all) struct VaultSink : StackFiInterfaces.Sink {
+    access(all) struct VaultSink : DFB.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
         /// The maximum balance of the linked Vault, checked before executing a deposit
         access(all) let maximumBalance: UFix64
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
             max: UFix64?,
-            depositVault: Capability<&{FungibleToken.Vault}>
+            depositVault: Capability<&{FungibleToken.Vault}>,
+            uniqueID: {DFB.UniqueIdentifier}?
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
@@ -29,8 +33,9 @@ access(all) contract FungibleTokenStack {
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
-            self.depositVault = depositVault
+            self.uniqueID = uniqueID
             self.depositVaultType = depositVault.borrow()!.getType()
+            self.depositVault = depositVault
         }
 
         /// Returns the Vault type accepted by this Sink
@@ -58,17 +63,21 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSource : StackFiInterfaces.Source {
+    access(all) struct VaultSource : DFB.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
-            withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+            withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+            uniqueID: {DFB.UniqueIdentifier}?
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
@@ -77,6 +86,7 @@ access(all) contract FungibleTokenStack {
             }
             self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
             self.withdrawVault = withdrawVault
+            self.uniqueID = uniqueID
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
 
@@ -106,18 +116,24 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSinkAndSource : StackFiInterfaces.Sink, StackFiInterfaces.Source {
+    access(all) struct VaultSinkAndSource : DFB.Sink, DFB.Source {
+        /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
+        /// The maximum balance of the linked Vault
         access(all) let maximumBalance: UFix64
         /// The type of Vault this connector accepts (as a Sink) and provides (as a Source)
         access(all) let vaultType: Type
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
             max: UFix64?,
-            vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+            vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+            uniqueID: {DFB.UniqueIdentifier}?
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
@@ -129,6 +145,7 @@ access(all) contract FungibleTokenStack {
             self.minimumBalance = min ?? 0.0
             self.maximumBalance = max ?? UFix64.max
             self.vaultType = vault.borrow()!.getType()
+            self.uniqueID = uniqueID
             self.vault = vault
         }
 

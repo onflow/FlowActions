@@ -9,14 +9,14 @@ access(all) let serviceAccount = Test.serviceAccount()
 
 access(all) fun setup() {
     var err = Test.deployContract(
-        name: "StackFiInterfaces",
-        path: "../contracts/StackFiInterfaces.cdc",
+        name: "DFB",
+        path: "../contracts/interfaces/DFB.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
         name: "FungibleTokenStack",
-        path: "../contracts/FungibleTokenStack.cdc",
+        path: "../contracts/connectors/FungibleTokenStack.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
