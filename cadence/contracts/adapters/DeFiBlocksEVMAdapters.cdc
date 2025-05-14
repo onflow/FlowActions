@@ -154,7 +154,6 @@ access(all) contract DeFiBlocksEVMAdapters {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
                 DeFiBlocksEVMAdapters.callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
@@ -166,7 +165,6 @@ access(all) contract DeFiBlocksEVMAdapters {
                 value: 0,
                 dryCall: false
             )!
-            // Resolve if the call was unsuccessful
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
                 DeFiBlocksEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
@@ -181,7 +179,7 @@ access(all) contract DeFiBlocksEVMAdapters {
                     feeProvider: feeVaultRef
                 )
 
-            // clean up the remaining feeVault & return the swapped out Vault
+            // clean up the remaining feeVault & return the swap output Vault
             self.handleRemainingFeeVault(<-feeVault)
             return <- outVault
         }
