@@ -195,35 +195,12 @@ access(all) contract DFB {
         }
     }
 
-    /// A data structure containing data relevant to PriceOracle requests serving data about onchain assets
-    access(all) struct interface PriceData {
-        /// The fixed point rate between the BASE/QUOTE pair limited to UFix64 decimal precision of 8 places
-        access(all) let rate: UFix64
-        /// The integer rate between the BASE/QUOTE pair enabling greater decimal precision
-        access(all) let integerRate: UInt256
-        /// The integerRate decimal places
-        access(all) let integerDecimals: UInt8
-        /// The base asset type in the BASE/QUOTE pair
-        access(all) let baseType: Type
-        /// The quote asset type in the BASE/QUOTE pair
-        access(all) let quoteType: Type
-        /// Timestamp at which the baseType price data was last updated
-        access(all) let baseTimestamp: UFix64
-        /// Timestamp at which the quoteType price data was last updated
-        access(all) let quoteTimestamp: UFix64
-    }
-
     /// An interface for a price oracle adapter. Implementations should adapt this interface to various price feed
     /// oracles deployed on Flow
     access(all) struct interface PriceOracle {
-        /// Returns the Vault type denominating any required request fee if one is required
-        access(all) fun getRequestFeeType(): Type?
-        /// Returns the fee amount (denominated by `getRequestFeeType()`) due to serve oracle requests if any
-        access(all) fun getRequestFee(): UFix64
-        /// Returns the timestamp at which the price data was last updated for a given asset type
-        access(all) fun getLastUpdateTimestamp(forAsset: Type): UFix64?
-        /// Returns the latest price data for a given BASE/QUOTE pair, allowing for an optional fee to be provided if
-        /// one is required by the oracle protocol
-        access(all) fun getLatestPrice(base: Type, quote: Type, fee: @{FungibleToken.Vault}?): {PriceData}?
+        /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
+        access(all) view fun unitOfAccount(): Type
+        /// Returns the latest price data for a given asset denominated in unitOfAccount()
+        access(all) fun price(ofToken: Type): UFix64
     }
 }
