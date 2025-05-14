@@ -26,6 +26,25 @@ fun setup() {
     uniV2DeployerCOAHex = getCOAAddressHex(atFlowAddress: uniV2DeployerAccount.address)
 
     uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
+
+    var err = Test.deployContract(
+        name: "DFB",
+        path: "../contracts/interfaces/DFB.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "SwapStack",
+        path: "../contracts/connectors/SwapStack.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "DeFiBlocksEVMAdapters",
+        path: "../contracts/adapters/DeFiBlocksEVMAdapters.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
 }
 
 access(all)
