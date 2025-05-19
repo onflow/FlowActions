@@ -7,7 +7,7 @@ import "FungibleToken"
 /// pools, farms) into individual aggregations.
 ///
 /// The core component of DeFiBlocks is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
-/// Connectors isn’t to do anything especially complex, but make it simple and straightforward to connect the
+/// Connectors aren't to do anything especially complex, but make it simple and straightforward to connect the
 /// traditional DeFi pieces together into new, custom aggregations.
 ///
 /// Connectors should be thought of analogously with the small text processing tools of Unix that are mostly meant to be
