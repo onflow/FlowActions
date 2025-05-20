@@ -49,6 +49,7 @@ access(all) contract DFB {
         uniqueID: UInt64?,
         swapperType: String
     )
+    access(all) event Rebalanced(uniqueID: UInt64?, uniqueIDType: String?, autoBalancerType: String, uuid: UInt64)
 
     /// This interface enables protocols to trace stack operations via the interface-level events, identifying their
     /// UniqueIdentifier types and IDs. Implementations should ensure ID values are unique on initialization.
@@ -235,5 +236,45 @@ access(all) contract DFB {
         access(all) view fun idType(): Type? {
             return self.uniqueID?.getType()
         }
+    }
+
+    /// Entitlement used by the AutoBalancer
+    access(all) entitlement Set
+
+    /// A resource interface designed to enable permissionless rebalancing of value around a wrapped Vault. An
+    /// AutoBalancer can be a critical component of DeFiBlocks stacks by allowing for strategies to compound, repay
+    /// loans or direct accumulated value to other sub-systems and/or user Vaults.
+    ///
+    access(all) resource interface AutoBalancer : IdentifiableResource, FungibleToken.Receiver, FungibleToken.Provider, ViewResolver.Resolver, Burner.Burnable {
+        /// Returns the balance of the inner Vault
+        access(all) view fun vaultBalance(): UFix64
+        /// Returns the Type of the inner Vault
+        access(all) view fun vaultType(): Type
+        /// Returns the percentage range from baseValue at which the AutoBalancer executes a rebalance
+        access(all) view fun rebalanceRange(): UFix64
+        /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount
+        access(all) view fun baseValue(): UFix64
+        /// Returns the token Type serving as the price basis of this AutoBalancer
+        access(all) view fun unitOfAccount(): Type
+        /// Returns the current value of the inner Vault's balance
+        access(all) fun currentValue(): UFix64
+        /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
+        /// parameters. Implementations should no-op if a rebalance threshold has not been met
+        access(all) fun rebalance() {
+            post {
+                emit Rebalanced(
+                    uniqueID: self.uniqueID?.id,
+                    uniqueIDType: self.uniqueID?.getType()?.identifier,
+                    autoBalancerType: self.getType().identifier,
+                    uuid: self.uuid,
+                )
+            }
+        }
+        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
+        /// may wish to revert on call if a Sink is set on `init`
+        access(Set) fun setSink(_ sink: {Sink})
+        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
+        /// may wish to revert on call if a Source is set on `init`
+        access(Set) fun setSource(_ source: {Source})
     }
 }
