@@ -250,8 +250,8 @@ access(all) contract DFB {
         access(all) view fun vaultBalance(): UFix64
         /// Returns the Type of the inner Vault
         access(all) view fun vaultType(): Type
-        /// Returns the percentage range from baseValue at which the AutoBalancer executes a rebalance
-        access(all) view fun rebalanceRange(): UFix64
+        /// Returns the percentage difference from baseValue at which the AutoBalancer executes a rebalance
+        access(all) view fun rebalanceThreshold(): UFix64
         /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount
         access(all) view fun baseValue(): UFix64
         /// Returns the token Type serving as the price basis of this AutoBalancer
