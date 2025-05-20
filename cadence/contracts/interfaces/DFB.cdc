@@ -1,3 +1,5 @@
+import "Burner"
+import "ViewResolver"
 import "FungibleToken"
 
 /// DeFiBlocks Interfaces
@@ -55,16 +57,33 @@ access(all) contract DFB {
         access(all) let id: UInt64
     }
 
+    /// A struct interface containing a UniqueIdentifier an convenience getters about it
+    ///
+    access(all) struct interface IdentifiableStruct {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {UniqueIdentifier}?
+        /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
+        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
+        /// for critical identification
+        access(all) view fun id(): UInt64? {
+            return self.uniqueID?.id
+        }
+        /// Convenience method returning the inner UniqueIdentifier's Type or `nil` if none is set.
+        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
+        /// for critical identification
+        access(all) view fun idType(): Type? {
+            return self.uniqueID?.getType()
+        }
+    }
+
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
     /// accept for deposit. Implementations should therefore avoid the possibility of reversion with graceful fallback
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
-    access(all) struct interface Sink {
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {UniqueIdentifier}?
+    access(all) struct interface Sink : IdentifiableStruct {
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
@@ -90,10 +109,7 @@ access(all) contract DFB {
     /// of funds available to be withdrawn. Implementations should therefore avoid the possibility of reversion with
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
-    access(all) struct interface Source {
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {UniqueIdentifier}?
+    access(all) struct interface Source : IdentifiableStruct {
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
@@ -132,10 +148,7 @@ access(all) contract DFB {
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
     ///
-    access(all) struct interface Swapper {
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {UniqueIdentifier}?
+    access(all) struct interface Swapper : IdentifiableStruct {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inVaultType(): Type
         /// The type of Vault this Swapper provides when performing a swap
@@ -201,5 +214,26 @@ access(all) contract DFB {
         access(all) view fun unitOfAccount(): Type
         /// Returns the latest price data for a given asset denominated in unitOfAccount()
         access(all) fun price(ofToken: Type): UFix64
+    }
+
+
+    /// A resource interface containing a UniqueIdentifier an convenience getters about it
+    ///
+    access(all) resource interface IdentifiableResource {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {UniqueIdentifier}?
+        /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
+        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
+        /// for critical identification
+        access(all) view fun id(): UInt64? {
+            return self.uniqueID?.id
+        }
+        /// Convenience method returning the inner UniqueIdentifier's Type or `nil` if none is set.
+        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
+        /// for critical identification
+        access(all) view fun idType(): Type? {
+            return self.uniqueID?.getType()
+        }
     }
 }
