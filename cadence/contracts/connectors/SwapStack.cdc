@@ -5,8 +5,8 @@ import "DFB"
 
 /// SwapStack
 ///
-/// This contract defines StackFi Sink & Source connector implementations for use with DeFi protocols. These
-/// connectors can be used alone or in conjunction with other StackFi connectors to create complex DeFi workflows.
+/// This contract defines DeFiBlocks Sink & Source connector implementations for use with DeFi protocols. These
+/// connectors can be used alone or in conjunction with other DeFiBlocks connectors to create complex DeFi workflows.
 ///
 access(all) contract SwapStack {
 
@@ -177,8 +177,8 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSink StackFi connector that deposits the resulting post-conversion currency of a token swap to an inner
-    /// StackFi Sink, sourcing funds from a deposited Vault of a pre-set Type.
+    /// SwapSink DeFiBlocks connector that deposits the resulting post-conversion currency of a token swap to an inner
+    /// DeFiBlocks Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
     access(all) struct SwapSink : DFB.Sink {
         access(self) let swapper: {DFB.Swapper}
@@ -234,8 +234,8 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSource StackFi connector that deposits the resulting post-conversion currency of a token swap to an inner
-    /// StackFi Sink, sourcing funds from a deposited Vault of a pre-set Type.
+    /// SwapSource DeFiBlocks connector that returns post-conversion currency, sourcing pre-converted funds from an inner
+    /// DeFiBlocks Source
     ///
     access(all) struct SwapSource : DFB.Source {
         access(self) let swapper: {DFB.Swapper}
