@@ -16,13 +16,14 @@ import "SwapStack"
 ///
 access(all) contract DeFiBlocksEVMAdapters {
 
-    /// Adapts an EVM-based UniswapV2Router contract methods to DeFiAdapters.UniswapV2SwapAdapter struct interface
+    /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiBlocks.Swapper adapter interface
     ///
     access(all) struct UniswapV2EVMSwapper : DFB.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
-        /// A swap path defining the route followed for facilitated swaps
-        access(all) let path: [EVM.EVMAddress]
+        /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
+        /// for which there is a pool available with the previous and subsequent token address via the defined Router
+        access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) let uniqueID: {DFB.UniqueIdentifier}?
@@ -53,7 +54,7 @@ access(all) contract DeFiBlocksEVMAdapters {
                 "Provided COA Capability is invalid - provided an active, unrevoked Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>"
             }
             self.routerAddress = routerAddress
-            self.path = path
+            self.addressPath = path
             self.uniqueID = uniqueID
             self.inVault = inVault
             self.outVault = outVault
@@ -71,8 +72,15 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// The estimated amount required to provide a Vault with the desired output balance returned as a BasicQuote
         /// struct containing the in and out Vault types and quoted in and out amounts
         /// NOTE: Cadence only supports decimal precision of 8
+        ///
+        /// @param forDesired: The amount out desired of the post-conversion currency as a result of the swap
+        /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
+        ///     in the opposite direction, outVault -> inVault
+        ///
+        /// @return a SwapStack.BasicQuote containing estimate data
+        ///
         access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
-            let amounts = self.getAmounts(out: false, amount: forDesired, path: reverse ? self.path.reverse() : self.path)
+            let amounts = self.getAmounts(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inVault: reverse ? self.outVaultType() : self.inVaultType(),
                 outVault: reverse ? self.inVaultType() : self.outVaultType(),
@@ -83,8 +91,15 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// The estimated amount delivered out for a provided input balance returned as a BasicQuote returned as a
         /// BasicQuote struct containing the in and out Vault types and quoted in and out amounts
         /// NOTE: Cadence only supports decimal precision of 8
+        ///
+        /// @param forProvided: The amount provided of the relevant pre-conversion currency
+        /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
+        ///     in the opposite direction, outVault -> inVault
+        ///
+        /// @return a SwapStack.BasicQuote containing estimate data
+        ///
         access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
-            let amounts = self.getAmounts(out: true, amount: forProvided, path: reverse ? self.path.reverse() : self.path)
+            let amounts = self.getAmounts(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inVault: reverse ? self.outVaultType() : self.inVaultType(),
                 outVault: reverse ? self.inVaultType() : self.outVaultType(),
@@ -98,6 +113,13 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// Any Quote provided defines the amountOutMin value - if none is provided, the current quoted outAmount is
         /// used.
         /// NOTE: Cadence only supports decimal precision of 8
+        ///
+        /// @param quote: A `DFB.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
+        ///     desired otherwise a new quote is generated from current state
+        /// @param inVault: Tokens of type `inVault` to swap for a vault of type `outVault`
+        ///
+        /// @return a Vault of type `outVault` containing the swapped currency.
+        ///
         access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOutMin = quote?.outAmount ?? self.amountOut(forProvided: inVault.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
@@ -109,6 +131,13 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// Any Quote provided defines the amountOutMin value - if none is provided, the current quoted outAmount is
         /// used.
         /// NOTE: Cadence only supports decimal precision of 8
+        ///
+        /// @param quote: A `DFB.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
+        ///     desired otherwise a new quote is generated from current state
+        /// @param residual: Tokens of type `outVault` to swap back to `inVault`
+        ///
+        /// @return a Vault of type `inVault` containing the swapped currency.
+        ///
         access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOutMin = quote?.outAmount ?? self.amountOut(forProvided: residual.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(
@@ -120,6 +149,14 @@ access(all) contract DeFiBlocksEVMAdapters {
 
         /// Port of UniswapV2Router.swapExactTokensForTokens swapping the exact amount provided along the given path,
         /// returning the final output Vault
+        ///
+        /// @param exactVaultIn: The pre-conversion currency to swap
+        /// @param amountOutMin: The minimum amount of post-conversion tokens to swap for
+        /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method swaps in the
+        ///     opposite direction, outVault -> inVault
+        ///
+        /// @return the resulting Vault containing the swapped tokens
+        ///
         access(self) fun swapExactTokensForTokens(
             exactVaultIn: @{FungibleToken.Vault},
             amountOutMin: UFix64,
@@ -138,7 +175,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // bridge the provided to the COA's EVM address
-            let inTokenAddress = reverse ? self.path[self.path.length - 1] : self.path[0]
+            let inTokenAddress = reverse ? self.addressPath[self.addressPath.length - 1] : self.addressPath[0]
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 exactVaultIn.balance,
                 erc20Address: inTokenAddress
@@ -160,7 +197,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             // perform the swap
             res = self.call(to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint,uint,address[],address,uint)", // amountIn, amountOutMin, path, to, deadline (timestamp)
-                args: [evmAmountIn, UInt256(0), (reverse ? self.path.reverse() : self.path), coa.address(), UInt256(getCurrentBlock().timestamp)],
+                args: [evmAmountIn, UInt256(0), (reverse ? self.addressPath.reverse() : self.addressPath), coa.address(), UInt256(getCurrentBlock().timestamp)],
                 gasLimit: 15_000_000,
                 value: 0,
                 dryCall: false
@@ -186,7 +223,19 @@ access(all) contract DeFiBlocksEVMAdapters {
 
         /* --- Internal --- */
 
-        /// Retrieves the amounts in/out given the amount out/in along the provided path. Values are returned in
+        /// Internal method used to retrieve router.getAmountsIn and .getAmountsOut estimates. The returned array is the
+        /// estimate returned from the router where each value is a swapped amount corresponding to the swap along the
+        /// provided path.
+        ///
+        /// @param out: If true, getAmountsOut is called, otherwise getAmountsIn is called
+        /// @param amount: The amount in or out. If out is true, the amount will be used as the amount in provided,
+        ///     otherwise amount defines the desired amount out for the estimate
+        /// @param path: The path of ERC20 token addresses defining the sequence of swaps executed to arrive at the
+        ///     desired token out
+        ///
+        /// @return An estimate of the amounts for each swap along the path. If out is true, the return value contains
+        ///     the values in, otherwise the array contains the values out for each swap along the path
+        ///
         access(self) fun getAmounts(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): [UFix64] {
             let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
