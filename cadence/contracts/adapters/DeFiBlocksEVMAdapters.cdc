@@ -77,15 +77,16 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data
+        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
-            let amounts = self.getAmounts(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
+            let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inVault: reverse ? self.outVaultType() : self.inVaultType(),
                 outVault: reverse ? self.inVaultType() : self.outVaultType(),
-                inAmount: amounts.length > 0 ? amounts[0] : 0.0,
-                outAmount: amounts.length > 0 ? forDesired : 0.0
+                inAmount: amountIn != nil ? amountIn! : 0.0,
+                outAmount: amountIn != nil ? forDesired : 0.0
             )
         }
         /// The estimated amount delivered out for a provided input balance returned as a BasicQuote returned as a
@@ -96,15 +97,16 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data
+        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
-            let amounts = self.getAmounts(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
+            let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inVault: reverse ? self.outVaultType() : self.inVaultType(),
                 outVault: reverse ? self.inVaultType() : self.outVaultType(),
-                inAmount: amounts.length > 0 ? forProvided : 0.0,
-                outAmount: amounts.length > 0 ? amounts[amounts.length - 1] : 0.0
+                inAmount: amountOut != nil ? forProvided : 0.0,
+                outAmount: amountOut != nil ? amountOut! : 0.0
             )
         }
 
@@ -236,7 +238,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return An estimate of the amounts for each swap along the path. If out is true, the return value contains
         ///     the values in, otherwise the array contains the values out for each swap along the path
         ///
-        access(self) fun getAmounts(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): [UFix64] {
+        access(self) fun getAmount(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): UFix64? {
             let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
                 args: [amount],
@@ -245,10 +247,17 @@ access(all) contract DeFiBlocksEVMAdapters {
                 dryCall: true
             )
             if callRes == nil || callRes!.status != EVM.Status.successful {
-                return []
+                return nil
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: callRes!.data) // can revert if the type cannot be decoded
-            return decoded.length > 0 ? DeFiBlocksEVMAdapters.convertEVMAmountsToCadenceAmounts(decoded[0] as! [UInt256], path: path) : []
+            let uintAmounts: [UInt256] = decoded.length > 0 ? decoded[0] as! [UInt256] : []
+            if uintAmounts.length == 0 {
+                return nil
+            } else if out {
+                return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmounts[uintAmounts.length - 1], erc20Address: path[path.length - 1])
+            } else {
+                return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmounts[0], erc20Address: path[0])
+            }
         }
 
         /// Deposits any remainder in the provided Vault or burns if it it's empty
