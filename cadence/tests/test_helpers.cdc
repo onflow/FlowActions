@@ -86,7 +86,7 @@ fun createSwapPair(
     stableMode: Bool
 ) {
     let creationResult = _executeTransaction(
-        "../transactions/increment_fi/create_swap_pair.cdc",
+        "../transactions/increment-fi/create_swap_pair.cdc",
         [token0Identifier, token1Identifier, stableMode],
         signer
     )
@@ -108,7 +108,7 @@ fun addLiquidity(
     stableMode: Bool
 ){
     let mintResult = _executeTransaction(
-        "../transactions/increment_fi/add_liquidity.cdc",
+        "../transactions/increment-fi/add_liquidity.cdc",
         [token0Key, token1Key, token0InDesired, token1InDesired, token0InMin, token1InMin, deadline, token0VaultPath, token1VaultPath, stableMode],
         signer
     )
