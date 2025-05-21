@@ -3,6 +3,7 @@ import "ViewResolver"
 import "FungibleToken"
 
 import "DFB"
+import "DFBUtils"
 
 access(all) contract AutoBalancerAdapter {
 
@@ -38,6 +39,97 @@ access(all) contract AutoBalancerAdapter {
         return <- ab
     }
 
+    /// Sink
+    ///
+    /// A DeFiBlocks Sink enabling the deposit of funds to an underlying AutoBalancer resource. As written, this Source
+    /// may be used with externally defined AutoBalancer implementations
+    ///
+    access(all) struct Sink : DFB.Sink {
+        /// The Type this Sink accepts
+        access(self) let type: Type
+        /// An authorized Capability on the underlying AutoBalancer where funds are deposited
+        access(self) let autoBalancer: Capability<&{DFB.AutoBalancer}>
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+
+        init(autoBalancer: Capability<&{DFB.AutoBalancer}>, uniqueID: {DFB.UniqueIdentifier}?) {
+            pre {
+                autoBalancer.check():
+                "Invalid AutoBalancer Capability Provided"
+            }
+            self.type = autoBalancer.borrow()!.vaultType()
+            self.autoBalancer = autoBalancer
+            self.uniqueID = uniqueID
+        }
+
+        /// Returns the Vault type accepted by this Sink
+        access(all) view fun getSinkType(): Type {
+            return self.type
+        }
+        /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
+        access(all) fun minimumCapacity(): UFix64 {
+            if let ab = self.autoBalancer.borrow() {
+                return UFix64.max - ab.vaultBalance()
+            }
+            return 0.0
+        }
+        /// Deposits up to the Sink's capacity from the provided Vault
+        access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            if let ab = self.autoBalancer.borrow() {
+                ab.deposit(from: <- from.withdraw(amount: from.balance))
+            }
+            return
+        }
+    }
+
+    /// Source
+    ///
+    /// A DeFiBlocks Source targeting an underlying AutoBalancer resource. As written, this Source may be used with
+    /// externally defined AutoBalancer implementations
+    ///
+    access(all) struct Source : DFB.Source {
+        /// The Type this Source provides
+        access(self) let type: Type
+        /// An authorized Capability on the underlying AutoBalancer where funds are sourced
+        access(self) let autoBalancer: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+
+        init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>, uniqueID: {DFB.UniqueIdentifier}?) {
+            pre {
+                autoBalancer.check():
+                "Invalid AutoBalancer Capability Provided"
+            }
+            self.type = autoBalancer.borrow()!.vaultType()
+            self.autoBalancer = autoBalancer
+            self.uniqueID = uniqueID
+        }
+
+        /// Returns the Vault type provided by this Source
+        access(all) view fun getSourceType(): Type {
+            return self.type
+        }
+        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
+        access(all) fun minimumAvailable(): UFix64 {
+            if let ab = self.autoBalancer.borrow() {
+                return ab.vaultBalance()
+            }
+            return 0.0
+        }
+        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
+        /// returned
+        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
+            if let ab = self.autoBalancer.borrow() {
+                return <-ab.withdraw(
+                    amount: maxAmount <= ab.vaultBalance() ? maxAmount : ab.vaultBalance()
+                )
+            }
+            return <- DFBUtils.getEmptyVault(self.type)
+        }
+    }
+
     /// AutoBalancer
     ///
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An AutoBalancer can
@@ -64,6 +156,8 @@ access(all) contract AutoBalancerAdapter {
         /// An optional Source used to deposit excess funds to the inner Vault once the converted value is below the
         /// rebalance range
         access(self) var _inSource: {DFB.Source}?
+        /// Capability on this AutoBalancer instance
+        access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
         access(contract) let uniqueID: {DFB.UniqueIdentifier}?
         /// The type of a uniqueID (if one is provided on init) captured for the ResourceDestroyed event
@@ -91,6 +185,8 @@ access(all) contract AutoBalancerAdapter {
                 "Invalid rebalanceRange \(rebalanceRange) - relative range over baseValue must be between 0.01 and 1.0"
                 vault.balance == 0.0:
                 "Vault \(vault.getType().identifier) has a non-zero balance - AutoBalancer must be initialized with an empty Vault"
+                DFBUtils.definingContractIsFungibleToken(vault.getType()):
+                "The contract defining Vault \(vault.getType().identifier) does not conform to FungibleToken contract interface"
             }
             assert(oracle.price(ofToken: vault.getType()) != nil,
                 message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vault.getType().identifier)")
@@ -101,6 +197,7 @@ access(all) contract AutoBalancerAdapter {
             self._vaultType = self._vault.getType()
             self._outSink = outSink
             self._inSource = inSource
+            self._selfCap = nil
             self.uniqueID = uniqueID
             self.uniqueIDType = self.uniqueID?.getType()
         }
@@ -190,6 +287,33 @@ access(all) contract AutoBalancerAdapter {
                 self._inSource == nil: "AutoBalancer.inSource has already been set - cannot set again"
             }
             self._inSource = source
+        }
+
+        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
+        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
+        /// has been saved to account storage and an authorized Capability has been issued.
+        access(DFB.Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>) {
+            pre {
+                self._selfCap == nil || self._selfCap!.check() != true:
+                "Internal AutoBalancer Capability has been set and is still valid - cannot be re-assigned"
+            }
+            self._selfCap = cap
+        }
+
+        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        access(all) fun getBalancerSink(): {DFB.Sink}? {
+            if self._selfCap == nil || !self._selfCap!.check() {
+                return nil
+            }
+            return Sink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
+        }
+
+        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
+        access(DFB.Get) fun getBalancerSource(): {DFB.Source}? {
+            if self._selfCap == nil || !self._selfCap!.check() {
+                return nil
+            }
+            return Source(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
         /* ViewResolver.Resolver conformance */
