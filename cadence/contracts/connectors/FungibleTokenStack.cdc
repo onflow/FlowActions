@@ -1,6 +1,7 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
+import "DFBUtils"
 import "DFB"
 
 /// FungibleTokenStack
@@ -29,7 +30,7 @@ access(all) contract FungibleTokenStack {
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
-                FungibleTokenStack.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
+                DFBUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
@@ -81,7 +82,7 @@ access(all) contract FungibleTokenStack {
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
-                FungibleTokenStack.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
+                DFBUtils.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
@@ -108,7 +109,7 @@ access(all) contract FungibleTokenStack {
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let available = self.minimumAvailable()
             if !self.withdrawVault.check() || available == 0.0 || maxAmount == 0.0 {
-                return <- FungibleTokenStack.getEmptyVault(self.withdrawVaultType)
+                return <- DFBUtils.getEmptyVault(self.withdrawVaultType)
             }
             // take the lesser between the available and maximum requested amount
             let withdrawalAmount = available <= maxAmount ? available : maxAmount
@@ -137,7 +138,7 @@ access(all) contract FungibleTokenStack {
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
-                FungibleTokenStack.definingContractIsFungibleToken(vault.borrow()!.getType()):
+                DFBUtils.definingContractIsFungibleToken(vault.borrow()!.getType()):
                 "The contract defining Vault \(vault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
                 min ?? 0.0 < max ?? UFix64.max:
                 "Minimum balance must be less than maximum balance if either is declared"
@@ -189,23 +190,7 @@ access(all) contract FungibleTokenStack {
                 let finalAmount = vault.balance < maxAmount ? vault.balance : maxAmount
                 return <-vault.withdraw(amount: finalAmount)
             }
-            return <- FungibleTokenStack.getEmptyVault(self.vaultType)
+            return <- DFBUtils.getEmptyVault(self.vaultType)
         }
-    }
-
-    /// Checks that the contract defining vaultType conforms to the FungibleToken contract interface. This is required
-    /// to source empty Vaults in the event inner Capabilities become invalid
-    access(self)
-    view fun definingContractIsFungibleToken(_ vaultType: Type): Bool {
-        return getAccount(vaultType.address!).contracts.borrow<&{FungibleToken}>(name: vaultType.contractName!) != nil
-    }
-
-    /// Internal helper returning an empty Vault of the given Type
-    access(self)
-    fun getEmptyVault(_ vaultType: Type): @{FungibleToken.Vault} {
-        return <- getAccount(vaultType.address!)
-            .contracts
-            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
-            .createEmptyVault(vaultType: vaultType)
     }
 }

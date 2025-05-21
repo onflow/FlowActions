@@ -29,6 +29,12 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
+        name: "DFBUtils",
+        path: "../contracts/utils/DFBUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "FungibleTokenStack",
         path: "../contracts/connectors/FungibleTokenStack.cdc",
         arguments: []

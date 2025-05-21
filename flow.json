@@ -18,6 +18,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"DFBUtils": {
+			"source": "cadence/contracts/utils/DFBUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiBlocksEVMAdapters": {
 			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
 			"aliases": {
@@ -466,6 +472,7 @@
 				"SwapInterfaces",
 				"StableSwapFactory",
 				"DFB",
+				"DFBUtils",
 				"AutoBalancerAdapter",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
