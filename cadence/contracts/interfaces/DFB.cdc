@@ -259,7 +259,7 @@ access(all) contract DFB {
         /// Returns the token Type serving as the price basis of this AutoBalancer
         access(all) view fun unitOfAccount(): Type
         /// Returns the current value of the inner Vault's balance
-        access(all) fun currentValue(): UFix64
+        access(all) fun currentValue(): UFix64?
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. Implementations should no-op if a rebalance threshold has not been met
         access(all) fun rebalance() {
