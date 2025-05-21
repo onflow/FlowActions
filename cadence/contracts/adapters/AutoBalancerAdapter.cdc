@@ -223,7 +223,8 @@ access(all) contract AutoBalancerAdapter {
 
         /// Deposits the provided Vault to the nested Vault if it is of the same Type, reverting otherwise. In the
         /// process, the current value of the deposited amount (denominated in unitOfAccount) increments the
-        /// AutoBalancer's baseValue
+        /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, base value updates are
+        /// bypassed to prevent reversion
         access(all) fun deposit(from: @{FungibleToken.Vault}) {
             pre {
                 from.getType() == self.vaultType():
@@ -236,7 +237,8 @@ access(all) contract AutoBalancerAdapter {
         }
 
         /// Returns the requested amount of the nested Vault type, reducing the baseValue by the current value
-        /// (denominated in unitOfAccount) of the token amount.
+        /// (denominated in unitOfAccount) of the token amount. If a price is not available via the internal
+        /// PriceOracle, base value updates are bypassed to prevent reversion
         access(FungibleToken.Withdraw) fun withdraw(amount: UFix64): @{FungibleToken.Vault} {
             if let price = self._oracle.price(ofToken: self._vaultType) {
                 let baseAmount = price * amount
