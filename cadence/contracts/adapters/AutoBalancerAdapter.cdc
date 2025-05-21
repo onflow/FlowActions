@@ -91,6 +91,8 @@ access(all) contract AutoBalancerAdapter {
                 vault.balance == 0.0:
                 "Vault \(vault.getType().identifier) has a non-zero balance - AutoBalancer must be initialized with an empty Vault"
             }
+            assert(oracle.price(ofToken: vault.getType()) != nil,
+                message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vault.getType().identifier)")
             self._baseValue = 0.0
             self._rebalanceRange = rebalanceRange
             self._oracle = oracle
@@ -130,8 +132,11 @@ access(all) contract AutoBalancerAdapter {
         }
 
         /// Returns the current value of the inner Vault's balance
-        access(all) fun currentValue(): UFix64 {
-            return self._oracle.price(ofToken: self.vaultType()) * self._borrowVault().balance
+        access(all) fun currentValue(): UFix64? {
+            if let price = self._oracle.price(ofToken: self.vaultType()) {
+                return price * self._borrowVault().balance
+            }
+            return nil
         }
 
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
@@ -139,14 +144,17 @@ access(all) contract AutoBalancerAdapter {
         /// the `access(all)` distinction.
         access(all) fun rebalance() {
             let currentPrice = self._oracle.price(ofToken: self._vaultType)
-            let currentValue = self.currentValue()
+            if currentPrice == nil {
+                return
+            }
+            let currentValue = self.currentValue()!
             let diff = currentValue < self._baseValue ? self._baseValue - currentValue : currentValue - self._baseValue
             if (diff / self._baseValue) < self._rebalanceRange || currentPrice == 0.0 {
                 return // does not exceed rebalance percentage or price is below UFix precision - do nothing
             }
 
             let vault = self._borrowVault()
-            var amount = diff / currentPrice
+            var amount = diff / currentPrice!
             if currentValue < self._baseValue && self._inSource != nil {
                 // rebalance back up to baseline sourcing funds from _inSource
                 vault.deposit(from:  <- self._inSource!.withdrawAvailable(maxAmount: amount))
@@ -221,18 +229,22 @@ access(all) contract AutoBalancerAdapter {
                 from.getType() == self.vaultType():
                 "Invalid Vault type \(from.getType().identifier) deposited - this AutoBalancer only accepts \(self.vaultType().identifier)"
             }
-            self._baseValue = self._baseValue + self._oracle.price(ofToken: from.getType())
+            if let price = self._oracle.price(ofToken: from.getType()) {
+                self._baseValue = self._baseValue + price * from.balance
+            }
             self._borrowVault().deposit(from: <-from)
         }
 
         /// Returns the requested amount of the nested Vault type, reducing the baseValue by the current value
         /// (denominated in unitOfAccount) of the token amount.
         access(FungibleToken.Withdraw) fun withdraw(amount: UFix64): @{FungibleToken.Vault} {
-            let baseAmount = self._oracle.price(ofToken: self._vaultType)
+            if let price = self._oracle.price(ofToken: self._vaultType) {
+                let baseAmount = price * amount
+                // protect underflow by reassigning _baseValue to the current value post-withdrawal - only encountered if
+                // price has increased rapidly and rebalance hasn't executed in a while
+                self._baseValue = baseAmount <= self._baseValue ? self._baseValue - baseAmount : self.currentValue()!
+            }
             let withdrawn <- self._borrowVault().withdraw(amount: amount)
-            // protect underflow by reassigning _baseValue to the current value post-withdrawal - only encountered if
-            // price has increased rapicdly and rebalance hasn't executed in a while
-            self._baseValue = baseAmount <= self._baseValue ? self._baseValue - baseAmount : self.currentValue()
             return <- withdrawn
         }
 
