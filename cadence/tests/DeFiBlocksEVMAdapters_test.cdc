@@ -49,5 +49,5 @@ fun setup() {
 
 access(all)
 fun testSetupSucceeds() {
-    log("success")
+    log("DeFiBlocksEVMAdapters deployment success")
 }

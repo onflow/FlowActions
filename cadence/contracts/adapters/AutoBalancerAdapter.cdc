@@ -6,6 +6,7 @@ import "DFB"
 
 access(all) contract AutoBalancerAdapter {
 
+    /// Emitted when an AutoBalancer is created
     access(all) event Created(uuid: UInt64, vaultType: String, uniqueID: UInt64?, uniqueIDType: String?)
 
     /// Returns an AutoBalancer wrapping the provided Vault.
