@@ -250,6 +250,7 @@ access(all) contract DFB {
 
     /// Entitlement used by the AutoBalancer to set inner Sink and Source
     access(all) entitlement Set
+    access(all) entitlement Get
 
     /// A resource interface designed to enable permissionless rebalancing of value around a wrapped Vault. An
     /// AutoBalancer can be a critical component of DeFiBlocks stacks by allowing for strategies to compound, repay
@@ -288,5 +289,19 @@ access(all) contract DFB {
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
         /// may wish to revert on call if a Source is set on `init`
         access(Set) fun setSource(_ source: {Source})
+        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
+        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
+        /// has been saved to account storage and an authorized Capability has been issued.
+        access(Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{AutoBalancer}>) {
+            pre {
+                cap.check(): ""
+                self.getType() == cap.borrow()!.getType(): ""
+                self.uuid == cap.borrow()!.uuid: ""
+            }
+        }
+        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        access(all) fun getBalancerSink(): {Sink}?
+        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
+        access(Get) fun getBalancerSource(): {Source}?
     }
 }
