@@ -14,7 +14,7 @@ access(all) contract BandOracleAdapters {
     /// Mapping of asset Types to BandOracle symbols
     access(all) let assetSymbols: {Type: String}
     /// StoragePath for the SymbolUpdater tasked with adding Type:SYMBOL pairs
-    access(self) let SymbolUpdaterStoragePath: StoragePath
+    access(all) let SymbolUpdaterStoragePath: StoragePath
 
     /* EVENTS */
     /// Emitted when a Type:SYMBOL pair is added via the SymbolUpdater resource
@@ -37,7 +37,7 @@ access(all) contract BandOracleAdapters {
             pre {
                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
-                unitOfAccount.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                unitOfAccount.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Invalid unitOfAccount - \(unitOfAccount.identifier) is not a FungibleToken.Vault implementation"
                 BandOracleAdapters.assetSymbols[unitOfAccount] != nil:
                 "Could not find a BandOracle symbol assigned to unitOfAccount \(unitOfAccount.identifier)"
