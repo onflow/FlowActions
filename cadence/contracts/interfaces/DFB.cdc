@@ -49,7 +49,15 @@ access(all) contract DFB {
         uniqueID: UInt64?,
         swapperType: String
     )
-    access(all) event Rebalanced(uniqueID: UInt64?, uniqueIDType: String?, autoBalancerType: String, uuid: UInt64)
+    /// Emitted when AutoBalancer.rebalance() is called
+    access(all) event Rebalanced(
+        beforeAmount: UFix64,
+        afterAmount: UFix64,
+        uniqueID: UInt64?,
+        uniqueIDType: String?,
+        autoBalancerType: String,
+        uuid: UInt64
+    )
 
     /// This interface enables protocols to trace stack operations via the interface-level events, identifying their
     /// UniqueIdentifier types and IDs. Implementations should ensure ID values are unique on initialization.
@@ -240,7 +248,7 @@ access(all) contract DFB {
         }
     }
 
-    /// Entitlement used by the AutoBalancer
+    /// Entitlement used by the AutoBalancer to set inner Sink and Source
     access(all) entitlement Set
 
     /// A resource interface designed to enable permissionless rebalancing of value around a wrapped Vault. An
@@ -265,6 +273,8 @@ access(all) contract DFB {
         access(all) fun rebalance() {
             post {
                 emit Rebalanced(
+                    beforeAmount: before(self.vaultBalance()),
+                    afterAmount: self.vaultBalance(),
                     uniqueID: self.uniqueID?.id,
                     uniqueIDType: self.uniqueID?.getType()?.identifier,
                     autoBalancerType: self.getType().identifier,
