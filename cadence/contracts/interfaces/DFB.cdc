@@ -8,7 +8,7 @@ import "FungibleToken"
 /// pools, farms) into individual aggregations.
 ///
 /// The core component of DeFiBlocks is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
-/// Connectors isn’t to do anything especially complex, but make it simple and straightforward to connect the
+/// Connectors aren't to do anything especially complex, but make it simple and straightforward to connect the
 /// traditional DeFi pieces together into new, custom aggregations.
 ///
 /// Connectors should be thought of analogously with the small text processing tools of Unix that are mostly meant to be
@@ -213,8 +213,10 @@ access(all) contract DFB {
     access(all) struct interface PriceOracle {
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type
-        /// Returns the latest price data for a given asset denominated in unitOfAccount()
-        access(all) fun price(ofToken: Type): UFix64
+        /// Returns the latest price data for a given asset denominated in unitOfAccount() if available, otherwise `nil`
+        /// should be returned. Callers should note that although an optional is supported, implementations may choose
+        /// to revert.
+        access(all) fun price(ofToken: Type): UFix64?
     }
 
 

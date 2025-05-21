@@ -52,8 +52,9 @@ access(all) contract BandOracleAdapters {
             return self.quote
         }
 
-        /// Returns the latest price data for a given asset denominated in unitOfAccount()
-        access(all) fun price(ofToken: Type): UFix64 {
+        /// Returns the latest price data for a given asset denominated in unitOfAccount(). Since BandOracle requests
+        /// are paid, this implementation reverts if price data has gone stale
+        access(all) fun price(ofToken: Type): UFix64? {
             // lookup the symbols
             let baseSymbol = BandOracleAdapters.assetSymbols[ofToken]
                 ?? panic("Base asset type \(ofToken.identifier) does not have an assigned symbol")
@@ -62,7 +63,7 @@ access(all) contract BandOracleAdapters {
             let fee <- self.feeSource.withdrawAvailable(maxAmount: BandOracle.getFee())
             let priceData = BandOracle.getReferenceData(baseSymbol: baseSymbol, quoteSymbol: quoteSymbol, payment: <-fee)
 
-            // check timestamp thresholds are not stale
+            // check price data has not gone stale based on last updated timestamp
             let now = UInt64(getCurrentBlock().timestamp)
             if self.staleThreshold != nil {
                 assert(now < priceData.baseTimestamp + self.staleThreshold!, 
