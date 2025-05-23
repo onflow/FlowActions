@@ -25,7 +25,7 @@ access(all) contract DFB {
     access(all) event Deposited(
         type: String,
         amount: UFix64,
-        inUUID: UInt64,
+        fromUUID: UInt64,
         uniqueID: UInt64?,
         sinkType: String
     )
@@ -33,7 +33,7 @@ access(all) contract DFB {
     access(all) event Withdrawn(
         type: String,
         amount: UFix64,
-        outUUID: UInt64,
+        withdrawnUUID: UInt64,
         uniqueID: UInt64?,
         sourceType: String
     )
@@ -95,8 +95,6 @@ access(all) contract DFB {
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
     access(all) struct interface Sink : IdentifiableStruct {
-        // TODO - conditional event emission
-        // access(contract) view fun emitDeposited(beforeBalance: UFix64) {} - change scope if needed
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
@@ -104,13 +102,14 @@ access(all) contract DFB {
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             post {
-                emit Deposited(
+                DFB.emitDeposited(
                     type: from.getType().identifier,
-                    amount: before(from.balance) >= from.balance ? before(from.balance) - from.balance : 0.0,
-                    inUUID: from.uuid, // fromUUID
-                    uniqueID: self.uniqueID?.id ?? nil,
-                    sinkType: self.getType().identifier // maybe include
-                )
+                    beforeBalance: before(from.balance),
+                    afterBalance: from.balance,
+                    fromUUID: from.uuid,
+                    uniqueID: self.uniqueID?.id,
+                    sinkType: self.getType().identifier
+                ): "Unknown error emitting DFB.Withdrawn from Sink \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -130,14 +129,13 @@ access(all) contract DFB {
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
-                // TODO - conditional emit
-                emit Withdrawn(
+                DFB.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
-                    outUUID: result.uuid, // toUUID
+                    withdrawnUUID: result.uuid, // toUUID
                     uniqueID: self.uniqueID?.id ?? nil,
                     sourceType: self.getType().identifier // maybe include
-                )
+                ): "Unknown error emitting DFB.Withdrawn from Source \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -278,13 +276,13 @@ access(all) contract DFB {
         /// parameters. Implementations should no-op if a rebalance threshold has not been met
         access(all) fun rebalance() {
             post {
-                emit Rebalanced(
+                DFB.emitRebalanced(
                     beforeAmount: before(self.vaultBalance()),
                     afterAmount: self.vaultBalance(),
                     uniqueID: self.uniqueID?.id,
                     autoBalancerType: self.getType().identifier,
                     uuid: self.uuid,
-                )
+                ): "Unknown error emitting DFB.Rebalance from AutoBalancer \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
@@ -307,6 +305,70 @@ access(all) contract DFB {
         access(all) fun getBalancerSink(): {Sink}?
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
         access(Get) fun getBalancerSource(): {Source}?
+    }
+
+    /// Emits Deposited event if a change in balance is detected
+    access(self) view fun emitDeposited(
+        type: String,
+        beforeBalance: UFix64,
+        afterBalance: UFix64,
+        fromUUID: UInt64,
+        uniqueID: UInt64?,
+        sinkType: String
+    ): Bool {
+        if beforeBalance == afterBalance {
+            return true
+        }
+        emit Deposited(
+            type: type,
+            amount: beforeBalance > afterBalance ? beforeBalance - afterBalance : afterBalance - beforeBalance,
+            fromUUID: fromUUID,
+            uniqueID: uniqueID,
+            sinkType: sinkType
+        )
+        return true
+    }
+
+    /// Emits Withdrawn event if a change in balance is detected
+    access(self) view fun emitWithdrawn(
+        type: String,
+        amount: UFix64,
+        withdrawnUUID: UInt64,
+        uniqueID: UInt64?,
+        sourceType: String
+    ): Bool {
+        if amount == 0.0 {
+            return true
+        }
+        emit Withdrawn(
+            type: type,
+            amount: amount,
+            withdrawnUUID: withdrawnUUID,
+            uniqueID: uniqueID,
+            sourceType: sourceType
+        )
+        return true
+    }
+
+    /// Emits Rebalanced event if a change in balance is detected
+    access(self) view fun emitRebalanced(
+        beforeAmount: UFix64,
+        afterAmount: UFix64,
+        uniqueID: UInt64?,
+        autoBalancerType: String,
+        uuid: UInt64
+    ): Bool {
+        if beforeAmount == afterAmount {
+            return true
+        }
+        emit Rebalanced(
+            beforeAmount: beforeAmount,
+            afterAmount: afterAmount,
+            uniqueID: uniqueID,
+            autoBalancerType: autoBalancerType,
+            uuid: uuid
+        )
+        return true
     }
 
     init() {
