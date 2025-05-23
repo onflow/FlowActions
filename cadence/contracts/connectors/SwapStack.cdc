@@ -1,7 +1,5 @@
 import "Burner"
 import "FungibleToken"
-import "FungibleTokenStack"
-import "EVM"
 
 import "DFB"
 
