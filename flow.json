@@ -1,5 +1,11 @@
 {
 	"contracts": {
+		"BandOracleAdapters": {
+			"source": "cadence/contracts/adapters/BandOracleAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000007"
+			}
+		},
 		"DFB": {
 			"source": "cadence/contracts/interfaces/DFB.cdc",
 			"aliases": {
@@ -57,6 +63,15 @@
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
 				"testnet": "dfc20aee650fcbdf"
+			}
+		},
+		"BandOracle": {
+			"source": "mainnet://6801a6222ebf784a.BandOracle",
+			"hash": "be8c986f46eccfe55a25447e1b7fa07e95769ac4ca11918833130a4bf3297b16",
+			"aliases": {
+				"mainnet": "6801a6222ebf784a",
+				"testing": "0000000000000007",
+				"testnet": "2c71de7af78d1adf"
 			}
 		},
 		"Burner": {
@@ -472,7 +487,8 @@
 				"StringUtils",
 				"ArrayUtils",
 				"ScopedFTProviders",
-				"FlowEVMBridgeResolver"
+				"FlowEVMBridgeResolver",
+				"BandOracle"
 			]
 		}
 	}
