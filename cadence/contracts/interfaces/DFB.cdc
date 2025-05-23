@@ -17,6 +17,8 @@ import "FungibleToken"
 ///
 access(all) contract DFB {
 
+    access(all) var currentID: UInt64
+
     /* --- INTERFACE-LEVEL EVENTS --- */
 
     /// Emitted when value is deposited to a Sink
@@ -24,7 +26,6 @@ access(all) contract DFB {
         type: String,
         amount: UFix64,
         inUUID: UInt64,
-        uniqueIDType: String?,
         uniqueID: UInt64?,
         sinkType: String
     )
@@ -33,7 +34,6 @@ access(all) contract DFB {
         type: String,
         amount: UFix64,
         outUUID: UInt64,
-        uniqueIDType: String?,
         uniqueID: UInt64?,
         sourceType: String
     )
@@ -45,7 +45,6 @@ access(all) contract DFB {
         outAmount: UFix64,
         inUUID: UInt64,
         outUUID: UInt64,
-        uniqueIDType: String?,
         uniqueID: UInt64?,
         swapperType: String
     )
@@ -54,7 +53,6 @@ access(all) contract DFB {
         beforeAmount: UFix64,
         afterAmount: UFix64,
         uniqueID: UInt64?,
-        uniqueIDType: String?,
         autoBalancerType: String,
         uuid: UInt64
     )
@@ -62,8 +60,12 @@ access(all) contract DFB {
     /// This interface enables protocols to trace stack operations via the interface-level events, identifying their
     /// UniqueIdentifier types and IDs. Implementations should ensure ID values are unique on initialization.
     ///
-    access(all) struct interface UniqueIdentifier {
+    access(all) struct UniqueIdentifier { // make concrete
         access(all) let id: UInt64
+        init() {
+            self.id = DFB.currentID
+            DFB.currentID = DFB.currentID + 1
+        }
     }
 
     /// A struct interface containing a UniqueIdentifier an convenience getters about it
@@ -71,7 +73,7 @@ access(all) contract DFB {
     access(all) struct interface IdentifiableStruct {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {UniqueIdentifier}?
+        access(contract) let uniqueID: UniqueIdentifier?
         /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
         /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
         /// for critical identification
@@ -93,6 +95,8 @@ access(all) contract DFB {
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
     access(all) struct interface Sink : IdentifiableStruct {
+        // TODO - conditional event emission
+        // access(contract) view fun emitDeposited(beforeBalance: UFix64) {} - change scope if needed
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
@@ -103,10 +107,9 @@ access(all) contract DFB {
                 emit Deposited(
                     type: from.getType().identifier,
                     amount: before(from.balance) >= from.balance ? before(from.balance) - from.balance : 0.0,
-                    inUUID: from.uuid,
-                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    inUUID: from.uuid, // fromUUID
                     uniqueID: self.uniqueID?.id ?? nil,
-                    sinkType: self.getType().identifier
+                    sinkType: self.getType().identifier // maybe include
                 )
             }
         }
@@ -127,13 +130,13 @@ access(all) contract DFB {
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
+                // TODO - conditional emit
                 emit Withdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
-                    outUUID: result.uuid,
-                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
+                    outUUID: result.uuid, // toUUID
                     uniqueID: self.uniqueID?.id ?? nil,
-                    sourceType: self.getType().identifier
+                    sourceType: self.getType().identifier // maybe include
                 )
             }
         }
@@ -145,7 +148,7 @@ access(all) contract DFB {
     ///
     access(all) struct interface Quote {
         /// The quoted pre-swap Vault type
-        access(all) let inVault: Type
+        access(all) let inVault: Type // TODO: make naming consistent
         /// The quoted post-swap Vault type
         access(all) let outVault: Type
         /// The quoted amount of pre-swap currency
@@ -157,20 +160,24 @@ access(all) contract DFB {
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
     ///
+    // Feedback: Either commit to bi-directional
+    //      or one-way and accept edge case that swap may return more than requested
+    //          how common is this case?
     access(all) struct interface Swapper : IdentifiableStruct {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inVaultType(): Type
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outVaultType(): Type
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {Quote}
+        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {Quote} // fun quoteIn/Out
         /// The estimated amount delivered out for a provided input balance
         access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
+        // TODO: assign direction from quote quote/inVault type & remove swapBack
         access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre {
+            pre { // TODO update on new interface
                 inVault.getType() == self.inVaultType():
                 "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inVaultType().identifier)"
                 (quote?.inVault ?? inVault.getType()) == inVault.getType():
@@ -184,7 +191,6 @@ access(all) contract DFB {
                     outAmount: result.balance,
                     inUUID: before(inVault.uuid),
                     outUUID: result.uuid,
-                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
                     uniqueID: self.uniqueID?.id ?? nil,
                     swapperType: self.getType().identifier
                 )
@@ -193,6 +199,7 @@ access(all) contract DFB {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
+        // TODO: Impl detail - accept quote that was just used by swap() but reverse the direction assuming swap() was just called
         access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre {
                 residual.getType() == self.outVaultType():
@@ -208,7 +215,6 @@ access(all) contract DFB {
                     outAmount: result.balance,
                     inUUID: before(residual.uuid),
                     outUUID: result.uuid,
-                    uniqueIDType: self.uniqueID?.getType()?.identifier ?? nil,
                     uniqueID: self.uniqueID?.id ?? nil,
                     swapperType: self.getType().identifier
                 )
@@ -227,13 +233,12 @@ access(all) contract DFB {
         access(all) fun price(ofToken: Type): UFix64?
     }
 
-
     /// A resource interface containing a UniqueIdentifier an convenience getters about it
     ///
     access(all) resource interface IdentifiableResource {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {UniqueIdentifier}?
+        access(contract) let uniqueID: UniqueIdentifier?
         /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
         /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
         /// for critical identification
@@ -277,7 +282,6 @@ access(all) contract DFB {
                     beforeAmount: before(self.vaultBalance()),
                     afterAmount: self.vaultBalance(),
                     uniqueID: self.uniqueID?.id,
-                    uniqueIDType: self.uniqueID?.getType()?.identifier,
                     autoBalancerType: self.getType().identifier,
                     uuid: self.uuid,
                 )
@@ -303,5 +307,9 @@ access(all) contract DFB {
         access(all) fun getBalancerSink(): {Sink}?
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
         access(Get) fun getBalancerSource(): {Source}?
+    }
+
+    init() {
+        self.currentID = 0
     }
 }
