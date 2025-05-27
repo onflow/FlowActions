@@ -5,6 +5,10 @@ import "FungibleToken"
 import "DFB"
 import "DFBUtils"
 
+/// AutoBalancerAdapter
+///
+/// This contract defines an AutoBalancerAdapter
+///
 access(all) contract AutoBalancerAdapter {
 
     /// Emitted when an AutoBalancer is created
@@ -141,11 +145,11 @@ access(all) contract AutoBalancerAdapter {
         access(self) var _baseValue: UFix64 // var _valueOfDeposits
         /// The percentage range up or down from the base value at which the AutoBalancer will rebalance using the
         /// inner Source and/or Sink. Values between 0.01 and 0.1 are recommended
-        access(self) let _rebalanceRange: UFix64 // -> change to high/low fields 
+        access(self) let _rebalanceRange: UFix64 // -> change to high/low fields
         /// Oracle used to track the baseValue for deposits & withdrawals over time
-        access(self) let _oracle: {DFB.PriceOracle} // 
+        access(self) let _oracle: {DFB.PriceOracle} //
         /// The inner Vault's Type captured for the ResourceDestroyed event
-        access(self) let _vaultType: Type 
+        access(self) let _vaultType: Type
         /// Vault used to deposit & withdraw from made optional only so the Vault can be burned via Burner.burn() if the
         /// AutoBalancer is burned and the Vault's burnCallback() can be called in the process
         access(self) var _vault: @{FungibleToken.Vault}?
@@ -157,7 +161,6 @@ access(all) contract AutoBalancerAdapter {
         /// rebalance range
         access(self) var _inSource: {DFB.Source}? // var _rebalanceSource
         /// Capability on this AutoBalancer instance
-        // Feedback: can't issue cap on nested resource - remote storage tidal account; wrap in resource that issues cap on access to inner AB
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
         access(contract) let uniqueID: DFB.UniqueIdentifier?
@@ -234,11 +237,49 @@ access(all) contract AutoBalancerAdapter {
             return nil
         }
 
+        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        access(all) fun createBalancerSink(): {DFB.Sink}? {
+            if self._selfCap == nil || !self._selfCap!.check() {
+                return nil
+            }
+            return Sink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
+        }
+
+        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
+        access(DFB.Get) fun createBalancerSource(): {DFB.Source}? {
+            if self._selfCap == nil || !self._selfCap!.check() {
+                return nil
+            }
+            return Source(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
+        }
+
+        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
+        /// may wish to revert on call if a Sink is set on `init`
+        access(DFB.Set) fun setSink(_ sink: {DFB.Sink}?) {
+            self._outSink = sink
+        }
+
+        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
+        /// may wish to revert on call if a Source is set on `init`
+        access(DFB.Set) fun setSource(_ source: {DFB.Source}?) {
+            self._inSource = source
+        }
+
+        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
+        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
+        /// has been saved to account storage and an authorized Capability has been issued.
+        access(DFB.Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>) {
+            pre {
+                self._selfCap == nil || self._selfCap!.check() != true:
+                "Internal AutoBalancer Capability has been set and is still valid - cannot be re-assigned"
+            }
+            self._selfCap = cap
+        }
+
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. This method must be called by external party regularly in order for rebalancing to occur, hence
         /// the `access(all)` distinction.
-        // Feedback: make protected to prevent sandwich/frontrunning attacks
-        access(all) fun rebalance() { // force: Bool
+        access(DFB.Auto) fun rebalance(force: Bool) { // TODO: implement force param
             let currentPrice = self._oracle.price(ofToken: self._vaultType)
             if currentPrice == nil {
                 return
@@ -267,54 +308,6 @@ access(all) contract AutoBalancerAdapter {
                     vault.deposit(from: <-excess) // deposit any excess not taken by the Sink
                 }
             }
-        }
-
-        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
-        /// may wish to revert on call if a Sink is set on `init`
-        // Feedback: Should be possible to reset and/or remove - make optional `rebalanceSink`
-        access(DFB.Set) fun setSink(_ sink: {DFB.Sink}) {
-            pre {
-                self._outSink == nil: "AutoBalancer.outSink has already been set - cannot set again"
-            }
-            self._outSink = sink
-        }
-
-        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
-        /// may wish to revert on call if a Source is set on `init`
-        // Feedback: Should be possible to reset and/or remove - make optional
-        access(DFB.Set) fun setSource(_ source: {DFB.Source}) {
-            pre {
-                self._inSource == nil: "AutoBalancer.inSource has already been set - cannot set again"
-            }
-            self._inSource = source
-        }
-
-        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
-        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
-        /// has been saved to account storage and an authorized Capability has been issued.
-        access(DFB.Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>) {
-            pre {
-                self._selfCap == nil || self._selfCap!.check() != true:
-                "Internal AutoBalancer Capability has been set and is still valid - cannot be re-assigned"
-            }
-            self._selfCap = cap
-        }
-
-        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
-        // Feedback: rename to create*
-        access(all) fun getBalancerSink(): {DFB.Sink}? {
-            if self._selfCap == nil || !self._selfCap!.check() {
-                return nil
-            }
-            return Sink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
-        }
-
-        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
-        access(DFB.Get) fun getBalancerSource(): {DFB.Source}? {
-            if self._selfCap == nil || !self._selfCap!.check() {
-                return nil
-            }
-            return Source(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
         /* ViewResolver.Resolver conformance */
