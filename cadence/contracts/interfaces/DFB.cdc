@@ -81,12 +81,6 @@ access(all) contract DFB {
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
-        /// Convenience method returning the inner UniqueIdentifier's Type or `nil` if none is set.
-        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
-        access(all) view fun idType(): Type? {
-            return self.uniqueID?.getType()
-        }
     }
 
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
@@ -243,12 +237,6 @@ access(all) contract DFB {
         /// for critical identification
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
-        }
-        /// Convenience method returning the inner UniqueIdentifier's Type or `nil` if none is set.
-        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
-        access(all) view fun idType(): Type? {
-            return self.uniqueID?.getType()
         }
     }
 
