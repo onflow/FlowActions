@@ -62,13 +62,14 @@ access(all) contract DFB {
     ///
     access(all) struct UniqueIdentifier { // make concrete
         access(all) let id: UInt64
+
         init() {
             self.id = DFB.currentID
             DFB.currentID = DFB.currentID + 1
         }
     }
 
-    /// A struct interface containing a UniqueIdentifier an convenience getters about it
+    /// A struct interface containing a UniqueIdentifier and convenience getters about it
     ///
     access(all) struct interface IdentifiableStruct {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
@@ -146,9 +147,9 @@ access(all) contract DFB {
     ///
     access(all) struct interface Quote {
         /// The quoted pre-swap Vault type
-        access(all) let inVault: Type // TODO: make naming consistent
+        access(all) let inType: Type // TODO: make naming consistent
         /// The quoted post-swap Vault type
-        access(all) let outVault: Type
+        access(all) let outType: Type
         /// The quoted amount of pre-swap currency
         access(all) let inAmount: UFix64
         /// The quoted amount of post-swap currency for the defined inAmount
@@ -163,23 +164,23 @@ access(all) contract DFB {
     //          how common is this case?
     access(all) struct interface Swapper : IdentifiableStruct {
         /// The type of Vault this Swapper accepts when performing a swap
-        access(all) view fun inVaultType(): Type
+        access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
-        access(all) view fun outVaultType(): Type
+        access(all) view fun outType(): Type
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {Quote} // fun quoteIn/Out
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote} // fun quoteIn/Out
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {Quote}
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
         // TODO: assign direction from quote quote/inVault type & remove swapBack
         access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre { // TODO update on new interface
-                inVault.getType() == self.inVaultType():
-                "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inVaultType().identifier)"
-                (quote?.inVault ?? inVault.getType()) == inVault.getType():
-                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(inVault.getType().identifier)"
+                inVault.getType() == self.inType():
+                "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inType().identifier)"
+                (quote?.inType ?? inVault.getType()) == inVault.getType():
+                "Quote.inType type \(quote!.inType.identifier) does not match the provided inVault \(inVault.getType().identifier)"
             }
             post {
                 emit Swapped(
@@ -200,10 +201,10 @@ access(all) contract DFB {
         // TODO: Impl detail - accept quote that was just used by swap() but reverse the direction assuming swap() was just called
         access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre {
-                residual.getType() == self.outVaultType():
-                "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outVaultType().identifier)"
-                (quote?.inVault ?? residual.getType()) == residual.getType():
-                "Quote.inVault type \(quote!.inVault.identifier) does not match the provided inVault \(residual.getType().identifier)"
+                residual.getType() == self.outType():
+                "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outType().identifier)"
+                (quote?.inType ?? residual.getType()) == residual.getType():
+                "Quote.inType type \(quote!.inType.identifier) does not match the provided inVault \(residual.getType().identifier)"
             }
             post {
                 emit Swapped(
