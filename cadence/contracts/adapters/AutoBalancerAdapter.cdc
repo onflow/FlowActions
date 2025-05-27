@@ -8,7 +8,7 @@ import "DFBUtils"
 access(all) contract AutoBalancerAdapter {
 
     /// Emitted when an AutoBalancer is created
-    access(all) event Created(uuid: UInt64, vaultType: String, uniqueID: UInt64?, uniqueIDType: String?)
+    access(all) event Created(uuid: UInt64, vaultType: String, uniqueID: UInt64?)
 
     /// Returns an AutoBalancer wrapping the provided Vault.
     ///
@@ -25,7 +25,7 @@ access(all) contract AutoBalancerAdapter {
         rebalanceRange: UFix64,
         outSink: {DFB.Sink}?,
         inSource: {DFB.Source}?,
-        uniqueID: {DFB.UniqueIdentifier}?
+        uniqueID: DFB.UniqueIdentifier?
     ): @AutoBalancer {
         let ab <- create AutoBalancer(
             rebalanceRange: rebalanceRange,
@@ -35,7 +35,7 @@ access(all) contract AutoBalancerAdapter {
             inSource: inSource,
             uniqueID: uniqueID
         )
-        emit Created(uuid: ab.uuid, vaultType: ab.vaultType().identifier, uniqueID: ab.id(), uniqueIDType: ab.idType()?.identifier)
+        emit Created(uuid: ab.uuid, vaultType: ab.vaultType().identifier, uniqueID: ab.id())
         return <- ab
     }
 
@@ -51,9 +51,9 @@ access(all) contract AutoBalancerAdapter {
         access(self) let autoBalancer: Capability<&{DFB.AutoBalancer}>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
 
-        init(autoBalancer: Capability<&{DFB.AutoBalancer}>, uniqueID: {DFB.UniqueIdentifier}?) {
+        init(autoBalancer: Capability<&{DFB.AutoBalancer}>, uniqueID: DFB.UniqueIdentifier?) {
             pre {
                 autoBalancer.check():
                 "Invalid AutoBalancer Capability Provided"
@@ -95,9 +95,9 @@ access(all) contract AutoBalancerAdapter {
         access(self) let autoBalancer: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
 
-        init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>, uniqueID: {DFB.UniqueIdentifier}?) {
+        init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>, uniqueID: DFB.UniqueIdentifier?) {
             pre {
                 autoBalancer.check():
                 "Invalid AutoBalancer Capability Provided"
@@ -138,37 +138,35 @@ access(all) contract AutoBalancerAdapter {
     ///
     access(all) resource AutoBalancer : DFB.AutoBalancer {
         /// The value in deposits & withdrawals over time denominated in oracle.unitOfAccount()
-        access(self) var _baseValue: UFix64
+        access(self) var _baseValue: UFix64 // var _valueOfDeposits
         /// The percentage range up or down from the base value at which the AutoBalancer will rebalance using the
         /// inner Source and/or Sink. Values between 0.01 and 0.1 are recommended
-        access(self) let _rebalanceRange: UFix64
+        access(self) let _rebalanceRange: UFix64 // -> change to high/low fields 
         /// Oracle used to track the baseValue for deposits & withdrawals over time
-        access(self) let _oracle: {DFB.PriceOracle}
+        access(self) let _oracle: {DFB.PriceOracle} // 
         /// The inner Vault's Type captured for the ResourceDestroyed event
-        access(self) let _vaultType: Type
+        access(self) let _vaultType: Type 
         /// Vault used to deposit & withdraw from made optional only so the Vault can be burned via Burner.burn() if the
         /// AutoBalancer is burned and the Vault's burnCallback() can be called in the process
         access(self) var _vault: @{FungibleToken.Vault}?
         /// An optional Sink used to deposit excess funds from the inner Vault once the converted value exceeds the
         /// rebalance range. This Sink may be used to compound yield into a position or direct excess value to an
         /// external Vault
-        access(self) var _outSink: {DFB.Sink}?
+        access(self) var _outSink: {DFB.Sink}? // var _rebalanceSink
         /// An optional Source used to deposit excess funds to the inner Vault once the converted value is below the
         /// rebalance range
-        access(self) var _inSource: {DFB.Source}?
+        access(self) var _inSource: {DFB.Source}? // var _rebalanceSource
         /// Capability on this AutoBalancer instance
+        // Feedback: can't issue cap on nested resource - remote storage tidal account; wrap in resource that issues cap on access to inner AB
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &{DFB.AutoBalancer}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
-        /// The type of a uniqueID (if one is provided on init) captured for the ResourceDestroyed event
-        access(self) let uniqueIDType: Type?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
 
         /// Emitted when the AutoBalancer is destroyed
         access(all) event ResourceDestroyed(
             uuid: UInt64 = self.uuid,
             vaultType: String = self._vaultType.identifier,
             balance: UFix64? = self._vault?.balance,
-            uniqueIDType: String? = self.uniqueIDType?.identifier,
             uniqueID: UInt64? = self.uniqueID?.id
         )
 
@@ -178,7 +176,7 @@ access(all) contract AutoBalancerAdapter {
             vault: @{FungibleToken.Vault},
             outSink: {DFB.Sink}?,
             inSource: {DFB.Source}?,
-            uniqueID: {DFB.UniqueIdentifier}?
+            uniqueID: DFB.UniqueIdentifier?
         ) {
             pre {
                 0.01 <= rebalanceRange && rebalanceRange <= 1.0:
@@ -199,7 +197,6 @@ access(all) contract AutoBalancerAdapter {
             self._inSource = inSource
             self._selfCap = nil
             self.uniqueID = uniqueID
-            self.uniqueIDType = self.uniqueID?.getType()
         }
 
         /* DFB.AutoBalancer conformance */
@@ -240,7 +237,8 @@ access(all) contract AutoBalancerAdapter {
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. This method must be called by external party regularly in order for rebalancing to occur, hence
         /// the `access(all)` distinction.
-        access(all) fun rebalance() {
+        // Feedback: make protected to prevent sandwich/frontrunning attacks
+        access(all) fun rebalance() { // force: Bool
             let currentPrice = self._oracle.price(ofToken: self._vaultType)
             if currentPrice == nil {
                 return
@@ -264,7 +262,7 @@ access(all) contract AutoBalancerAdapter {
                 let excess <- vault.withdraw(amount: amount)
                 self._outSink!.depositCapacity(from: &excess as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 if excess.balance == 0.0 {
-                    Burner.burn(<-excess)
+                    Burner.burn(<-excess) // could destroy
                 } else {
                     vault.deposit(from: <-excess) // deposit any excess not taken by the Sink
                 }
@@ -273,6 +271,7 @@ access(all) contract AutoBalancerAdapter {
 
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
         /// may wish to revert on call if a Sink is set on `init`
+        // Feedback: Should be possible to reset and/or remove - make optional `rebalanceSink`
         access(DFB.Set) fun setSink(_ sink: {DFB.Sink}) {
             pre {
                 self._outSink == nil: "AutoBalancer.outSink has already been set - cannot set again"
@@ -282,6 +281,7 @@ access(all) contract AutoBalancerAdapter {
 
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
         /// may wish to revert on call if a Source is set on `init`
+        // Feedback: Should be possible to reset and/or remove - make optional
         access(DFB.Set) fun setSource(_ source: {DFB.Source}) {
             pre {
                 self._inSource == nil: "AutoBalancer.inSource has already been set - cannot set again"
@@ -301,6 +301,7 @@ access(all) contract AutoBalancerAdapter {
         }
 
         /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        // Feedback: rename to create*
         access(all) fun getBalancerSink(): {DFB.Sink}? {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
@@ -358,6 +359,7 @@ access(all) contract AutoBalancerAdapter {
             if let price = self._oracle.price(ofToken: from.getType()) {
                 self._baseValue = self._baseValue + price * from.balance
             }
+            // TODO: revert without price; (use weighted adjusted cost basis)!; set baseValue to sentinel & recompute next deposit
             self._borrowVault().deposit(from: <-from)
         }
 
@@ -365,6 +367,7 @@ access(all) contract AutoBalancerAdapter {
         /// (denominated in unitOfAccount) of the token amount. If a price is not available via the internal
         /// PriceOracle, base value updates are bypassed to prevent reversion
         access(FungibleToken.Withdraw) fun withdraw(amount: UFix64): @{FungibleToken.Vault} {
+            // NOTES: won't look at oracle - adjust valueOfDeposits proportionate to balance withdrawn
             if let price = self._oracle.price(ofToken: self._vaultType) {
                 let baseAmount = price * amount
                 // protect underflow by reassigning _baseValue to the current value post-withdrawal - only encountered if

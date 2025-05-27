@@ -19,14 +19,14 @@ access(all) contract FungibleTokenStack {
         access(all) let maximumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
             max: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>,
-            uniqueID: {DFB.UniqueIdentifier}?
+            uniqueID: DFB.UniqueIdentifier?
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
@@ -71,14 +71,14 @@ access(all) contract FungibleTokenStack {
         access(all) let minimumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: {DFB.UniqueIdentifier}?
+            uniqueID: DFB.UniqueIdentifier?
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
@@ -126,7 +126,7 @@ access(all) contract FungibleTokenStack {
         access(all) let vaultType: Type
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
@@ -134,7 +134,7 @@ access(all) contract FungibleTokenStack {
             min: UFix64?,
             max: UFix64?,
             vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: {DFB.UniqueIdentifier}?
+            uniqueID: DFB.UniqueIdentifier?
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"

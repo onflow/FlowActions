@@ -9,5 +9,5 @@ fun main(forProvided: UFix64, inVaultIdentifier: String, outVaultIdentifier: Str
         outVault: CompositeType(outVaultIdentifier) ?? panic("Invalid outVault \(outVaultIdentifier)"),
         uniqueID: nil
     )
-    return swapper.amountOut(forProvided: forProvided, reverse: false)
+    return swapper.quoteOut(forProvided: forProvided, reverse: false)
 }

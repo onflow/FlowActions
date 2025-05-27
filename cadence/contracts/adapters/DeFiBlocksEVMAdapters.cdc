@@ -26,7 +26,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: {DFB.UniqueIdentifier}?
+        access(contract) let uniqueID: DFB.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -40,7 +40,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: {DFB.UniqueIdentifier}?
+            uniqueID: DFB.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2: "Provided path with length of \(path.length) - path must contain at least two EVM addresses)"
@@ -62,11 +62,11 @@ access(all) contract DeFiBlocksEVMAdapters {
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
-        access(all) view fun inVaultType(): Type {
+        access(all) view fun inType(): Type {
             return self.inVault
         }
         /// The type of Vault this Swapper provides when performing a swap
-        access(all) view fun outVaultType(): Type {
+        access(all) view fun outType(): Type {
             return self.outVault
         }
         /// The estimated amount required to provide a Vault with the desired output balance returned as a BasicQuote
@@ -80,11 +80,11 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
-        access(all) fun amountIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
             let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
-                inVault: reverse ? self.outVaultType() : self.inVaultType(),
-                outVault: reverse ? self.inVaultType() : self.outVaultType(),
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountIn != nil ? amountIn! : 0.0,
                 outAmount: amountIn != nil ? forDesired : 0.0
             )
@@ -100,11 +100,11 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
-        access(all) fun amountOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
             let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
-                inVault: reverse ? self.outVaultType() : self.inVaultType(),
-                outVault: reverse ? self.inVaultType() : self.outVaultType(),
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountOut != nil ? forProvided : 0.0,
                 outAmount: amountOut != nil ? amountOut! : 0.0
             )
@@ -123,7 +123,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a Vault of type `outVault` containing the swapped currency.
         ///
         access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let amountOutMin = quote?.outAmount ?? self.amountOut(forProvided: inVault.balance, reverse: true).outAmount
+            let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
         }
 
@@ -141,7 +141,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a Vault of type `inVault` containing the swapped currency.
         ///
         access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let amountOutMin = quote?.outAmount ?? self.amountOut(forProvided: residual.balance, reverse: true).outAmount
+            let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(
                 exactVaultIn: <-residual,
                 amountOutMin: amountOutMin,
@@ -213,7 +213,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             let amountsOut = decoded[0] as! [UInt256]
 
             // withdraw tokens from EVM
-            let outVault <- coa.withdrawTokens(type: self.outVaultType(),
+            let outVault <- coa.withdrawTokens(type: self.outType(),
                     amount: amountsOut[amountsOut.length - 1],
                     feeProvider: feeVaultRef
                 )

@@ -152,10 +152,6 @@ access(all) contract DFB {
 
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
-    ///
-    // Feedback: Either commit to bi-directional
-    //      or one-way and accept edge case that swap may return more than requested
-    //          how common is this case?
     access(all) struct interface Swapper : IdentifiableStruct {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type
@@ -168,9 +164,8 @@ access(all) contract DFB {
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        // TODO: assign direction from quote quote/inVault type & remove swapBack
         access(all) fun swap(quote: {Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre { // TODO update on new interface
+            pre {
                 inVault.getType() == self.inType():
                 "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inType().identifier)"
                 (quote?.inType ?? inVault.getType()) == inVault.getType():
@@ -197,7 +192,7 @@ access(all) contract DFB {
             pre {
                 residual.getType() == self.outType():
                 "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outType().identifier)"
-                (quote?.inType ?? residual.getType()) == residual.getType():
+                (quote?.outType ?? residual.getType()) == residual.getType():
                 "Quote.inType type \(quote!.inType.identifier) does not match the provided inVault \(residual.getType().identifier)"
             }
             post {
