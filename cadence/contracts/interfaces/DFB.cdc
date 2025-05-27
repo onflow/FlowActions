@@ -17,10 +17,11 @@ import "FungibleToken"
 ///
 access(all) contract DFB {
 
+    /// The current ID assigned to UniqueIdentifiers as they are initialized
     access(all) var currentID: UInt64
 
     /* --- INTERFACE-LEVEL EVENTS --- */
-
+    //
     /// Emitted when value is deposited to a Sink
     access(all) event Deposited(
         type: String,
@@ -57,8 +58,9 @@ access(all) contract DFB {
         uuid: UInt64
     )
 
-    /// This interface enables protocols to trace stack operations via the interface-level events, identifying their
-    /// UniqueIdentifier types and IDs. Implementations should ensure ID values are unique on initialization.
+    /// This construct enables protocols to trace stack operations via DFB interface-level events, identifying them by
+    /// UniqueIdentifier IDs. Implementations should ensure that access to them is encapsulated by the structures they
+    /// are used to identify.
     ///
     access(all) struct UniqueIdentifier { // make concrete
         access(all) let id: UInt64
@@ -69,7 +71,7 @@ access(all) contract DFB {
         }
     }
 
-    /// A struct interface containing a UniqueIdentifier and convenience getters about it
+    /// A struct interface containing a UniqueIdentifier and convenience getter on the underlying ID value
     ///
     access(all) struct interface IdentifiableStruct {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
