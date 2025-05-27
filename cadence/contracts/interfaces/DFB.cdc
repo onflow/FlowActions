@@ -236,6 +236,7 @@ access(all) contract DFB {
     }
 
     /// Entitlement used by the AutoBalancer to set inner Sink and Source
+    access(all) entitlement Auto
     access(all) entitlement Set
     access(all) entitlement Get
 
@@ -256,9 +257,30 @@ access(all) contract DFB {
         access(all) view fun unitOfAccount(): Type
         /// Returns the current value of the inner Vault's balance
         access(all) fun currentValue(): UFix64?
+        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        access(all) fun createBalancerSink(): {Sink}?
+        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
+        access(Get) fun createBalancerSource(): {Source}?
+        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
+        /// may wish to revert on call if a Sink is set on `init`
+        access(Set) fun setSink(_ sink: {Sink}?)
+        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
+        /// may wish to revert on call if a Source is set on `init`
+        access(Set) fun setSource(_ source: {Source}?)
+        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
+        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
+        /// has been saved to account storage and an authorized Capability has been issued.
+        access(Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{AutoBalancer}>) {
+            pre {
+                cap.check(): "Invalid AutoBalancer Capability provided"
+                self.getType() == cap.borrow()!.getType() && self.uuid == cap.borrow()!.uuid:
+                "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - "
+                    .concat("provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)")
+            }
+        }
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. Implementations should no-op if a rebalance threshold has not been met
-        access(all) fun rebalance() {
+        access(Auto) fun rebalance(force: Bool) {
             post {
                 DFB.emitRebalanced(
                     beforeAmount: before(self.vaultBalance()),
@@ -269,27 +291,9 @@ access(all) contract DFB {
                 ): "Unknown error emitting DFB.Rebalance from AutoBalancer \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
-        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
-        /// may wish to revert on call if a Sink is set on `init`
-        access(Set) fun setSink(_ sink: {Sink})
-        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
-        /// may wish to revert on call if a Source is set on `init`
-        access(Set) fun setSource(_ source: {Source})
-        /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
-        /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
-        /// has been saved to account storage and an authorized Capability has been issued.
-        access(Set) fun setSelfCapability(_ cap: Capability<auth(FungibleToken.Withdraw) &{AutoBalancer}>) {
-            pre {
-                cap.check(): ""
-                self.getType() == cap.borrow()!.getType(): ""
-                self.uuid == cap.borrow()!.uuid: ""
-            }
-        }
-        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
-        access(all) fun getBalancerSink(): {Sink}?
-        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
-        access(Get) fun getBalancerSource(): {Source}?
     }
+
+    /* --- INTERNAL CONDITIONAL EVENT EMITTERS --- */
 
     /// Emits Deposited event if a change in balance is detected
     access(self) view fun emitDeposited(
