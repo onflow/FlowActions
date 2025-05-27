@@ -1,7 +1,6 @@
 import "FungibleToken"
 
 import "DFB"
-import "AutoBalancerAdapter"
 import "BandOracleAdapters"
 import "FungibleTokenStack"
 
@@ -43,7 +42,7 @@ transaction(
             )
 
             // construct the AutoBalancer & save in signer's account
-            let ab <- AutoBalancerAdapter.createAutoBalancer(
+            let ab <- DFB.createAutoBalancer(
                 oracle: oracle,
                 vault: <-tokenContract.createEmptyVault(vaultType: tokenType),
                 rebalanceRange: rebalanceRange,
@@ -53,15 +52,15 @@ transaction(
             )
             signer.storage.save(<-ab, to: storagePath)
             // publish public Capability
-            let cap = signer.capabilities.storage.issue<&{DFB.AutoBalancer}>(storagePath)
+            let cap = signer.capabilities.storage.issue<&DFB.AutoBalancer>(storagePath)
             signer.capabilities.unpublish(publicPath)
             signer.capabilities.publish(cap, at: publicPath)
         }
 
         // ensure proper configuration in storage and via published Capability
-        signer.storage.borrow<&{DFB.AutoBalancer}>(from: storagePath)
+        signer.storage.borrow<&DFB.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not configured properly at \(storagePath)")
-        signer.capabilities.borrow<&{DFB.AutoBalancer}>(publicPath)
+        signer.capabilities.borrow<&DFB.AutoBalancer>(publicPath)
             ?? panic("AutoBalancer Capability was not published to \(publicPath)")
     }
 }

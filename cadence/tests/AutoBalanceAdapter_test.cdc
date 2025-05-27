@@ -14,14 +14,14 @@ access(all) var tokenBIdentifier: String = ""
 
 access(all) fun setup() {
     var err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DFBUtils",
+        path: "../contracts/utils/DFBUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DFB",
+        path: "../contracts/interfaces/DFB.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -40,12 +40,6 @@ access(all) fun setup() {
     err = Test.deployContract(
         name: "BandOracleAdapters",
         path: "../contracts/adapters/BandOracleAdapters.cdc",
-        arguments: [],
-    )
-    Test.expect(err, Test.beNil())
-    err = Test.deployContract(
-        name: "AutoBalancerAdapter",
-        path: "../contracts/adapters/AutoBalancerAdapter.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -92,10 +86,6 @@ access(all) fun setup() {
             adapterAccount
         )
     Test.expect(symbolRes, Test.beSucceeded())
-}
-
-access(all) fun testSetupSucceeds() {
-    log("AutoBalancerAdapter deployment success")
 }
 
 access(all) fun testSetupAutoBalancerSucceeds() {

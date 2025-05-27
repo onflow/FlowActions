@@ -23,15 +23,15 @@ fun setup() {
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
-        arguments: []
-    )
-    Test.expect(err, Test.beNil())
-    err = Test.deployContract(
         name: "DFBUtils",
         path: "../contracts/utils/DFBUtils.cdc",
         arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "DFB",
+        path: "../contracts/interfaces/DFB.cdc",
+        arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(

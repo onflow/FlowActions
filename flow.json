@@ -1,11 +1,5 @@
 {
 	"contracts": {
-		"AutoBalancerAdapter": {
-			"source": "cadence/contracts/adapters/AutoBalancerAdapter.cdc",
-			"aliases": {
-				"testing": "0000000000000007"
-			}
-		},
 		"BandOracleAdapters": {
 			"source": "cadence/contracts/adapters/BandOracleAdapters.cdc",
 			"aliases": {
@@ -473,7 +467,6 @@
 				"StableSwapFactory",
 				"DFB",
 				"DFBUtils",
-				"AutoBalancerAdapter",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
 				"SwapPair",

@@ -28,6 +28,12 @@ fun setup() {
     uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
 
     var err = Test.deployContract(
+        name: "DFBUtils",
+        path: "../contracts/utils/DFBUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "DFB",
         path: "../contracts/interfaces/DFB.cdc",
         arguments: []
