@@ -70,6 +70,7 @@ access(all) contract DFB {
         isSurplus: Bool,
         vaultUUID: UInt64,
         balancerUUID: UInt64,
+        address: Address?,
         uniqueID: UInt64?
     )
 
@@ -89,8 +90,8 @@ access(all) contract DFB {
         vault: @{FungibleToken.Vault},
         lowerThreshold: UFix64,
         upperThreshold: UFix64,
-        outSink: {Sink}?,
-        inSource: {Source}?,
+        rebalanceSink: {Sink}?,
+        rebalanceSource: {Source}?,
         uniqueID: UniqueIdentifier?
     ): @AutoBalancer {
         let vaultUUID = vault.uuid
@@ -99,8 +100,8 @@ access(all) contract DFB {
             upper: upperThreshold,
             oracle: oracle,
             vault: <-vault,
-            outSink: outSink,
-            inSource: inSource,
+            outSink: rebalanceSink,
+            inSource: rebalanceSource,
             uniqueID: uniqueID
         )
         emit CreatedAutoBalancer(
@@ -641,6 +642,7 @@ access(all) contract DFB {
                     isSurplus: !isDeficit,
                     vaultUUID: self._borrowVault().uuid,
                     balancerUUID: self.uuid,
+                    address: self.owner?.address,
                     uniqueID: self.id()
                 )
             }

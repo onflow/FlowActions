@@ -38,7 +38,7 @@ transaction(
                 staleThreshold: staleThreshold,
                 feeSource: FungibleTokenStack.VaultSource(
                     min: nil,
-                    withdrawVault: signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault),
+                    withdrawVault: signer.capabili  ties.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault),
                     uniqueID: nil
                 )
             )
@@ -49,8 +49,8 @@ transaction(
                 vault: <-tokenContract.createEmptyVault(vaultType: tokenType),
                 lowerThreshold: lowerThreshold,
                 upperThreshold: upperThreshold,
-                outSink: nil,
-                inSource: nil,
+                rebalanceSink: nil,
+                rebalanceSource: nil,
                 uniqueID: nil
             )
             signer.storage.save(<-ab, to: storagePath)
