@@ -55,8 +55,8 @@ access(all) contract DFB {
     )
     /// Emitted when an AutoBalancer is created
     access(all) event CreatedAutoBalancer(
-        lower: UFix64,
-        upper: UFix64,
+        lowerThreshold: UFix64,
+        upperThreshold: UFix64,
         balancerUUID: UInt64,
         vaultType: String,
         vaultUUID: UInt64,
@@ -105,8 +105,8 @@ access(all) contract DFB {
             uniqueID: uniqueID
         )
         emit CreatedAutoBalancer(
-            lower: lowerThreshold,
-            upper: upperThreshold,
+            lowerThreshold: lowerThreshold,
+            upperThreshold: upperThreshold,
             balancerUUID: ab.uuid,
             vaultType: ab.vaultType().identifier,
             vaultUUID: vaultUUID,
