@@ -90,9 +90,11 @@ access(all) fun setup() {
 
 access(all) fun testSetupAutoBalancerSucceeds() {
     let user = Test.createAccount()
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
     let setupRes = executeTransaction(
             "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
-            [tokenAIdentifier, nil, 0.1, tokenBIdentifier, /storage/autoBalancerTest, /public/autoBalancerTest],
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, /storage/autoBalancerTest, /public/autoBalancerTest],
             user
         )
     Test.expect(setupRes, Test.beSucceeded())

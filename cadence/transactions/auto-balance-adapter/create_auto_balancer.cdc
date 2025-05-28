@@ -8,7 +8,8 @@ import "FungibleTokenStack"
 ///
 /// @param unitOfAccount: vault type denominating PriceOracle's price
 /// @param staleThreshold: seconds beyond which an oracle's price will be considered stale
-/// @param rebalanceRange: percentage from the AutoBalancer's base value at which a rebalance should execute
+/// @param lowerThreshold: the relative lower bound value ratio (>= 0.1 && < 1.0) where a rebalance will occur
+/// @param upperThreshold: the relative upper bound value ratio (> 1.0 && < 2.0) where a rebalance will occur
 /// @param vaultIdentifier: the Vault type which the AutoBalancer will contain
 /// @param storagePath: the storage path at which to save the AutoBalancer
 /// @param publicPath: the public path at which the AutoBalancer's public Capability should be published
@@ -16,7 +17,8 @@ import "FungibleTokenStack"
 transaction(
     unitOfAccount: String,
     staleThreshold: UInt64?,
-    rebalanceRange: UFix64,
+    lowerThreshold: UFix64,
+    upperThreshold: UFix64,
     vaultIdentifier: String,
     storagePath: StoragePath,
     publicPath: PublicPath
@@ -45,7 +47,8 @@ transaction(
             let ab <- DFB.createAutoBalancer(
                 oracle: oracle,
                 vault: <-tokenContract.createEmptyVault(vaultType: tokenType),
-                rebalanceRange: rebalanceRange,
+                lowerThreshold: lowerThreshold,
+                upperThreshold: upperThreshold,
                 outSink: nil,
                 inSource: nil,
                 uniqueID: nil

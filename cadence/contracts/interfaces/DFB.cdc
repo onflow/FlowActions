@@ -78,13 +78,15 @@ access(all) contract DFB {
     access(all) fun createAutoBalancer(
         oracle: {PriceOracle},
         vault: @{FungibleToken.Vault},
-        rebalanceRange: UFix64,
+        lowerThreshold: UFix64,
+        upperThreshold: UFix64,
         outSink: {Sink}?,
         inSource: {Source}?,
         uniqueID: UniqueIdentifier?
     ): @AutoBalancer {
         let ab <- create AutoBalancer(
-            rebalanceRange: rebalanceRange,
+            lower: lowerThreshold,
+            upper: upperThreshold,
             oracle: oracle,
             vault: <-vault,
             outSink: outSink,
@@ -378,12 +380,11 @@ access(all) contract DFB {
     ///
     access(all) resource AutoBalancer : IdentifiableResource, FungibleToken.Receiver, FungibleToken.Provider, ViewResolver.Resolver, Burner.Burnable {
         /// The value in deposits & withdrawals over time denominated in oracle.unitOfAccount()
-        access(self) var _baseValue: UFix64 // var _valueOfDeposits
-        /// The percentage range up or down from the base value at which the AutoBalancer will rebalance using the
-        /// inner Source and/or Sink. Values between 0.01 and 0.1 are recommended
-        access(self) let _rebalanceRange: UFix64 // -> change to high/low fields
+        access(self) var _valueOfDeposits: UFix64
+        /// The percentage low and high thresholds defining when a rebalance executes
+        access(self) var _rebalanceRange: [UFix64; 2]
         /// Oracle used to track the baseValue for deposits & withdrawals over time
-        access(self) let _oracle: {PriceOracle} //
+        access(self) let _oracle: {PriceOracle}
         /// The inner Vault's Type captured for the ResourceDestroyed event
         access(self) let _vaultType: Type
         /// Vault used to deposit & withdraw from made optional only so the Vault can be burned via Burner.burn() if the
@@ -392,10 +393,10 @@ access(all) contract DFB {
         /// An optional Sink used to deposit excess funds from the inner Vault once the converted value exceeds the
         /// rebalance range. This Sink may be used to compound yield into a position or direct excess value to an
         /// external Vault
-        access(self) var _outSink: {Sink}? // var _rebalanceSink
+        access(self) var _rebalanceSink: {Sink}?
         /// An optional Source used to deposit excess funds to the inner Vault once the converted value is below the
         /// rebalance range
-        access(self) var _inSource: {Source}? // var _rebalanceSource
+        access(self) var _rebalanceSource: {Source}?
         /// Capability on this AutoBalancer instance
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
@@ -410,7 +411,8 @@ access(all) contract DFB {
         )
 
         init(
-            rebalanceRange: UFix64,
+            lower: UFix64,
+            upper: UFix64,
             oracle: {PriceOracle},
             vault: @{FungibleToken.Vault},
             outSink: {Sink}?,
@@ -418,8 +420,8 @@ access(all) contract DFB {
             uniqueID: UniqueIdentifier?
         ) {
             pre {
-                0.01 <= rebalanceRange && rebalanceRange <= 1.0:
-                "Invalid rebalanceRange \(rebalanceRange) - relative range over baseValue must be between 0.01 and 1.0"
+                lower < upper && 0.01 <= lower && lower < 1.0 && 1.0 < upper && upper < 2.0:
+                "Invalid rebalanceRange [lower, upper]: [\(lower), \(upper)] - thresholds must be set such that 0.01 <= lower < 1.0 and 1.0 < upper < 2.0 relative to value of deposits"
                 vault.balance == 0.0:
                 "Vault \(vault.getType().identifier) has a non-zero balance - AutoBalancer must be initialized with an empty Vault"
                 DFBUtils.definingContractIsFungibleToken(vault.getType()):
@@ -427,13 +429,13 @@ access(all) contract DFB {
             }
             assert(oracle.price(ofToken: vault.getType()) != nil,
                 message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vault.getType().identifier)")
-            self._baseValue = 0.0
-            self._rebalanceRange = rebalanceRange
+            self._valueOfDeposits = 0.0
+            self._rebalanceRange = [lower, upper]
             self._oracle = oracle
             self._vault <- vault
             self._vaultType = self._vault.getType()
-            self._outSink = outSink
-            self._inSource = inSource
+            self._rebalanceSink = outSink
+            self._rebalanceSource = inSource
             self._selfCap = nil
             self.uniqueID = uniqueID
         }
@@ -450,14 +452,16 @@ access(all) contract DFB {
             return self._borrowVault().getType()
         }
 
-        /// Returns the percentage difference from baseValue at which the AutoBalancer executes a rebalance
-        access(all) view fun rebalanceThreshold(): UFix64 {
+        /// Returns the low and high rebalance thresholds as a fixed length UFix64 containing [low, high]
+        access(all) view fun rebalanceThresholds(): [UFix64; 2] {
             return self._rebalanceRange
         }
 
-        /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount
-        access(all) view fun baseValue(): UFix64 {
-            return self._baseValue
+        /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount.
+        /// The returned value is the value as tracked historically, not necessarily the current value of the inner
+        /// Vault's balance.
+        access(all) view fun valueOfDeposits(): UFix64 {
+            return self._valueOfDeposits
         }
 
         /// Returns the token Type serving as the price basis of this AutoBalancer
@@ -473,7 +477,8 @@ access(all) contract DFB {
             return nil
         }
 
-        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer
+        /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer. If the AutoBalancer's
+        /// Capability on itself is not set or is invalid, `nil` is returned.
         access(all) fun createBalancerSink(): {Sink}? {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
@@ -481,7 +486,8 @@ access(all) contract DFB {
             return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
-        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer
+        /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer. If the AutoBalancer's
+        /// Capability on itself is not set or is invalid, `nil` is returned.
         access(Get) fun createBalancerSource(): {Source}? {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
@@ -489,16 +495,14 @@ access(all) contract DFB {
             return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
-        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited. Implementations
-        /// may wish to revert on call if a Sink is set on `init`
+        /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
         access(Set) fun setSink(_ sink: {Sink}?) {
-            self._outSink = sink
+            self._rebalanceSink = sink
         }
 
-        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn. Implementations
-        /// may wish to revert on call if a Source is set on `init`
+        /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn
         access(Set) fun setSource(_ source: {Source}?) {
-            self._inSource = source
+            self._rebalanceSource = source
         }
 
         /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
@@ -516,9 +520,16 @@ access(all) contract DFB {
             self._selfCap = cap
         }
 
+        access(Set) fun setRebalanceRange(_ range: [UFix64; 2]) {
+            pre {
+                range[0] < range[1] && 0.01 <= range[0] && range[0] < 1.0 && 1.0 < range[1] && range[1] < 2.0:
+                "Invalid rebalanceRange [lower, upper]: [\(range[0]), \(range[1])] - thresholds must be set such that 0.01 <= range[0] < 1.0 and 1.0 < range[1] < 2.0 relative to value of deposits"
+            }
+            self._rebalanceRange = range
+        }
+
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
-        /// parameters. This method must be called by external party regularly in order for rebalancing to occur, hence
-        /// the `access(all)` distinction.
+        /// parameters. This method must be called by external party regularly in order for rebalancing to occur.
         access(Auto) fun rebalance(force: Bool) { // TODO: implement force param
             post {
                 DFB.emitRebalanced(
@@ -531,26 +542,30 @@ access(all) contract DFB {
             }
             let currentPrice = self._oracle.price(ofToken: self._vaultType)
             if currentPrice == nil {
-                return
+                return // no price available - do nothing
             }
             let currentValue = self.currentValue()!
-            let diff = currentValue < self._baseValue ? self._baseValue - currentValue : currentValue - self._baseValue
-            if (diff / self._baseValue) < self._rebalanceRange || currentPrice == 0.0 {
-                return // does not exceed rebalance percentage or price is below UFix precision - do nothing
+            // calculate the difference between the current value and the historical value of deposits
+            let diff: UFix64 = currentValue < self._valueOfDeposits ? self._valueOfDeposits - currentValue : currentValue - self._valueOfDeposits
+            // if deficit detected, choose lower threshold, otherwise choose upper threshold
+            let isDeficit = self._valueOfDeposits < currentValue
+            let threshold = isDeficit ? self._rebalanceRange[0] : self._rebalanceRange[1]
+            if currentPrice == 0.0 || ((diff / self._valueOfDeposits) < threshold && !force) {
+                return // division by zero, or difference does not exceed rebalance ratio (covers diff == 0.0) - do nothing
             }
 
             let vault = self._borrowVault()
             var amount = diff / currentPrice!
-            if currentValue < self._baseValue && self._inSource != nil {
-                // rebalance back up to baseline sourcing funds from _inSource
-                vault.deposit(from:  <- self._inSource!.withdrawAvailable(maxAmount: amount))
-            } else if currentValue > self._baseValue && self._outSink != nil {
-                // rebalance back down to baseline deposting excess to _outSink
+            if isDeficit && self._rebalanceSource != nil {
+                // rebalance back up to baseline sourcing funds from _rebalanceSource
+                vault.deposit(from:  <- self._rebalanceSource!.withdrawAvailable(maxAmount: amount))
+            } else if !isDeficit && self._rebalanceSink != nil {
+                // rebalance back down to baseline depositing excess to _rebalanceSink
                 if amount > vault.balance {
                     amount = vault.balance // protect underflow
                 }
                 let excess <- vault.withdraw(amount: amount)
-                self._outSink!.depositCapacity(from: &excess as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                self._rebalanceSink!.depositCapacity(from: &excess as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 if excess.balance == 0.0 {
                     Burner.burn(<-excess) // could destroy
                 } else {
@@ -599,7 +614,7 @@ access(all) contract DFB {
                 "Invalid Vault type \(from.getType().identifier) deposited - this AutoBalancer only accepts \(self.vaultType().identifier)"
             }
             if let price = self._oracle.price(ofToken: from.getType()) {
-                self._baseValue = self._baseValue + price * from.balance
+                self._valueOfDeposits = self._valueOfDeposits + price * from.balance
             }
             // TODO: revert without price; (use weighted adjusted cost basis)!; set baseValue to sentinel & recompute next deposit
             self._borrowVault().deposit(from: <-from)
@@ -612,9 +627,9 @@ access(all) contract DFB {
             // NOTES: won't look at oracle - adjust valueOfDeposits proportionate to balance withdrawn
             if let price = self._oracle.price(ofToken: self._vaultType) {
                 let baseAmount = price * amount
-                // protect underflow by reassigning _baseValue to the current value post-withdrawal - only encountered if
+                // protect underflow by reassigning _valueOfDeposits to the current value post-withdrawal - only encountered if
                 // price has increased rapidly and rebalance hasn't executed in a while
-                self._baseValue = baseAmount <= self._baseValue ? self._baseValue - baseAmount : self.currentValue()!
+                self._valueOfDeposits = baseAmount <= self._valueOfDeposits ? self._valueOfDeposits - baseAmount : self.currentValue()!
             }
             let withdrawn <- self._borrowVault().withdraw(amount: amount)
             return <- withdrawn
