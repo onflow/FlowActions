@@ -530,7 +530,11 @@ access(all) contract DFB {
 
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. This method must be called by external party regularly in order for rebalancing to occur.
-        access(Auto) fun rebalance(force: Bool) { // TODO: implement force param
+        ///
+        /// @param force: if false, rebalance will occur only when beyond upper or lower thresholds; if true, rebalance
+        ///     will execute as long as a price is available via the oracle and the current value is non-zero
+        ///
+        access(Auto) fun rebalance(force: Bool) {
             post {
                 DFB.emitRebalanced(
                     beforeAmount: before(self.vaultBalance()),
@@ -542,7 +546,7 @@ access(all) contract DFB {
             }
             let currentPrice = self._oracle.price(ofToken: self._vaultType)
             if currentPrice == nil {
-                return // no price available - do nothing
+                return // no price available -> do nothing
             }
             let currentValue = self.currentValue()!
             // calculate the difference between the current value and the historical value of deposits
@@ -550,8 +554,9 @@ access(all) contract DFB {
             // if deficit detected, choose lower threshold, otherwise choose upper threshold
             let isDeficit = self._valueOfDeposits < currentValue
             let threshold = isDeficit ? self._rebalanceRange[0] : self._rebalanceRange[1]
-            if currentPrice == 0.0 || ((diff / self._valueOfDeposits) < threshold && !force) {
-                return // division by zero, or difference does not exceed rebalance ratio (covers diff == 0.0) - do nothing
+            if currentPrice == 0.0 || diff == 0.0 || ((diff / self._valueOfDeposits) < threshold && !force) {
+                // division by zero, no difference, or difference does not exceed rebalance ratio & not forced -> no-op
+                return
             }
 
             let vault = self._borrowVault()
