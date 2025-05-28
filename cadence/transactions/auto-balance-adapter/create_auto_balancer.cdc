@@ -8,7 +8,7 @@ import "FungibleTokenStack"
 ///
 /// @param unitOfAccount: vault type denominating PriceOracle's price
 /// @param staleThreshold: seconds beyond which an oracle's price will be considered stale
-/// @param lowerThreshold: the relative lower bound value ratio (>= 0.1 && < 1.0) where a rebalance will occur
+/// @param lowerThreshold: the relative lower bound value ratio (>= 0.01 && < 1.0) where a rebalance will occur
 /// @param upperThreshold: the relative upper bound value ratio (> 1.0 && < 2.0) where a rebalance will occur
 /// @param vaultIdentifier: the Vault type which the AutoBalancer will contain
 /// @param storagePath: the storage path at which to save the AutoBalancer
