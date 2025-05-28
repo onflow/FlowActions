@@ -678,23 +678,23 @@ access(all) contract DFB {
 
         /// Deposits the provided Vault to the nested Vault if it is of the same Type, reverting otherwise. In the
         /// process, the current value of the deposited amount (denominated in unitOfAccount) increments the
-        /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, base value updates are
-        /// bypassed to prevent reversion
+        /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, an average price is
+        /// calculated base on the inner vault balance & valueOfDeposits and valueOfDeposits is incremented by the
+        /// value of the deposited vault on the basis of that average
         access(all) fun deposit(from: @{FungibleToken.Vault}) {
             pre {
                 from.getType() == self.vaultType():
                 "Invalid Vault type \(from.getType().identifier) deposited - this AutoBalancer only accepts \(self.vaultType().identifier)"
             }
-            if let price = self._oracle.price(ofToken: from.getType()) {
-                self._valueOfDeposits = self._valueOfDeposits + price * from.balance
-            }
-            // TODO: revert without price; (use weighted adjusted cost basis)!; set baseValue to sentinel & recompute next deposit
+            // if no price available use an average price based on historical value of deposits and inner vault balance
+            let price = self._oracle.price(ofToken: from.getType()) ?? (self.valueOfDeposits() / self.vaultBalance())
+            self._valueOfDeposits = self._valueOfDeposits + (from.balance * price)
             self._borrowVault().deposit(from: <-from)
         }
 
         /// Returns the requested amount of the nested Vault type, reducing the baseValue by the current value
-        /// (denominated in unitOfAccount) of the token amount. If a price is not available via the internal
-        /// PriceOracle, base value updates are bypassed to prevent reversion
+        /// (denominated in unitOfAccount) of the token amount. The AutoBalancer's valueOfDeposits is decremented
+        /// in proportion to the amount withdrawn relative to the inner Vault's balance.
         access(FungibleToken.Withdraw) fun withdraw(amount: UFix64): @{FungibleToken.Vault} {
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
             self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
