@@ -487,6 +487,18 @@ fun setupBridge(bridgeAccount: Test.TestAccount, serviceAccount: Test.TestAccoun
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
+        name: "FlowEVMBridgeCustomAssociationTypes",
+        path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeCustomAssociationTypes.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "FlowEVMBridgeCustomAssociations",
+        path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeCustomAssociations.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "FlowEVMBridgeConfig",
         path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeConfig.cdc",
         arguments: []
