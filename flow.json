@@ -154,14 +154,18 @@
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeCustomAssociationTypes",
 			"hash": "12bf631191d7d2c2621f002e616cfeb8319c58e753ecccd08f516315149e2066",
 			"aliases": {
-				"mainnet": "1e4aa0b87d10b141"
+				"mainnet": "1e4aa0b87d10b141",
+				"testing": "0000000000000007",
+				"testnet": "dfc20aee650fcbdf"
 			}
 		},
 		"FlowEVMBridgeCustomAssociations": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeCustomAssociations",
 			"hash": "984e237c8ea3a97a987b9b502e542b4f22fa55feb74ecc6aaee245a50b287fc4",
 			"aliases": {
-				"mainnet": "1e4aa0b87d10b141"
+				"mainnet": "1e4aa0b87d10b141",
+				"testing": "0000000000000007",
+				"testnet": "dfc20aee650fcbdf"
 			}
 		},
 		"FlowEVMBridgeHandlerInterfaces": {
