@@ -38,7 +38,7 @@ transaction(
                 staleThreshold: staleThreshold,
                 feeSource: FungibleTokenStack.VaultSource(
                     min: nil,
-                    withdrawVault: signer.capabili  ties.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault),
+                    withdrawVault: signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault),
                     uniqueID: nil
                 )
             )
