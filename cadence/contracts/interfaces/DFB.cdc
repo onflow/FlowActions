@@ -253,8 +253,6 @@ access(all) contract DFB {
             pre {
                 residual.getType() == self.outType():
                 "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outType().identifier)"
-                (quote?.outType ?? residual.getType()) == residual.getType():
-                "Quote.inType type \(quote!.inType.identifier) does not match the provided inVault \(residual.getType().identifier)"
             }
             post {
                 emit Swapped(
