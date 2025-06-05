@@ -22,6 +22,7 @@ access(all) contract DFB {
     /* --- FIELDS --- */
 
     /// The current ID assigned to UniqueIdentifiers as they are initialized
+    /// It is incremented by 1 every time a UniqueIdentifier is created so each ID is only ever used once
     access(all) var currentID: UInt64
 
     /* --- INTERFACE-LEVEL EVENTS --- */
@@ -390,7 +391,7 @@ access(all) contract DFB {
     access(all) entitlement Set
     access(all) entitlement Get
 
-    /// A resource interface designed to enable permissionless rebalancing of value around a wrapped Vault. An
+    /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
     /// AutoBalancer can be a critical component of DeFiBlocks stacks by allowing for strategies to compound, repay
     /// loans or direct accumulated value to other sub-systems and/or user Vaults.
     ///
@@ -398,6 +399,7 @@ access(all) contract DFB {
         /// The value in deposits & withdrawals over time denominated in oracle.unitOfAccount()
         access(self) var _valueOfDeposits: UFix64
         /// The percentage low and high thresholds defining when a rebalance executes
+        /// Index 0 is low, index 1 is high
         access(self) var _rebalanceRange: [UFix64; 2]
         /// Oracle used to track the baseValue for deposits & withdrawals over time
         access(self) let _oracle: {PriceOracle}

@@ -31,7 +31,7 @@ access(all) contract DFBUtils {
     access(all) fun getEmptyVault(_ vaultType: Type): @{FungibleToken.Vault} {
         pre {
             self.definingContractIsFungibleToken(vaultType):
-            "Invalid vault Type \(vaultType.identifier) requested - cannot fulfill an empty Vault of an invalid type"
+            "Invalid vault Type \(vaultType.identifier) requested - cannot create an empty Vault of an invalid type"
         }
         post {
             result.getType() == vaultType:
