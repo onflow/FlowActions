@@ -25,11 +25,9 @@ transaction(
 ) {
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
+        let tokenType = CompositeType(vaultIdentifier) ?? panic("Invalid vaultIdentifier \(vaultIdentifier)")
         if signer.storage.type(at: storagePath) == nil {
-            // get the Vault contract
-            let tokenType = CompositeType(vaultIdentifier) ?? panic("Invalid vaultIdentifier \(vaultIdentifier)")
-            let tokenContract = getAccount(tokenType.address!).contracts.borrow<&{FungibleToken}>(name: tokenType.contractName!)
-                ?? panic("Vault Type \(vaultIdentifier) is not defined by a FungibleToken conforming contract")
+            // construct the vault type
 
             // construct the AutoBalancer's oracle
             let unitOfAccount = CompositeType(unitOfAccount) ?? panic("Invalid unitOfAccount \(unitOfAccount)")
@@ -46,7 +44,7 @@ transaction(
             // construct the AutoBalancer & save in signer's account
             let ab <- DFB.createAutoBalancer(
                 oracle: oracle,
-                vault: <-tokenContract.createEmptyVault(vaultType: tokenType),
+                vaultType: tokenType,
                 lowerThreshold: lowerThreshold,
                 upperThreshold: upperThreshold,
                 rebalanceSink: nil,
@@ -61,9 +59,13 @@ transaction(
         }
 
         // ensure proper configuration in storage and via published Capability
-        signer.storage.borrow<&DFB.AutoBalancer>(from: storagePath)
+        let stored = signer.storage.borrow<&DFB.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not configured properly at \(storagePath)")
-        signer.capabilities.borrow<&DFB.AutoBalancer>(publicPath)
+        let public = signer.capabilities.borrow<&DFB.AutoBalancer>(publicPath)
             ?? panic("AutoBalancer Capability was not published to \(publicPath)")
+        assert(stored.vaultType() == tokenType,
+            message: "Expected configured AutoBalancer to manage \(vaultIdentifier) but stored AutoBalancer manages \(stored.vaultType().identifier)")
+        assert(public.vaultType() == tokenType,
+            message: "Expected configured AutoBalancer to manage \(vaultIdentifier) but publicly linked AutoBalancer manages \(public.vaultType().identifier)")
     }
 }

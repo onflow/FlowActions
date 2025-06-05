@@ -391,7 +391,7 @@ access(all) contract DFB {
             lower: UFix64,
             upper: UFix64,
             oracle: {PriceOracle},
-            vault: @{FungibleToken.Vault},
+            vaultType: Type,
             outSink: {Sink}?,
             inSource: {Source}?,
             uniqueID: UniqueIdentifier?
@@ -399,22 +399,29 @@ access(all) contract DFB {
             pre {
                 lower < upper && 0.01 <= lower && lower < 1.0 && 1.0 < upper && upper < 2.0:
                 "Invalid rebalanceRange [lower, upper]: [\(lower), \(upper)] - thresholds must be set such that 0.01 <= lower < 1.0 and 1.0 < upper < 2.0 relative to value of deposits"
-                vault.balance == 0.0:
-                "Vault \(vault.getType().identifier) has a non-zero balance - AutoBalancer must be initialized with an empty Vault"
-                DFBUtils.definingContractIsFungibleToken(vault.getType()):
-                "The contract defining Vault \(vault.getType().identifier) does not conform to FungibleToken contract interface"
+                DFBUtils.definingContractIsFungibleToken(vaultType):
+                "The contract defining Vault \(vaultType.identifier) does not conform to FungibleToken contract interface"
             }
-            assert(oracle.price(ofToken: vault.getType()) != nil,
-                message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vault.getType().identifier)")
+            assert(oracle.price(ofToken: vaultType) != nil,
+                message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vaultType.identifier)")
             self._valueOfDeposits = 0.0
             self._rebalanceRange = [lower, upper]
             self._oracle = oracle
-            self._vault <- vault
-            self._vaultType = self._vault.getType()
+            self._vault <- DFBUtils.getEmptyVault(vaultType)
+            self._vaultType = vaultType
             self._rebalanceSink = outSink
             self._rebalanceSource = inSource
             self._selfCap = nil
             self.uniqueID = uniqueID
+
+            emit CreatedAutoBalancer(
+                lowerThreshold: lower,
+                upperThreshold: upper,
+                balancerUUID: self.uuid,
+                vaultType: vaultType.identifier,
+                vaultUUID: self._borrowVault().uuid,
+                uniqueID: self.id()
+            )
         }
 
         /* Core AutoBalancer Functionality */
@@ -697,30 +704,21 @@ access(all) contract DFB {
     ///
     access(all) fun createAutoBalancer(
         oracle: {PriceOracle},
-        vault: @{FungibleToken.Vault},
+        vaultType: Type,
         lowerThreshold: UFix64,
         upperThreshold: UFix64,
         rebalanceSink: {Sink}?,
         rebalanceSource: {Source}?,
         uniqueID: UniqueIdentifier?
     ): @AutoBalancer {
-        let vaultUUID = vault.uuid
         let ab <- create AutoBalancer(
             lower: lowerThreshold,
             upper: upperThreshold,
             oracle: oracle,
-            vault: <-vault,
+            vaultType: vaultType,
             outSink: rebalanceSink,
             inSource: rebalanceSource,
             uniqueID: uniqueID
-        )
-        emit CreatedAutoBalancer(
-            lowerThreshold: lowerThreshold,
-            upperThreshold: upperThreshold,
-            balancerUUID: ab.uuid,
-            vaultType: ab.vaultType().identifier,
-            vaultUUID: vaultUUID,
-            uniqueID: ab.id()
         )
         return <- ab
     }
