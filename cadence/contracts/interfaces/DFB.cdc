@@ -75,47 +75,6 @@ access(all) contract DFB {
         uniqueID: UInt64?
     )
 
-    /* --- PUBLIC METHODS --- */
-
-    /// Returns an AutoBalancer wrapping the provided Vault.
-    ///
-    /// @param oracle: The oracle used to query deposited & withdrawn value and to determine if a rebalance should execute
-    /// @param vault: The Vault wrapped by the AutoBalancer
-    /// @param rebalanceRange: The percentage range from the AutoBalancer's base value at which a rebalance is executed
-    /// @param outSink: An optional DeFiBlocks Sink to which excess value is directed when rebalancing
-    /// @param inSource: An optional DeFiBlocks Source from which value is withdrawn to the inner vault when rebalancing
-    /// @param uniqueID: An optional DeFiBlocks UniqueIdentifier used for identifying rebalance events
-    ///
-    access(all) fun createAutoBalancer(
-        oracle: {PriceOracle},
-        vault: @{FungibleToken.Vault},
-        lowerThreshold: UFix64,
-        upperThreshold: UFix64,
-        rebalanceSink: {Sink}?,
-        rebalanceSource: {Source}?,
-        uniqueID: UniqueIdentifier?
-    ): @AutoBalancer {
-        let vaultUUID = vault.uuid
-        let ab <- create AutoBalancer(
-            lower: lowerThreshold,
-            upper: upperThreshold,
-            oracle: oracle,
-            vault: <-vault,
-            outSink: rebalanceSink,
-            inSource: rebalanceSource,
-            uniqueID: uniqueID
-        )
-        emit CreatedAutoBalancer(
-            lowerThreshold: lowerThreshold,
-            upperThreshold: upperThreshold,
-            balancerUUID: ab.uuid,
-            vaultType: ab.vaultType().identifier,
-            vaultUUID: vaultUUID,
-            uniqueID: ab.id()
-        )
-        return <- ab
-    }
-
     /* --- CONSTRUCTS --- */
 
     /// This construct enables protocols to trace stack operations via DFB interface-level events, identifying them by
@@ -723,6 +682,47 @@ access(all) contract DFB {
         access(self) view fun _borrowVault(): auth(FungibleToken.Withdraw) &{FungibleToken.Vault} {
             return (&self._vault)!
         }
+    }
+
+    /* --- PUBLIC METHODS --- */
+
+    /// Returns an AutoBalancer wrapping the provided Vault.
+    ///
+    /// @param oracle: The oracle used to query deposited & withdrawn value and to determine if a rebalance should execute
+    /// @param vault: The Vault wrapped by the AutoBalancer
+    /// @param rebalanceRange: The percentage range from the AutoBalancer's base value at which a rebalance is executed
+    /// @param outSink: An optional DeFiBlocks Sink to which excess value is directed when rebalancing
+    /// @param inSource: An optional DeFiBlocks Source from which value is withdrawn to the inner vault when rebalancing
+    /// @param uniqueID: An optional DeFiBlocks UniqueIdentifier used for identifying rebalance events
+    ///
+    access(all) fun createAutoBalancer(
+        oracle: {PriceOracle},
+        vault: @{FungibleToken.Vault},
+        lowerThreshold: UFix64,
+        upperThreshold: UFix64,
+        rebalanceSink: {Sink}?,
+        rebalanceSource: {Source}?,
+        uniqueID: UniqueIdentifier?
+    ): @AutoBalancer {
+        let vaultUUID = vault.uuid
+        let ab <- create AutoBalancer(
+            lower: lowerThreshold,
+            upper: upperThreshold,
+            oracle: oracle,
+            vault: <-vault,
+            outSink: rebalanceSink,
+            inSource: rebalanceSource,
+            uniqueID: uniqueID
+        )
+        emit CreatedAutoBalancer(
+            lowerThreshold: lowerThreshold,
+            upperThreshold: upperThreshold,
+            balancerUUID: ab.uuid,
+            vaultType: ab.vaultType().identifier,
+            vaultUUID: vaultUUID,
+            uniqueID: ab.id()
+        )
+        return <- ab
     }
 
     /* --- INTERNAL CONDITIONAL EVENT EMITTERS --- */
