@@ -698,9 +698,14 @@ access(all) contract DFB {
         /// (denominated in unitOfAccount) of the token amount. The AutoBalancer's valueOfDeposits is decremented
         /// in proportion to the amount withdrawn relative to the inner Vault's balance
         access(FungibleToken.Withdraw) fun withdraw(amount: UFix64): @{FungibleToken.Vault} {
+            pre {
+                amount <= self.vaultBalance(): "Withdraw amount \(amount) exceeds current vault balance \(self.vaultBalance())"
+            }
+            if amount == 0.0 {
+                return <- self._borrowVault().createEmptyVault()
+            }
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
-            let adjustment = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
-            self._valueOfDeposits = adjustment <= self._valueOfDeposits ? self._valueOfDeposits - adjustment : 0.0
+            self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
             return <- self._borrowVault().withdraw(amount: amount)
         }
 
