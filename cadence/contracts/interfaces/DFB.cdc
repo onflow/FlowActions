@@ -281,7 +281,7 @@ access(all) contract DFB {
         access(all) fun price(ofToken: Type): UFix64?
     }
 
-    /// A resource interface containing a UniqueIdentifier an convenience getters about it
+    /// A resource interface containing a UniqueIdentifier and convenience getters about it
     ///
     access(all) resource interface IdentifiableResource {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
