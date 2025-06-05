@@ -189,9 +189,9 @@ access(all) contract DFB {
                 DFB.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
-                    withdrawnUUID: result.uuid, // toUUID
+                    withdrawnUUID: result.uuid,
                     uniqueID: self.uniqueID?.id ?? nil,
-                    sourceType: self.getType().identifier // maybe include
+                    sourceType: self.getType().identifier
                 ): "Unknown error emitting DFB.Withdrawn from Source \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
