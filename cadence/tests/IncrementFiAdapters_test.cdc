@@ -23,6 +23,12 @@ fun setup() {
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
+        name: "DFBUtils",
+        path: "../contracts/utils/DFBUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "DFB",
         path: "../contracts/interfaces/DFB.cdc",
         arguments: []
@@ -91,7 +97,7 @@ fun testAdapterGetAmountsInSucceeds() {
     let outAmount = 1.0
     let path = [tokenAKey, tokenBKey]
     let amountsInRes = executeScript(
-            "../scripts/increment_fi_adapters/get_amounts_in.cdc",
+            "../scripts/increment-fi-adapters/get_amounts_in.cdc",
             [outAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsInRes, Test.beSucceeded())
@@ -104,7 +110,7 @@ fun testAdapterGetAmountsOutSucceeds() {
     let inAmount = 1.0
     let path = [tokenAKey, tokenBKey]
     let amountsOutRes = executeScript(
-            "../scripts/increment_fi_adapters/get_amounts_out.cdc",
+            "../scripts/increment-fi-adapters/get_amounts_out.cdc",
             [inAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())

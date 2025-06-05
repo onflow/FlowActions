@@ -12,6 +12,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"DFBUtils": {
+			"source": "cadence/contracts/utils/DFBUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiBlocksEVMAdapters": {
 			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
 			"aliases": {
@@ -87,7 +93,10 @@
 			"source": "mainnet://1d7e57aa55817448.CrossVMMetadataViews",
 			"hash": "dded0271279d3ca75f30b56f7552994d8b8bc4f75ef94a4a8d9d6b089e06c25c",
 			"aliases": {
-				"mainnet": "1d7e57aa55817448"
+				"mainnet": "1d7e57aa55817448",
+				"testing": "0000000000000007",
+				"testnet": "631e88ae7f1d7c20"
+
 			}
 		},
 		"CrossVMNFT": {
@@ -119,7 +128,7 @@
 		},
 		"FlowEVMBridge": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridge",
-			"hash": "343f27c27af6c75b2c541fee46339c857f2b8a9f1f37bdda0ffd01716d6f7f22",
+			"hash": "01ca127d0c7668b4d71fddd99a0ff527b7a95bc4d42074ba6a7cf63e62ba9841",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -128,7 +137,7 @@
 		},
 		"FlowEVMBridgeAccessor": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeAccessor",
-			"hash": "9508d6b691313f24e09be94d06efef478ecfd3689dccd2564a7ca31d24d89c0c",
+			"hash": "3976b314476838a624786be25c8ecd7af37b6aae2654e9db225c3c964100ce3f",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -137,7 +146,25 @@
 		},
 		"FlowEVMBridgeConfig": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeConfig",
-			"hash": "46bed1800c572ea9e4d9335fab73511fd7039889355da0f96b16f63bfc77f6f6",
+			"hash": "8cfbe61228b181a654ea45a26e79334f5907199801b94c4e639a67e2068160db",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141",
+				"testing": "0000000000000007",
+				"testnet": "dfc20aee650fcbdf"
+			}
+		},
+		"FlowEVMBridgeCustomAssociationTypes": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeCustomAssociationTypes",
+			"hash": "12bf631191d7d2c2621f002e616cfeb8319c58e753ecccd08f516315149e2066",
+			"aliases": {
+				"mainnet": "1e4aa0b87d10b141",
+				"testing": "0000000000000007",
+				"testnet": "dfc20aee650fcbdf"
+			}
+		},
+		"FlowEVMBridgeCustomAssociations": {
+			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeCustomAssociations",
+			"hash": "984e237c8ea3a97a987b9b502e542b4f22fa55feb74ecc6aaee245a50b287fc4",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -164,7 +191,7 @@
 		},
 		"FlowEVMBridgeNFTEscrow": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeNFTEscrow",
-			"hash": "ea7054bd06f978d09672ab2d6a1e7ad04df4b46410943088d555dd9ca6e64240",
+			"hash": "2881ec6db6dde705b2919185230890aba85b4e0cca4537721181588fba7ae4ad",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -200,7 +227,7 @@
 		},
 		"FlowEVMBridgeUtils": {
 			"source": "mainnet://1e4aa0b87d10b141.FlowEVMBridgeUtils",
-			"hash": "fd6f9ae5e6754a060f7eee8a59e7394d3c9a785ea3eb4cc1a415830c518274db",
+			"hash": "8582adc5ae360ab746dab61b0b4d00974ff05483679e838475d4577827e6fb01",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -299,7 +326,7 @@
 		},
 		"IFlowEVMNFTBridge": {
 			"source": "mainnet://1e4aa0b87d10b141.IFlowEVMNFTBridge",
-			"hash": "3d5bfa663a7059edee8c51d95bc454adf37f17c6d32be18eb42134b550e537b3",
+			"hash": "c6f5962bde2060b4490bd62c7a05e048536aab17e430cf6aa4e5b893b06f8302",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
@@ -460,6 +487,7 @@
 				"SwapInterfaces",
 				"StableSwapFactory",
 				"DFB",
+				"DFBUtils",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
 				"SwapPair",
@@ -488,7 +516,9 @@
 				"ArrayUtils",
 				"ScopedFTProviders",
 				"FlowEVMBridgeResolver",
-				"BandOracle"
+				"BandOracle",
+				"FlowEVMBridgeCustomAssociations",
+				"FlowEVMBridgeCustomAssociationTypes"
 			]
 		}
 	}

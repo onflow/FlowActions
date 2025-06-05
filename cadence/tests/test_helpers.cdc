@@ -86,7 +86,7 @@ fun createSwapPair(
     stableMode: Bool
 ) {
     let creationResult = _executeTransaction(
-        "../transactions/increment_fi/create_swap_pair.cdc",
+        "../transactions/increment-fi/create_swap_pair.cdc",
         [token0Identifier, token1Identifier, stableMode],
         signer
     )
@@ -108,7 +108,7 @@ fun addLiquidity(
     stableMode: Bool
 ){
     let mintResult = _executeTransaction(
-        "../transactions/increment_fi/add_liquidity.cdc",
+        "../transactions/increment-fi/add_liquidity.cdc",
         [token0Key, token1Key, token0InDesired, token1InDesired, token0InMin, token1InMin, deadline, token0VaultPath, token1VaultPath, stableMode],
         signer
     )
@@ -483,6 +483,18 @@ fun setupBridge(bridgeAccount: Test.TestAccount, serviceAccount: Test.TestAccoun
     err = Test.deployContract(
         name: "FlowEVMBridgeHandlerInterfaces",
         path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeHandlerInterfaces.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "FlowEVMBridgeCustomAssociationTypes",
+        path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeCustomAssociationTypes.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "FlowEVMBridgeCustomAssociations",
+        path: "../../imports/1e4aa0b87d10b141/FlowEVMBridgeCustomAssociations.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
