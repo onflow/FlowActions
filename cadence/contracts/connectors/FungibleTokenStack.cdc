@@ -99,7 +99,7 @@ access(all) contract FungibleTokenStack {
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
             if let vault = self.withdrawVault.borrow() {
-                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
+                return self.minimumBalance < vault.balance ? vault.balance - self.minimumBalance : 0.0
             }
             return 0.0
         }
