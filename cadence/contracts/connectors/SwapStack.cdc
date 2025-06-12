@@ -206,7 +206,7 @@ access(all) contract SwapStack {
 
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             let limit = self.sink.minimumCapacity()
-            if from.balance == 0.0 || limit == 0.0 || !from.getType().isInstance(self.getSinkType()) {
+            if from.balance == 0.0 || limit == 0.0 || from.getType() != self.getSinkType() {
                 return // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
             }
 
