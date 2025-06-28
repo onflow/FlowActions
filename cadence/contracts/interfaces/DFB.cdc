@@ -284,10 +284,7 @@ access(all) contract DFB {
         }
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
         access(all) fun minimumCapacity(): UFix64 {
-            if let ab = self.autoBalancer.borrow() {
-                return UFix64.max - ab.vaultBalance()
-            }
-            return 0.0
+            return self.autoBalancer.check() ? UFix64.max : 0.0
         }
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
@@ -569,7 +566,7 @@ access(all) contract DFB {
             // calculate the difference between the current value and the historical value of deposits
             var valueDiff: UFix64 = currentValue < self._valueOfDeposits ? self._valueOfDeposits - currentValue : currentValue - self._valueOfDeposits
             // if deficit detected, choose lower threshold, otherwise choose upper threshold
-            let isDeficit = self._valueOfDeposits < currentValue
+            let isDeficit = currentValue < self._valueOfDeposits
             let threshold = isDeficit ? self._rebalanceRange[0] : self._rebalanceRange[1]
             if currentPrice == 0.0 || valueDiff == 0.0 || ((valueDiff / self._valueOfDeposits) < threshold && !force) {
                 // division by zero, no difference, or difference does not exceed rebalance ratio & not forced -> no-op
