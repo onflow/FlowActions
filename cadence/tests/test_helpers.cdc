@@ -53,6 +53,27 @@ fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
     return res.returnValue as! UFix64?
 }
 
+access(all)
+fun getAutoBalancerBalance(address: Address, publicPath: PublicPath): UFix64? {
+    let res = _executeScript("../scripts/auto-balance-adapter/get_balance.cdc", [address, publicPath])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64?
+}
+
+access(all)
+fun getAutoBalancerCurrentValue(address: Address, publicPath: PublicPath): UFix64? {
+    let res = _executeScript("../scripts/auto-balance-adapter/get_current_value.cdc", [address, publicPath])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64?
+}
+
+access(all)
+fun getAutoBalancerValueOfDeposits(address: Address, publicPath: PublicPath): UFix64? {
+    let res = _executeScript("../scripts/auto-balance-adapter/get_value_of_deposits.cdc", [address, publicPath])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64?
+}
+
 /* --- Transaction Helpers --- */
 
 access(all)
@@ -76,10 +97,16 @@ fun setupGenericVault(signer: Test.TestAccount, vaultIdentifier: String) {
 }
 
 access(all)
-fun mintTestTokens(signer: Test.TestAccount, recipient: Address, amount: UFix64, minterStoragePath: StoragePath) {
+fun mintTestTokens(
+    signer: Test.TestAccount,
+    recipient: Address,
+    amount: UFix64,
+    minterStoragePath: StoragePath,
+    receiverPublicPath: PublicPath
+) {
     let mintResult = _executeTransaction(
         "./transactions/mint_tokens.cdc",
-        [recipient, amount, minterStoragePath],
+        [recipient, amount, minterStoragePath, receiverPublicPath],
         signer
     )
     Test.expect(mintResult, Test.beSucceeded())
@@ -120,6 +147,16 @@ fun addLiquidity(
         signer
     )
     Test.expect(mintResult, Test.beSucceeded())
+}
+
+access(all)
+fun rebalance(signer: Test.TestAccount, storagePath: StoragePath, force: Bool, beFailed: Bool) {
+    let rebalanceResult = _executeTransaction(
+        "../transactions/auto-balance-adapter/rebalance.cdc",
+        [storagePath, force],
+        signer
+    )
+    Test.expect(rebalanceResult, beFailed ? Test.beFailed() : Test.beSucceeded())
 }
 
 access(all)

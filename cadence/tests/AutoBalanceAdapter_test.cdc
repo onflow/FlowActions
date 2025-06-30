@@ -9,9 +9,11 @@ import "TokenB"
 
 access(all) let serviceAccount = Test.serviceAccount()
 access(all) let dfbAccount = Test.getAccount(0x0000000000000009)
+access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 
 access(all) let tokenAIdentifier: String = Type<@TokenA.Vault>().identifier // MockOracle's unitOfAccount
 access(all) let tokenBIdentifier: String = Type<@TokenB.Vault>().identifier
+access(all) let tokenBStartPrice: UFix64 = 2.0
 
 access(all) let autoBalancerStoragePath = /storage/autoBalancerTest
 access(all) let autoBalancerPublicPath = /public/autoBalancerTest
@@ -66,7 +68,7 @@ access(all) fun setup() {
     // set TokenB price in MockOracle
     let setRes = executeTransaction(
         "./transactions/mock-oracle/set_price.cdc",
-        [tokenBIdentifier, 2.0], // double the price of TokenA
+        [tokenBIdentifier, tokenBStartPrice], // double the price of TokenA
         dfbAccount
     )
     Test.expect(setRes, Test.beSucceeded())
@@ -152,4 +154,83 @@ access(all) fun test_SetRebalanceSourceSucceeds() {
 
     let tokenBBalance = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)
     Test.assertEqual(0.0, tokenBBalance!)
+}
+
+access(all) fun test_SetRebalanceToSinkSucceeds() {
+    Test.reset(to: snapshot)
+    let user = Test.createAccount()
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
+
+    let mintAmount = 100.0
+    let priceIncrease = 1.25
+
+    // setup the AutoBalancer
+    let setupRes = executeTransaction(
+            "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    // set the rebalanceSource targetting the TokenB Vault
+    let setRes = executeTransaction(
+            "../transactions/auto-balance-adapter/set_rebalance_sink_as_token_sink.cdc",
+            [tokenBIdentifier, nil, autoBalancerStoragePath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    // mint TokenB to the AutoBalancer
+    mintTestTokens(
+        signer: testTokenAccount,
+        recipient: user.address,
+        amount: mintAmount,
+        minterStoragePath: TokenB.AdminStoragePath,
+        receiverPublicPath: autoBalancerPublicPath
+    )
+
+    // ensure proper starting point based on the mint amount & starting price
+    let autoBalancerBalanceBefore = getAutoBalancerBalance(address: user.address, publicPath: autoBalancerPublicPath)!
+    let currentValueBefore = getAutoBalancerCurrentValue(address: user.address, publicPath: autoBalancerPublicPath)!
+    let valueOfDepositsBefore = getAutoBalancerValueOfDeposits(address: user.address, publicPath: autoBalancerPublicPath)!
+    Test.assertEqual(mintAmount, autoBalancerBalanceBefore)
+    Test.assertEqual(mintAmount * tokenBStartPrice, currentValueBefore)
+    Test.assertEqual(currentValueBefore, valueOfDepositsBefore)
+
+    // assert starting balance
+    let sinkTargetBalanceBefore = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)!
+    Test.assertEqual(0.0, sinkTargetBalanceBefore)
+
+    // set TokenB price in the mock oracle
+    let priceSetRes = executeTransaction(
+            "./transactions/mock-oracle/set_price.cdc",
+            [tokenBIdentifier, tokenBStartPrice * priceIncrease],
+            dfbAccount
+        )
+    Test.expect(priceSetRes, Test.beSucceeded())
+
+    // execute the rebalance - should push TokenB to rebalanceSink, directing tokens to user's TokenB Vault
+    rebalance(signer: user, storagePath: autoBalancerStoragePath, force: true, beFailed: false)
+
+    // ensure proper rebalance post-conditions
+    let sinkTargetBalanceAfter = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)!
+    let autoBalancerBalanceAfter = getAutoBalancerBalance(address: user.address, publicPath: autoBalancerPublicPath)!
+    let currentValueAfter = getAutoBalancerCurrentValue(address: user.address, publicPath: autoBalancerPublicPath)!
+    let valueOfDepositsAfter = getAutoBalancerValueOfDeposits(address: user.address, publicPath: autoBalancerPublicPath)!
+    Test.assertEqual(autoBalancerBalanceBefore, sinkTargetBalanceAfter + autoBalancerBalanceAfter)
+    Test.assertEqual(autoBalancerBalanceBefore / priceIncrease, autoBalancerBalanceAfter)
+    Test.assertEqual(currentValueBefore, currentValueAfter)
+    Test.assertEqual(valueOfDepositsBefore, valueOfDepositsAfter)
+
+    // ensure events emitted with proper values
+    let evts = Test.eventsOfType(Type<DFB.Rebalanced>())
+    Test.assertEqual(1, evts.length)
+    let evt = evts[0] as! DFB.Rebalanced
+    Test.assertEqual(true, evt.isSurplus)
+    Test.assertEqual(sinkTargetBalanceAfter, evt.amount)
+    Test.assertEqual(sinkTargetBalanceAfter * tokenBStartPrice * priceIncrease, evt.value)
+    Test.assertEqual(tokenAIdentifier, evt.unitOfAccount)
+    Test.assertEqual(tokenBIdentifier, evt.vaultType)
+    Test.assertEqual(nil, evt.uniqueID)
 }

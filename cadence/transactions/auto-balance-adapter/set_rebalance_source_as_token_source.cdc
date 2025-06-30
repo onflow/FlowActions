@@ -13,8 +13,8 @@ import "FungibleTokenStack"
 ///
 transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePath: StoragePath) {
 
-    var autoBalancer: auth(DFB.Set) &DFB.AutoBalancer
-    var vaultSource: FungibleTokenStack.VaultSource?
+    let autoBalancer: auth(DFB.Set) &DFB.AutoBalancer
+    let vaultSource: FungibleTokenStack.VaultSource?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         if vaultIdentifier != nil {
