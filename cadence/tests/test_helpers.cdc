@@ -46,6 +46,13 @@ fun getCOAAddressHex(atFlowAddress: Address): String {
     return coaAddressHex
 }
 
+access(all)
+fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
+    let res = _executeScript("../scripts/tokens/get_balance.cdc", [address, vaultPublicPath])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64?
+}
+
 /* --- Transaction Helpers --- */
 
 access(all)

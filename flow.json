@@ -30,6 +30,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"MockOracle": {
+			"source": "cadence/tests/contracts/MockOracle.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"IncrementFiAdapters": {
 			"source": "cadence/contracts/adapters/IncrementFiAdapters.cdc",
 			"aliases": {

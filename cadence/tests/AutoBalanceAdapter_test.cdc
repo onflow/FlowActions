@@ -2,15 +2,21 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
+import "DFB"
+
 import "TokenA"
 import "TokenB"
 
 access(all) let serviceAccount = Test.serviceAccount()
-access(all) let adapterAccount = Test.getAccount(0x0000000000000007)
-access(all) let bandOracleAccount = Test.getAccount(0x0000000000000007)
+access(all) let dfbAccount = Test.getAccount(0x0000000000000009)
 
-access(all) var tokenAIdentifier: String = ""
-access(all) var tokenBIdentifier: String = ""
+access(all) let tokenAIdentifier: String = Type<@TokenA.Vault>().identifier // MockOracle's unitOfAccount
+access(all) let tokenBIdentifier: String = Type<@TokenB.Vault>().identifier
+
+access(all) let autoBalancerStoragePath = /storage/autoBalancerTest
+access(all) let autoBalancerPublicPath = /public/autoBalancerTest
+
+access(all) var snapshot: UInt64 = 0
 
 access(all) fun setup() {
     var err = Test.deployContract(
@@ -28,18 +34,6 @@ access(all) fun setup() {
     err = Test.deployContract(
         name: "FungibleTokenStack",
         path: "../contracts/connectors/FungibleTokenStack.cdc",
-        arguments: [],
-    )
-    Test.expect(err, Test.beNil())
-    err = Test.deployContract(
-        name: "BandOracle",
-        path: "../../imports/6801a6222ebf784a/BandOracle.cdc",
-        arguments: [],
-    )
-    Test.expect(err, Test.beNil())
-    err = Test.deployContract(
-        name: "BandOracleAdapters",
-        path: "../contracts/adapters/BandOracleAdapters.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -62,40 +56,100 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
-
-    // add price data to BandOracle contract
-    let updateRes = executeTransaction(
-        "./transactions/band-oracle/update_data.cdc",
-        [{"A": UInt64(1500000000), "B": UInt64(3000000000)}],
-        bandOracleAccount
+    err = Test.deployContract(
+        name: "MockOracle",
+        path: "./contracts/MockOracle.cdc",
+        arguments: [tokenAIdentifier], // unitOfAccountIdentifier
     )
-    Test.expect(updateRes, Test.beSucceeded())
+    Test.expect(err, Test.beNil())
 
-    tokenAIdentifier = Type<@TokenA.Vault>().identifier
-    tokenBIdentifier = Type<@TokenB.Vault>().identifier
+    // set TokenB price in MockOracle
+    let setRes = executeTransaction(
+        "./transactions/mock-oracle/set_price.cdc",
+        [tokenBIdentifier, 2.0], // double the price of TokenA
+        dfbAccount
+    )
+    Test.expect(setRes, Test.beSucceeded())
 
-    var symbolRes = executeTransaction(
-            "../transactions/band-oracle-adapter/add_symbol.cdc",
-            ["A", tokenAIdentifier],
-            adapterAccount
-        )
-    Test.expect(symbolRes, Test.beSucceeded())
-    symbolRes = executeTransaction(
-            "../transactions/band-oracle-adapter/add_symbol.cdc",
-            ["B", tokenBIdentifier],
-            adapterAccount
-        )
-    Test.expect(symbolRes, Test.beSucceeded())
+    snapshot = getCurrentBlockHeight()
 }
 
-access(all) fun testSetupAutoBalancerSucceeds() {
+access(all) fun test_SetupAutoBalancerSucceeds() {
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
     let setupRes = executeTransaction(
             "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
-            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, /storage/autoBalancerTest, /public/autoBalancerTest],
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
             user
         )
     Test.expect(setupRes, Test.beSucceeded())
+
+    let evts = Test.eventsOfType(Type<DFB.CreatedAutoBalancer>())
+    Test.assertEqual(1, evts.length)
+    let evt = evts[0] as! DFB.CreatedAutoBalancer
+    Test.assertEqual(lowerThreshold, evt.lowerThreshold)
+    Test.assertEqual(upperThreshold, evt.upperThreshold)
+    Test.assertEqual(tokenBIdentifier, evt.vaultType)
+    Test.assertEqual(nil, evt.uniqueID)
+}
+
+access(all) fun test_SetRebalanceSinkSucceeds() {
+    Test.reset(to: snapshot)
+    let user = Test.createAccount()
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
+
+    // setup the AutoBalancer
+    let setupRes = executeTransaction(
+            "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    // set the rebalanceSource targetting the TokenB Vault
+    let setRes = executeTransaction(
+            "../transactions/auto-balance-adapter/set_rebalance_sink_as_token_sink.cdc",
+            [tokenBIdentifier, nil, autoBalancerStoragePath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    let tokenBBalance = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)
+    Test.assertEqual(0.0, tokenBBalance!)
+}
+
+access(all) fun test_SetRebalanceSourceSucceeds() {
+    Test.reset(to: snapshot)
+    let user = Test.createAccount()
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
+
+    // setup user with TokenB Vault
+    let vaultRes = executeTransaction(
+            "./transactions/test-tokens/setup_vault.cdc",
+            [tokenBIdentifier],
+            user
+        )
+    Test.expect(vaultRes, Test.beSucceeded())
+
+    // setup the AutoBalancer
+    let setupRes = executeTransaction(
+            "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    // set the rebalanceSource targetting the TokenB Vault
+    let setRes = executeTransaction(
+            "../transactions/auto-balance-adapter/set_rebalance_source_as_token_source.cdc",
+            [tokenBIdentifier, nil, autoBalancerStoragePath],
+            user
+        )
+    Test.expect(setRes, Test.beSucceeded())
+
+    let tokenBBalance = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)
+    Test.assertEqual(0.0, tokenBBalance!)
 }
