@@ -210,26 +210,26 @@ access(all) contract SwapStack {
                 return // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
             }
 
-            let quote = self.swapper.quoteIn(forDesired: from.balance, reverse: false)
-            let sinkLimit = quote.inAmount
+            let quote = self.swapper.quoteIn(forDesired: limit, reverse: false)
             let swapVault <- from.createEmptyVault()
-
-            if sinkLimit < swapVault.balance {
-                // The sink is limited to fewer tokens than we have available. Only swap
-                // the amount we need to meet the sink limit.
-                swapVault.deposit(from: <-from.withdraw(amount: sinkLimit))
-            } else {
-                // The sink can accept all of the available tokens, so we swap everything
+            if from.balance <= quote.inAmount  {
+                // sink can accept all of the available tokens, so we swap everything
                 swapVault.deposit(from: <-from.withdraw(amount: from.balance))
+            } else {
+                // sink is limited to fewer tokens than we have available - swap the amount we need to meet the limit
+                swapVault.deposit(from: <-from.withdraw(amount: quote.inAmount))
             }
 
+            // swap then deposit to the inner sink
             let swappedTokens <- self.swapper.swap(quote: quote, inVault: <-swapVault)
             self.sink.depositCapacity(from: &swappedTokens as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
             if swappedTokens.balance > 0.0 {
-                from.deposit(from: <-self.swapper.swapBack(quote: nil, residual: <-swappedTokens))
+                // swap back any residual to the originating vault
+                let residual <- self.swapper.swapBack(quote: nil, residual: <-swappedTokens)
+                from.deposit(from: <-residual)
             } else {
-                Burner.burn(<-swappedTokens)
+                Burner.burn(<-swappedTokens) // nothing left - burn & execute vault's burnCallback()
             }
         }
     }

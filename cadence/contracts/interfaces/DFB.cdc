@@ -69,6 +69,7 @@ access(all) contract DFB {
         value: UFix64,
         unitOfAccount: String,
         isSurplus: Bool,
+        vaultType: String,
         vaultUUID: UInt64,
         balancerUUID: UInt64,
         address: Address?,
@@ -283,11 +284,9 @@ access(all) contract DFB {
             return self.type
         }
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
+        /// can currently only be UFix64.max or 0.0
         access(all) fun minimumCapacity(): UFix64 {
-            if let ab = self.autoBalancer.borrow() {
-                return UFix64.max - ab.vaultBalance()
-            }
-            return 0.0
+            return self.autoBalancer.check() ? UFix64.max : 0.0
         }
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
@@ -569,8 +568,9 @@ access(all) contract DFB {
             // calculate the difference between the current value and the historical value of deposits
             var valueDiff: UFix64 = currentValue < self._valueOfDeposits ? self._valueOfDeposits - currentValue : currentValue - self._valueOfDeposits
             // if deficit detected, choose lower threshold, otherwise choose upper threshold
-            let isDeficit = self._valueOfDeposits < currentValue
-            let threshold = isDeficit ? self._rebalanceRange[0] : self._rebalanceRange[1]
+            let isDeficit = currentValue < self._valueOfDeposits
+            let threshold = isDeficit ? (1.0 - self._rebalanceRange[0]) : (self._rebalanceRange[1] - 1.0)
+
             if currentPrice == 0.0 || valueDiff == 0.0 || ((valueDiff / self._valueOfDeposits) < threshold && !force) {
                 // division by zero, no difference, or difference does not exceed rebalance ratio & not forced -> no-op
                 return
@@ -606,6 +606,7 @@ access(all) contract DFB {
                     value: valueDiff,
                     unitOfAccount: self.unitOfAccount().identifier,
                     isSurplus: !isDeficit,
+                    vaultType: self.vaultType().identifier,
                     vaultUUID: self._borrowVault().uuid,
                     balancerUUID: self.uuid,
                     address: self.owner?.address,

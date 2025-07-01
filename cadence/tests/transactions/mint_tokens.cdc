@@ -6,7 +6,7 @@ import "FungibleTokenMetadataViews"
 ///
 /// This transaction mints using the signer's TestTokenMinter.Minter
 ///
-transaction(recipient: Address, amount: UFix64, minterStoragePath: StoragePath) {
+transaction(recipient: Address, amount: UFix64, minterStoragePath: StoragePath, receiverPublicPath: PublicPath) {
 
     let tokenMinter: &{TestTokenMinter.Minter}
     let tokenReceiver: &{FungibleToken.Receiver}
@@ -24,7 +24,7 @@ transaction(recipient: Address, amount: UFix64, minterStoragePath: StoragePath) 
             ) as! FungibleTokenMetadataViews.FTVaultData?
             ?? panic("Could not get vault data view for the contract")
     
-        self.tokenReceiver = getAccount(recipient).capabilities.borrow<&{FungibleToken.Receiver}>(vaultData.receiverPath)
+        self.tokenReceiver = getAccount(recipient).capabilities.borrow<&{FungibleToken.Receiver}>(receiverPublicPath)
             ?? panic("Could not borrow receiver reference to the Vault")
     }
 

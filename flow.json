@@ -36,6 +36,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"MockOracle": {
+			"source": "cadence/tests/contracts/MockOracle.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"SwapStack": {
 			"source": "cadence/contracts/connectors/SwapStack.cdc",
 			"aliases": {
@@ -93,10 +99,9 @@
 			"source": "mainnet://1d7e57aa55817448.CrossVMMetadataViews",
 			"hash": "dded0271279d3ca75f30b56f7552994d8b8bc4f75ef94a4a8d9d6b089e06c25c",
 			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
 				"mainnet": "1d7e57aa55817448",
-				"testing": "0000000000000007",
 				"testnet": "631e88ae7f1d7c20"
-
 			}
 		},
 		"CrossVMNFT": {
