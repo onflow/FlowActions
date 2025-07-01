@@ -568,7 +568,8 @@ access(all) contract DFB {
             var valueDiff: UFix64 = currentValue < self._valueOfDeposits ? self._valueOfDeposits - currentValue : currentValue - self._valueOfDeposits
             // if deficit detected, choose lower threshold, otherwise choose upper threshold
             let isDeficit = currentValue < self._valueOfDeposits
-            let threshold = isDeficit ? self._rebalanceRange[0] : self._rebalanceRange[1]
+            let threshold = isDeficit ? (1.0 - self._rebalanceRange[0]) : (self._rebalanceRange[1] - 1.0)
+
             if currentPrice == 0.0 || valueDiff == 0.0 || ((valueDiff / self._valueOfDeposits) < threshold && !force) {
                 // division by zero, no difference, or difference does not exceed rebalance ratio & not forced -> no-op
                 return
