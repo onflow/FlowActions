@@ -69,14 +69,14 @@ fun setup() {
         recipient: pairCreatorAccount.address,
         amount: 100.0,
         minterStoragePath: TokenA.AdminStoragePath,
-        receiverPublicPath: TokenA.VaultPublicPath
+        receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
         amount: 200.0,
         minterStoragePath: TokenB.AdminStoragePath,
-        receiverPublicPath: TokenB.VaultPublicPath
+        receiverPublicPath: TokenB.ReceiverPublicPath
     )
 
     addLiquidity(
