@@ -284,6 +284,7 @@ access(all) contract DFB {
             return self.type
         }
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
+        /// can currently only be UFix64.max or 0.0
         access(all) fun minimumCapacity(): UFix64 {
             return self.autoBalancer.check() ? UFix64.max : 0.0
         }
