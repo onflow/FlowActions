@@ -18,8 +18,20 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"DFBMathUtils": {
+			"source": "cadence/contracts/utils/DFBMathUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiBlocksEVMAdapters": {
 			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"DFBv2": {
+			"source": "cadence/contracts/interfaces/DFBv2.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -32,6 +44,12 @@
 		},
 		"IncrementFiAdapters": {
 			"source": "cadence/contracts/adapters/IncrementFiAdapters.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"AutoBalancerV2Adapter": {
+			"source": "cadence/contracts/adapters/AutoBalancerV2Adapter.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
