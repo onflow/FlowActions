@@ -265,6 +265,14 @@ access(all) contract SwapStack {
                 : 0.0
         }
 
+        access(all) fun liquidationValue(): UFix64 {
+            // estimate post-conversion currency based on the source's pre-conversion balance available
+            let availableIn = self.source.liquidationValue()
+            return availableIn > 0.0
+                ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
+                : 0.0
+        }
+
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let minimumAvail = self.minimumAvailable()
             if minimumAvail == 0.0 || maxAmount == 0.0 {

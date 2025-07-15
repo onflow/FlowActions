@@ -104,6 +104,13 @@ access(all) contract FungibleTokenStack {
             return 0.0
         }
 
+        access(all) fun liquidationValue(): UFix64 {
+            if let vault = self.withdrawVault.borrow() {
+                return self.minimumBalance < vault.balance ? vault.balance - self.minimumBalance : 0.0
+            }
+            return 0.0
+        }
+
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
@@ -170,6 +177,13 @@ access(all) contract FungibleTokenStack {
 
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
+            if let vault = self.vault.borrow() {
+                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
+            }
+            return 0.0
+        }
+        /// Returns an estimate of how much of the associated Vault can be provided by this Source
+        access(all) fun liquidationValue(): UFix64 {
             if let vault = self.vault.borrow() {
                 return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
             }

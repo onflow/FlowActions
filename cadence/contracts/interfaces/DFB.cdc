@@ -142,6 +142,7 @@ access(all) contract DFB {
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
         access(all) fun minimumAvailable(): UFix64
+        access(all) fun liquidationValue(): UFix64
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
@@ -327,6 +328,13 @@ access(all) contract DFB {
         }
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
+            if let ab = self.autoBalancer.borrow() {
+                return ab.vaultBalance()
+            }
+            return 0.0
+        }
+
+        access(all) fun liquidationValue(): UFix64 {
             if let ab = self.autoBalancer.borrow() {
                 return ab.vaultBalance()
             }
