@@ -1,6 +1,6 @@
 import "FungibleToken"
 
-import "DFB"
+import "DeFiActions"
 
 /// Returns the current value of the tokens contained by an AutoBalancer at the specified address via the Capability
 /// published at the specified public path. `nil` may be returned if the AutoBalancer's PriceOracle cannot return a
@@ -11,7 +11,7 @@ import "DFB"
 ///
 access(all)
 fun main(address: Address, publicPath: PublicPath): UFix64? {
-    return getAccount(address).capabilities.borrow<&DFB.AutoBalancer>(publicPath)
+    return getAccount(address).capabilities.borrow<&DeFiActions.AutoBalancer>(publicPath)
         ?.currentValue()
         ?? panic("Could not find an AutoBalancer in address \(address) at path \(publicPath)")
 }

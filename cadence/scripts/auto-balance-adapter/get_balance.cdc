@@ -1,6 +1,6 @@
 import "FungibleToken"
 
-import "DFB"
+import "DeFiActions"
 
 /// Returns the balance of tokens contained by an AutoBalancer at the specified address via the Capability published
 /// at the specified public path. If no AutoBalancer is found, `nil` is returned.
@@ -10,7 +10,7 @@ import "DFB"
 ///
 access(all)
 fun main(address: Address, publicPath: PublicPath): UFix64? {
-    if let autoBalancer = getAccount(address).capabilities.borrow<&DFB.AutoBalancer>(publicPath) {
+    if let autoBalancer = getAccount(address).capabilities.borrow<&DeFiActions.AutoBalancer>(publicPath) {
         return autoBalancer.vaultBalance()
     }
     return nil

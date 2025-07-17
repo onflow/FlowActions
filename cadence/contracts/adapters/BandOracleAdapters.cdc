@@ -3,11 +3,15 @@ import "FungibleToken"
 import "FlowToken"
 import "BandOracle"
 
-import "DFB"
+import "DeFiActions"
 
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+///
 /// BandOracleAdapters
 ///
-/// This contract adapts BandOracle's price data oracle contracts for use as a DeFiBlocks PriceOracle connector
+/// This contract adapts BandOracle's price data oracle contracts for use as a DeFiActions PriceOracle connector
 ///
 access(all) contract BandOracleAdapters {
 
@@ -24,16 +28,16 @@ access(all) contract BandOracleAdapters {
 
     // PriceOracle
     //
-    /// An adapter for BandOracle as an implementation of the DeFiBlocks PriceOracle interface
-    access(all) struct PriceOracle : DFB.PriceOracle {
+    /// An adapter for BandOracle as an implementation of the DeFiActions PriceOracle interface
+    access(all) struct PriceOracle : DeFiActions.PriceOracle {
         /// The token type serving as the price basis - e.g. USD in FLOW/USD
         access(self) let quote: Type
         /// A Source providing the FlowToken necessary for BandOracle price data requests
-        access(self) let feeSource: {DFB.Source}
+        access(self) let feeSource: {DeFiActions.Source}
         /// The amount of seconds beyond which a price is considered stale and a price() call reverts
         access(self) let staleThreshold: UInt64?
 
-        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: {DFB.Source}) {
+        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: {DeFiActions.Source}) {
             pre {
                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"

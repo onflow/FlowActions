@@ -6,20 +6,20 @@
 				"testing": "0000000000000007"
 			}
 		},
-		"DFB": {
-			"source": "cadence/contracts/interfaces/DFB.cdc",
+		"DeFiActions": {
+			"source": "cadence/contracts/interfaces/DeFiActions.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
 		},
-		"DFBUtils": {
-			"source": "cadence/contracts/utils/DFBUtils.cdc",
+		"DeFiActionsUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiBlocksEVMAdapters": {
-			"source": "cadence/contracts/adapters/DeFiBlocksEVMAdapters.cdc",
+		"DeFiActionsEVMAdapters": {
+			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -491,8 +491,9 @@
 				"SwapConfig",
 				"SwapInterfaces",
 				"StableSwapFactory",
-				"DFB",
-				"DFBUtils",
+				"DeFiActions",
+				"DeFiActionsUtils",
+				"SwapStack",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
 				"SwapPair",

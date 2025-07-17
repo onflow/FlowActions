@@ -1,4 +1,4 @@
-import "DFB"
+import "DeFiActions"
 
 /// Rebalances the AutoBalancer stored at the specified path, forcing as defined
 ///
@@ -10,11 +10,11 @@ import "DFB"
 ///
 transaction(storagePath: StoragePath, force: Bool) {
     
-    let autoBalancer: auth(DFB.Auto) &DFB.AutoBalancer
+    let autoBalancer: auth(DeFiActions.Auto) &DeFiActions.AutoBalancer
 
     prepare(signer: auth(BorrowValue) &Account) {
         // assign the AutoBalancer
-        self.autoBalancer = signer.storage.borrow<auth(DFB.Auto) &DFB.AutoBalancer>(from: storagePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Auto) &DeFiActions.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not configured properly at \(storagePath)")
     }
 

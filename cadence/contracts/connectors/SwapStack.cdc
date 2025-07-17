@@ -1,19 +1,23 @@
 import "Burner"
 import "FungibleToken"
 
-import "DFB"
+import "DeFiActions"
 
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+///
 /// SwapStack
 ///
-/// This contract defines DeFiBlocks Sink & Source connector implementations for use with DeFi protocols. These
-/// connectors can be used alone or in conjunction with other DeFiBlocks connectors to create complex DeFi workflows.
+/// This contract defines DeFiActions Sink & Source connector implementations for use with DeFi protocols. These
+/// connectors can be used alone or in conjunction with other DeFiActions connectors to create complex DeFi workflows.
 ///
 access(all) contract SwapStack {
 
-    /// A simple implementation of DFB.Quote allowing callers of Swapper.quoteIn() and .quoteOut() to cache quoted
+    /// A simple implementation of DeFiActions.Quote allowing callers of Swapper.quoteIn() and .quoteOut() to cache quoted
     /// amount in and/or out.
     ///
-    access(all) struct BasicQuote : DFB.Quote {
+    access(all) struct BasicQuote : DeFiActions.Quote {
         access(all) let inType: Type
         access(all) let outType: Type
         access(all) let inAmount: UFix64
@@ -32,10 +36,10 @@ access(all) contract SwapStack {
         }
     }
 
-    /// A MultiSwapper specific DFB.Quote implementation allowing for callers to set the Swapper used in MultiSwapper
+    /// A MultiSwapper specific DeFiActions.Quote implementation allowing for callers to set the Swapper used in MultiSwapper
     /// that should fulfill the Swap
     ///
-    access(all) struct MultiSwapperQuote : DFB.Quote {
+    access(all) struct MultiSwapperQuote : DeFiActions.Quote {
         access(all) let inType: Type
         access(all) let outType: Type
         access(all) let inAmount: UFix64
@@ -64,17 +68,17 @@ access(all) contract SwapStack {
     /// effectively be used as an aggregator across all contained Swapper implementations, though it is limited to the
     /// routes and pools exposed by its inner Swappers as well as runtime computation limits.
     ///
-    access(all) struct MultiSwapper : DFB.Swapper {
-        access(all) let swappers: [{DFB.Swapper}]
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+    access(all) struct MultiSwapper : DeFiActions.Swapper {
+        access(all) let swappers: [{DeFiActions.Swapper}]
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
         access(self) let inVault: Type
         access(self) let outVault: Type
 
         init(
             inVault: Type,
             outVault: Type,
-            swappers: [{DFB.Swapper}],
-            uniqueID: DFB.UniqueIdentifier?
+            swappers: [{DeFiActions.Swapper}],
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 inVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
@@ -105,7 +109,7 @@ access(all) contract SwapStack {
         }
 
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let estimate = self._estimate(amount: forDesired, out: true, reverse: reverse)
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
@@ -117,7 +121,7 @@ access(all) contract SwapStack {
         }
 
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let estimate = self._estimate(amount: forProvided, out: true, reverse: reverse)
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
@@ -132,7 +136,7 @@ access(all) contract SwapStack {
         /// to use multiple Flow swap protocols. If the provided quote is not a MultiSwapperQuote, a new quote is
         /// requested and the optimal Swapper used to fulfill the swap.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
-        access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             return <-self._swap(quote: quote, from: <-inVault, reverse: false)
         }
 
@@ -140,7 +144,7 @@ access(all) contract SwapStack {
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
-        access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             return <-self._swap(quote: quote, from: <-residual, reverse: true)
         }
 
@@ -163,12 +167,12 @@ access(all) contract SwapStack {
 
         /// Swaps the provided Vault in the defined direction. If the quote is not a MultiSwapperQuote, a new quote is
         /// requested and the current optimal Swapper used to fulfill the swap.
-        access(self) fun _swap(quote: {DFB.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
+        access(self) fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
             var multiQuote = quote as? MultiSwapperQuote
             if multiQuote != nil || multiQuote!.swapperIndex > self.swappers.length {
                 multiQuote = self.quoteOut(forProvided: from.balance, reverse: reverse) as! MultiSwapperQuote
             }
-            let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DFB.Swapper}
+            let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DeFiActions.Swapper}
             if reverse {
                 return <- optimalSwapper.swapBack(quote: multiQuote, residual: <-from)
             } else {
@@ -177,15 +181,15 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSink DeFiBlocks connector that deposits the resulting post-conversion currency of a token swap to an inner
-    /// DeFiBlocks Sink, sourcing funds from a deposited Vault of a pre-set Type.
+    /// SwapSink DeFiActions connector that deposits the resulting post-conversion currency of a token swap to an inner
+    /// DeFiActions Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
-    access(all) struct SwapSink : DFB.Sink {
-        access(self) let swapper: {DFB.Swapper}
-        access(self) let sink: {DFB.Sink}
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+    access(all) struct SwapSink : DeFiActions.Sink {
+        access(self) let swapper: {DeFiActions.Swapper}
+        access(self) let sink: {DeFiActions.Sink}
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(swapper: {DFB.Swapper}, sink: {DFB.Sink}, uniqueID: DFB.UniqueIdentifier?) {
+        init(swapper: {DeFiActions.Swapper}, sink: {DeFiActions.Sink}, uniqueID: DeFiActions.UniqueIdentifier?) {
             pre {
                 swapper.outType() == sink.getSinkType():
                 "Swapper outputs \(swapper.outType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
@@ -234,15 +238,15 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSource DeFiBlocks connector that returns post-conversion currency, sourcing pre-converted funds from an inner
-    /// DeFiBlocks Source
+    /// SwapSource DeFiActions connector that returns post-conversion currency, sourcing pre-converted funds from an inner
+    /// DeFiActions Source
     ///
-    access(all) struct SwapSource : DFB.Source {
-        access(self) let swapper: {DFB.Swapper}
-        access(self) let source: {DFB.Source}
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+    access(all) struct SwapSource : DeFiActions.Source {
+        access(self) let swapper: {DeFiActions.Swapper}
+        access(self) let source: {DeFiActions.Source}
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(swapper: {DFB.Swapper}, source: {DFB.Source}, uniqueID: DFB.UniqueIdentifier) {
+        init(swapper: {DeFiActions.Swapper}, source: {DeFiActions.Source}, uniqueID: DeFiActions.UniqueIdentifier) {
             pre {
                 source.getSourceType() == swapper.inType():
                 "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inType().identifier) - "

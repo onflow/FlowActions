@@ -2,14 +2,18 @@ import "Burner"
 import "ViewResolver"
 import "FungibleToken"
 
-import "DFBUtils"
+import "DeFiActionsUtils"
 
-/// DeFiBlocks Interfaces
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// DeFiBlocks is a library of small DeFi components that act as glue to connect typical DeFi primitives (dexes, lending
+/// [BETA] DeFiActions
+///
+/// DeFiActions is a library of small DeFi components that act as glue to connect typical DeFi primitives (dexes, lending
 /// pools, farms) into individual aggregations.
 ///
-/// The core component of DeFiBlocks is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
+/// The core component of DeFiActions is the “Connector”; a conduit between the more complex pieces of the DeFi puzzle.
 /// Connectors aren't to do anything especially complex, but make it simple and straightforward to connect the
 /// traditional DeFi pieces together into new, custom aggregations.
 ///
@@ -17,7 +21,7 @@ import "DFBUtils"
 /// connected with pipe operations instead of being operated individually. All Connectors are either a “Source” or
 /// “Sink”.
 ///
-access(all) contract DFB {
+access(all) contract DeFiActions {
 
     /* --- FIELDS --- */
 
@@ -78,16 +82,16 @@ access(all) contract DFB {
 
     /* --- CONSTRUCTS --- */
 
-    /// This construct enables protocols to trace stack operations via DFB interface-level events, identifying them by
-    /// UniqueIdentifier IDs. Implementations should ensure that access to them is encapsulated by the structures they
-    /// are used to identify.
+    /// This construct enables protocols to trace stack operations via DeFiActions interface-level events, identifying
+    /// them by UniqueIdentifier IDs. Implementations should ensure that access to them is encapsulated by the
+    /// structures they are used to identify.
     ///
     access(all) struct UniqueIdentifier {
         access(all) let id: UInt64
 
         init() {
-            self.id = DFB.currentID
-            DFB.currentID = DFB.currentID + 1
+            self.id = DeFiActions.currentID
+            DeFiActions.currentID = DeFiActions.currentID + 1
         }
     }
 
@@ -119,14 +123,14 @@ access(all) contract DFB {
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             post {
-                DFB.emitDeposited(
+                DeFiActions.emitDeposited(
                     type: from.getType().identifier,
                     beforeBalance: before(from.balance),
                     afterBalance: from.balance,
                     fromUUID: from.uuid,
                     uniqueID: self.uniqueID?.id,
                     sinkType: self.getType().identifier
-                ): "Unknown error emitting DFB.Withdrawn from Sink \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                ): "Unknown error emitting DeFiActions.Withdrawn from Sink \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -146,13 +150,13 @@ access(all) contract DFB {
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
-                DFB.emitWithdrawn(
+                DeFiActions.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
                     withdrawnUUID: result.uuid,
                     uniqueID: self.uniqueID?.id ?? nil,
                     sourceType: self.getType().identifier
-                ): "Unknown error emitting DFB.Withdrawn from Source \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                ): "Unknown error emitting DeFiActions.Withdrawn from Source \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -257,7 +261,7 @@ access(all) contract DFB {
 
     /// AutoBalancerSink
     ///
-    /// A DeFiBlocks Sink enabling the deposit of funds to an underlying AutoBalancer resource. As written, this Source
+    /// A DeFiActions Sink enabling the deposit of funds to an underlying AutoBalancer resource. As written, this Source
     /// may be used with externally defined AutoBalancer implementations
     ///
     access(all) struct AutoBalancerSink : Sink {
@@ -299,7 +303,7 @@ access(all) contract DFB {
 
     /// AutoBalancerSource
     ///
-    /// A DeFiBlocks Source targeting an underlying AutoBalancer resource. As written, this Source may be used with
+    /// A DeFiActions Source targeting an underlying AutoBalancer resource. As written, this Source may be used with
     /// externally defined AutoBalancer implementations
     ///
     access(all) struct AutoBalancerSource : Source {
@@ -340,7 +344,7 @@ access(all) contract DFB {
                     amount: maxAmount <= ab.vaultBalance() ? maxAmount : ab.vaultBalance()
                 )
             }
-            return <- DFBUtils.getEmptyVault(self.type)
+            return <- DeFiActionsUtils.getEmptyVault(self.type)
         }
     }
 
@@ -350,7 +354,7 @@ access(all) contract DFB {
     access(all) entitlement Get
 
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
-    /// AutoBalancer can be a critical component of DeFiBlocks stacks by allowing for strategies to compound, repay
+    /// AutoBalancer can be a critical component of DeFiActions stacks by allowing for strategies to compound, repay
     /// loans or direct accumulated value to other sub-systems and/or user Vaults.
     ///
     access(all) resource AutoBalancer : IdentifiableResource, FungibleToken.Receiver, FungibleToken.Provider, ViewResolver.Resolver, Burner.Burnable {
@@ -398,7 +402,7 @@ access(all) contract DFB {
             pre {
                 lower < upper && 0.01 <= lower && lower < 1.0 && 1.0 < upper && upper < 2.0:
                 "Invalid rebalanceRange [lower, upper]: [\(lower), \(upper)] - thresholds must be set such that 0.01 <= lower < 1.0 and 1.0 < upper < 2.0 relative to value of deposits"
-                DFBUtils.definingContractIsFungibleToken(vaultType):
+                DeFiActionsUtils.definingContractIsFungibleToken(vaultType):
                 "The contract defining Vault \(vaultType.identifier) does not conform to FungibleToken contract interface"
             }
             assert(oracle.price(ofToken: vaultType) != nil,
@@ -406,7 +410,7 @@ access(all) contract DFB {
             self._valueOfDeposits = 0.0
             self._rebalanceRange = [lower, upper]
             self._oracle = oracle
-            self._vault <- DFBUtils.getEmptyVault(vaultType)
+            self._vault <- DeFiActionsUtils.getEmptyVault(vaultType)
             self._vaultType = vaultType
             self._rebalanceSink = outSink
             self._rebalanceSource = inSource
@@ -507,7 +511,7 @@ access(all) contract DFB {
 
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
         ///
-        /// @param sink: The optional Sink DeFiBlocks connector from which funds are sourced when this AutoBalancer
+        /// @param sink: The optional Sink DeFiActions connector from which funds are sourced when this AutoBalancer
         ///     current value rises above the upper threshold relative to its valueOfDeposits(). If `nil`, overflown
         ///     value will not rebalance
         ///
@@ -517,7 +521,7 @@ access(all) contract DFB {
 
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn
         ///
-        /// @param source: The optional Source DeFiBlocks connector from which funds are sourced when this AutoBalancer
+        /// @param source: The optional Source DeFiActions connector from which funds are sourced when this AutoBalancer
         ///     current value falls below the lower threshold relative to its valueOfDeposits(). If `nil`, underflown
         ///     value will not rebalance
         ///
@@ -699,9 +703,9 @@ access(all) contract DFB {
     /// @param oracle: The oracle used to query deposited & withdrawn value and to determine if a rebalance should execute
     /// @param vault: The Vault wrapped by the AutoBalancer
     /// @param rebalanceRange: The percentage range from the AutoBalancer's base value at which a rebalance is executed
-    /// @param outSink: An optional DeFiBlocks Sink to which excess value is directed when rebalancing
-    /// @param inSource: An optional DeFiBlocks Source from which value is withdrawn to the inner vault when rebalancing
-    /// @param uniqueID: An optional DeFiBlocks UniqueIdentifier used for identifying rebalance events
+    /// @param outSink: An optional DeFiActions Sink to which excess value is directed when rebalancing
+    /// @param inSource: An optional DeFiActions Source from which value is withdrawn to the inner vault when rebalancing
+    /// @param uniqueID: An optional DeFiActions UniqueIdentifier used for identifying rebalance events
     ///
     access(all) fun createAutoBalancer(
         oracle: {PriceOracle},
