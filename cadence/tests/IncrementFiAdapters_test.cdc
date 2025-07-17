@@ -5,7 +5,7 @@ import "test_helpers.cdc"
 import "TokenA"
 import "TokenB"
 
-import "DFB"
+import "DeFiActions"
 import "IncrementFiAdapters"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
@@ -23,14 +23,14 @@ fun setup() {
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DeFiActionsUtils",
+        path: "../contracts/utils/DeFiActionsUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DeFiActions",
+        path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -103,7 +103,7 @@ fun testAdapterGetAmountsInSucceeds() {
             [outAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsInRes, Test.beSucceeded())
-    let quote = amountsInRes.returnValue! as! {DFB.Quote}
+    let quote = amountsInRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(outAmount, quote.outAmount)
 }
 
@@ -116,6 +116,6 @@ fun testAdapterGetAmountsOutSucceeds() {
             [inAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
-    let quote = amountsOutRes.returnValue! as! {DFB.Quote}
+    let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(inAmount, quote.inAmount)
 }

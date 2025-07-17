@@ -6,19 +6,19 @@ import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridge"
 
-import "DFB"
+import "DeFiActions"
 import "SwapStack"
 
-/// DeFiBlocksEVMAdapters
+/// DeFiActionsEVMAdapters
 ///
-/// DeFi adapter implementations fitting EVM-based DeFi protocols to the interfaces defined in DFB. These
-/// adapters are originally intended for use in DeFiBlocks components, but may have broader use cases.
+/// DeFi adapter implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiActions. These
+/// adapters are originally intended for use in DeFiActions components, but may have broader use cases.
 ///
-access(all) contract DeFiBlocksEVMAdapters {
+access(all) contract DeFiActionsEVMAdapters {
 
-    /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiBlocks.Swapper adapter interface
+    /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiActions.Swapper adapter interface
     ///
-    access(all) struct UniswapV2EVMSwapper : DFB.Swapper {
+    access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
         /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
@@ -26,7 +26,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -40,7 +40,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2: "Provided path with length of \(path.length) - path must contain at least two EVM addresses)"
@@ -80,7 +80,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
-        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
@@ -100,7 +100,7 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
-        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapStack.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
@@ -116,13 +116,13 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// used.
         /// NOTE: Cadence only supports decimal precision of 8
         ///
-        /// @param quote: A `DFB.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
+        /// @param quote: A `DeFiActions.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
         ///     desired otherwise a new quote is generated from current state
         /// @param inVault: Tokens of type `inVault` to swap for a vault of type `outVault`
         ///
         /// @return a Vault of type `outVault` containing the swapped currency.
         ///
-        access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
         }
@@ -134,13 +134,13 @@ access(all) contract DeFiBlocksEVMAdapters {
         /// used.
         /// NOTE: Cadence only supports decimal precision of 8
         ///
-        /// @param quote: A `DFB.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
+        /// @param quote: A `DeFiActions.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
         ///     desired otherwise a new quote is generated from current state
         /// @param residual: Tokens of type `outVault` to swap back to `inVault`
         ///
         /// @return a Vault of type `inVault` containing the swapped currency.
         ///
-        access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <-self.swapExactTokensForTokens(
                 exactVaultIn: <-residual,
@@ -193,7 +193,7 @@ access(all) contract DeFiBlocksEVMAdapters {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                DeFiBlocksEVMAdapters.callError("approve(address,uint256)",
+                DeFiActionsEVMAdapters.callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
@@ -206,7 +206,7 @@ access(all) contract DeFiBlocksEVMAdapters {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                DeFiBlocksEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                DeFiActionsEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)

@@ -28,14 +28,14 @@ fun setup() {
     uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
 
     var err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DeFiActionsUtils",
+        path: "../contracts/utils/DeFiActionsUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DeFiActions",
+        path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -46,8 +46,8 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DeFiBlocksEVMAdapters",
-        path: "../contracts/adapters/DeFiBlocksEVMAdapters.cdc",
+        name: "DeFiActionsEVMAdapters",
+        path: "../contracts/adapters/DeFiActionsEVMAdapters.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -55,5 +55,5 @@ fun setup() {
 
 access(all)
 fun testSetupSucceeds() {
-    log("DeFiBlocksEVMAdapters deployment success")
+    log("DeFiActionsEVMAdapters deployment success")
 }

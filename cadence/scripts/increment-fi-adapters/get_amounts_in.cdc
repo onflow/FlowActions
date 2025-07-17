@@ -1,8 +1,8 @@
-import "DFB"
+import "DeFiActions"
 import "IncrementFiAdapters"
 
 access(all)
-fun main(forDesired: UFix64, inVaultIdentifier: String, outVaultIdentifier: String, path: [String]): {DFB.Quote} {
+fun main(forDesired: UFix64, inVaultIdentifier: String, outVaultIdentifier: String, path: [String]): {DeFiActions.Quote} {
     let swapper = IncrementFiAdapters.Swapper(
         path: path,
         inVault: CompositeType(inVaultIdentifier) ?? panic("Invalid inVault \(inVaultIdentifier)"),

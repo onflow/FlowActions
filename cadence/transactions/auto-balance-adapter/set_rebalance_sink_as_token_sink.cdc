@@ -1,10 +1,10 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "DFB"
+import "DeFiActions"
 import "FungibleTokenStack"
 
-/// An example transaction configuring a DeFiBlocks AutoBalancer with a rebalance Sink directing overflown value to the
+/// An example transaction configuring a DeFiActions AutoBalancer with a rebalance Sink directing overflown value to the
 /// signer's stored Vault
 ///
 /// @param vaultIdentifier: the Vault type which the AutoBalancer contains. If `nil` the Source is set to `nil`
@@ -13,7 +13,7 @@ import "FungibleTokenStack"
 ///
 transaction(vaultIdentifier: String?, sinkMax: UFix64?, autoBalancerStoragePath: StoragePath) {
 
-    let autoBalancer: auth(DFB.Set) &DFB.AutoBalancer
+    let autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
     let vaultSink: FungibleTokenStack.VaultSink?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
@@ -48,7 +48,7 @@ transaction(vaultIdentifier: String?, sinkMax: UFix64?, autoBalancerStoragePath:
         }
 
         // assign the AutoBalancer
-        self.autoBalancer = signer.storage.borrow<auth(DFB.Set) &DFB.AutoBalancer>(from: autoBalancerStoragePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Set) &DeFiActions.AutoBalancer>(from: autoBalancerStoragePath)
             ?? panic("AutoBalancer was not configured properly at \(autoBalancerStoragePath)")
     }
 

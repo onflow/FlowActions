@@ -1,10 +1,10 @@
 import "FungibleToken"
 
-/// DFBUtils
+/// DeFiActionsUtils
 ///
-/// Utility methods commonly used across DeFiBlocks (DFB) related contracts
+/// Utility methods commonly used across DeFiActions related contracts
 ///
-access(all) contract DFBUtils {
+access(all) contract DeFiActionsUtils {
 
     /// Checks that the contract defining vaultType conforms to the FungibleToken contract interface. This is required
     /// to source empty Vaults in the event inner Capabilities become invalid

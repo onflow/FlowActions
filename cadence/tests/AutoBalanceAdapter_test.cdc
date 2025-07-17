@@ -2,7 +2,7 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
-import "DFB"
+import "DeFiActions"
 
 import "TokenA"
 import "TokenB"
@@ -25,14 +25,14 @@ access(all) var snapshot: UInt64 = 0
 
 access(all) fun setup() {
     var err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DeFiActionsUtils",
+        path: "../contracts/utils/DeFiActionsUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DeFiActions",
+        path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -90,9 +90,9 @@ access(all) fun test_SetupAutoBalancerSucceeds() {
         )
     Test.expect(setupRes, Test.beSucceeded())
 
-    let evts = Test.eventsOfType(Type<DFB.CreatedAutoBalancer>())
+    let evts = Test.eventsOfType(Type<DeFiActions.CreatedAutoBalancer>())
     Test.assertEqual(1, evts.length)
-    let evt = evts[0] as! DFB.CreatedAutoBalancer
+    let evt = evts[0] as! DeFiActions.CreatedAutoBalancer
     Test.assertEqual(lowerThreshold, evt.lowerThreshold)
     Test.assertEqual(upperThreshold, evt.upperThreshold)
     Test.assertEqual(tokenBIdentifier, evt.vaultType)
@@ -228,9 +228,9 @@ access(all) fun test_ForceRebalanceToSinkSucceeds() {
     Test.assertEqual(valueOfDepositsBefore, valueOfDepositsAfter) // rebalance targets valueOfDeposits
 
     // ensure events emitted with proper values
-    let evts = Test.eventsOfType(Type<DFB.Rebalanced>())
+    let evts = Test.eventsOfType(Type<DeFiActions.Rebalanced>())
     Test.assertEqual(1, evts.length)
-    let evt = evts[0] as! DFB.Rebalanced
+    let evt = evts[0] as! DeFiActions.Rebalanced
     Test.assertEqual(true, evt.isSurplus) // rebalanced on deficit
     Test.assertEqual(sinkTargetBalanceAfter, evt.amount) // should be the amount transferred from AutoBalancer -> VaultSource
     Test.assertEqual(sinkTargetBalanceAfter * tokenBStartPrice * priceIncrease, evt.value) // correct value emission
@@ -308,9 +308,9 @@ access(all) fun test_UnforcedRebalanceToSinkSucceeds() {
     Test.assertEqual(valueOfDepositsBefore, valueOfDepositsAfter) // rebalance targets valueOfDeposits
 
     // ensure events emitted with proper values
-    let evts = Test.eventsOfType(Type<DFB.Rebalanced>())
+    let evts = Test.eventsOfType(Type<DeFiActions.Rebalanced>())
     Test.assertEqual(1, evts.length)
-    let evt = evts[0] as! DFB.Rebalanced
+    let evt = evts[0] as! DeFiActions.Rebalanced
     Test.assertEqual(true, evt.isSurplus) // rebalanced on deficit
     Test.assertEqual(sinkTargetBalanceAfter, evt.amount) // should be the amount transferred from AutoBalancer -> VaultSource
     Test.assertEqual(sinkTargetBalanceAfter * tokenBStartPrice * priceIncrease, evt.value) // correct value emission
@@ -407,9 +407,9 @@ access(all) fun test_ForceRebalanceFromSourceSucceeds() {
     Test.assertEqual(valueOfDepositsBefore, valueOfDepositsAfter) // rebalance targets valueOfDeposits
 
     // ensure events emitted with proper values
-    let evts = Test.eventsOfType(Type<DFB.Rebalanced>())
+    let evts = Test.eventsOfType(Type<DeFiActions.Rebalanced>())
     Test.assertEqual(1, evts.length)
-    let evt = evts[0] as! DFB.Rebalanced
+    let evt = evts[0] as! DeFiActions.Rebalanced
     Test.assertEqual(false, evt.isSurplus) // rebalanced on deficit
     Test.assertEqual(sourceTargetDiff, evt.amount) // should be the amount transferred from VaultSource -> AutoBalancer
     Test.assert(equalWithinVariance(evt.value, sourceTargetDiff * tokenBStartPrice * (1.0 - priceDecrease))) // correct value emission
@@ -506,9 +506,9 @@ access(all) fun test_UnforcedRebalanceFromSourceSucceeds() {
     Test.assertEqual(valueOfDepositsBefore, valueOfDepositsAfter) // rebalance targets valueOfDeposits
 
     // ensure events emitted with proper values
-    let evts = Test.eventsOfType(Type<DFB.Rebalanced>())
+    let evts = Test.eventsOfType(Type<DeFiActions.Rebalanced>())
     Test.assertEqual(1, evts.length)
-    let evt = evts[0] as! DFB.Rebalanced
+    let evt = evts[0] as! DeFiActions.Rebalanced
     Test.assertEqual(false, evt.isSurplus) // rebalanced on deficit
     Test.assertEqual(sourceTargetDiff, evt.amount) // should be the amount transferred from VaultSource -> AutoBalancer
     Test.assert(equalWithinVariance(evt.value, sourceTargetDiff * tokenBStartPrice * (1.0 - priceDecrease))) // correct value emission

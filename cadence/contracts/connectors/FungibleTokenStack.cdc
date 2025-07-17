@@ -1,8 +1,8 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "DFBUtils"
-import "DFB"
+import "DeFiActionsUtils"
+import "DeFiActions"
 
 /// FungibleTokenStack
 ///
@@ -12,25 +12,25 @@ import "DFB"
 ///
 access(all) contract FungibleTokenStack {
 
-    access(all) struct VaultSink : DFB.Sink {
+    access(all) struct VaultSink : DeFiActions.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
         /// The maximum balance of the linked Vault, checked before executing a deposit
         access(all) let maximumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
             max: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
-                DFBUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
@@ -64,25 +64,25 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSource : DFB.Source {
+    access(all) struct VaultSource : DeFiActions.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
-                DFBUtils.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
@@ -109,7 +109,7 @@ access(all) contract FungibleTokenStack {
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let available = self.minimumAvailable()
             if !self.withdrawVault.check() || available == 0.0 || maxAmount == 0.0 {
-                return <- DFBUtils.getEmptyVault(self.withdrawVaultType)
+                return <- DeFiActionsUtils.getEmptyVault(self.withdrawVaultType)
             }
             // take the lesser between the available and maximum requested amount
             let withdrawalAmount = available <= maxAmount ? available : maxAmount
@@ -117,7 +117,7 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSinkAndSource : DFB.Sink, DFB.Source {
+    access(all) struct VaultSinkAndSource : DeFiActions.Sink, DeFiActions.Source {
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// The maximum balance of the linked Vault
@@ -126,7 +126,7 @@ access(all) contract FungibleTokenStack {
         access(all) let vaultType: Type
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
@@ -134,11 +134,11 @@ access(all) contract FungibleTokenStack {
             min: UFix64?,
             max: UFix64?,
             vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
-                DFBUtils.definingContractIsFungibleToken(vault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(vault.borrow()!.getType()):
                 "The contract defining Vault \(vault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
                 min ?? 0.0 < max ?? UFix64.max:
                 "Minimum balance must be less than maximum balance if either is declared"
@@ -190,7 +190,7 @@ access(all) contract FungibleTokenStack {
                 let finalAmount = vault.balance < maxAmount ? vault.balance : maxAmount
                 return <-vault.withdraw(amount: finalAmount)
             }
-            return <- DFBUtils.getEmptyVault(self.vaultType)
+            return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
         }
     }
 }
