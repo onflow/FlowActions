@@ -21,6 +21,20 @@ import "DeFiActionsUtils"
 /// connected with pipe operations instead of being operated individually. All Connectors are either a “Source” or
 /// “Sink”.
 ///
+// TODO pre-FLIP:
+// - [X] Figure out how to identify action stacks in a non-forgeable and extensible way
+//      * Maintain the current state and just accept that unique IDs are forgeable
+//      * Remove all identification from components and do away with it entirely
+//      * Make each component a struct interface and use the UniqueIdentifier to identify the component
+// - [ ] Figure out how to traverse stacks from a given component to inspect components and their connections
+//      * component.traverse() returns a list of contained components and those contained by those components
+// - [ ] Establish a basic metadata view to get information about each component
+//      * e.g. Swapper - inType, outType, inAmount, outAmount, inUUID, outUUID, uniqueID, swapperType
+//      * e.g. Sink - type, amount, fromUUID, uniqueID, sinkType
+//      * e.g. Source - type, amount, withdrawnUUID, uniqueID, sourceType
+//      * e.g. AutoBalancer - lowerThreshold, upperThreshold, balancerUUID, vaultType, vaultUUID, uniqueID
+//      * e.g. Rebalanced - amount, value, unitOfAccount, isSurplus, vaultType, vaultUUID, balancerUUID, address, uniqueID
+// - [ ] Explore how resource components play with creation in the stacking context
 access(all) contract DeFiActions {
 
     /* --- FIELDS --- */
@@ -58,6 +72,13 @@ access(all) contract DeFiActions {
         uniqueID: UInt64?,
         swapperType: String
     )
+    /// Emitted when an IdentifiableResource's UniqueIdentifier is aligned with another DFA component
+    access(all) event Aligned(
+        oldID: UInt64?,
+        newID: UInt64?,
+        component: String,
+        with: String
+    )
     /// Emitted when an AutoBalancer is created
     access(all) event CreatedAutoBalancer(
         lowerThreshold: UFix64,
@@ -83,29 +104,58 @@ access(all) contract DeFiActions {
     /* --- CONSTRUCTS --- */
 
     /// This construct enables protocols to trace stack operations via DeFiActions interface-level events, identifying
-    /// them by UniqueIdentifier IDs. Implementations should ensure that access to them is encapsulated by the
-    /// structures they are used to identify.
+    /// them by UniqueIdentifier IDs. IdentifiableResource Implementations should ensure that access to them is
+    /// encapsulated by the structures they are used to identify.
     ///
-    access(all) struct UniqueIdentifier {
+    access(all) resource UniqueIdentifier {
         access(all) let id: UInt64
 
-        init() {
-            self.id = DeFiActions.currentID
-            DeFiActions.currentID = DeFiActions.currentID + 1
+        init(_ id: UInt64) {
+            self.id = id
+        }
+        /// Returns a copy of the UniqueIdentifier
+        access(all) fun copy(): @UniqueIdentifier {
+            return <- create UniqueIdentifier(self.id)
         }
     }
 
-    /// A struct interface containing a UniqueIdentifier and convenience getter on the underlying ID value
+    /// Extend entitlement allowing for the authorized copying of UniqueIdentifiers from existing components
+    access(all) entitlement Extend
+
+    /// A resource interface containing a UniqueIdentifier and convenience getters about it
     ///
-    access(all) struct interface IdentifiableStruct {
+    access(all) resource interface IdentifiableResource {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: @UniqueIdentifier?
         /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
+        ///
         /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
+        /// for critical identification unless the implementation itself is known and trusted
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
+        }
+        /// Aligns the UniqueIdentifier of this component with the provided component, burning the old UniqueIdentifier
+        ///
+        /// @param with: The component to align the UniqueIdentifier with
+        ///
+        access(Extend) fun alignID(with: auth(Extend) &{IdentifiableResource}) {
+            post {
+                self.uniqueID?.id == with.uniqueID?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
+            }
+            if self.uniqueID?.id == with.uniqueID?.id {
+                return // already share the same ID value
+            }
+
+            let old <- self.uniqueID <- with.uniqueID?.copy()
+            emit Aligned(
+                oldID: old?.id,
+                newID: self.uniqueID?.id,
+                component: self.getType().identifier,
+                with: with.getType().identifier
+            )
+            Burner.burn(<-old)
         }
     }
 
@@ -115,7 +165,7 @@ access(all) contract DeFiActions {
     /// accept for deposit. Implementations should therefore avoid the possibility of reversion with graceful fallback
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
-    access(all) struct interface Sink : IdentifiableStruct {
+    access(all) resource interface Sink : IdentifiableResource {
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
@@ -141,7 +191,7 @@ access(all) contract DeFiActions {
     /// of funds available to be withdrawn. Implementations should therefore avoid the possibility of reversion with
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
-    access(all) struct interface Source : IdentifiableStruct {
+    access(all) resource interface Source : IdentifiableResource {
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
@@ -178,7 +228,7 @@ access(all) contract DeFiActions {
 
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
-    access(all) struct interface Swapper : IdentifiableStruct {
+    access(all) resource interface Swapper : IdentifiableResource {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
@@ -245,42 +295,28 @@ access(all) contract DeFiActions {
         access(all) fun price(ofToken: Type): UFix64?
     }
 
-    /// A resource interface containing a UniqueIdentifier and convenience getters about it
-    ///
-    access(all) resource interface IdentifiableResource {
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
-        /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
-        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
-        access(all) view fun id(): UInt64? {
-            return self.uniqueID?.id
-        }
-    }
-
     /// AutoBalancerSink
     ///
     /// A DeFiActions Sink enabling the deposit of funds to an underlying AutoBalancer resource. As written, this Source
     /// may be used with externally defined AutoBalancer implementations
     ///
-    access(all) struct AutoBalancerSink : Sink {
+    access(all) resource AutoBalancerSink : Sink {
         /// The Type this Sink accepts
         access(self) let type: Type
         /// An authorized Capability on the underlying AutoBalancer where funds are deposited
         access(self) let autoBalancer: Capability<&AutoBalancer>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: @UniqueIdentifier?
 
-        init(autoBalancer: Capability<&AutoBalancer>, uniqueID: UniqueIdentifier?) {
+        init(autoBalancer: Capability<&AutoBalancer>, uniqueID: @UniqueIdentifier?) {
             pre {
                 autoBalancer.check():
                 "Invalid AutoBalancer Capability Provided"
             }
             self.type = autoBalancer.borrow()!.vaultType()
             self.autoBalancer = autoBalancer
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
         }
 
         /// Returns the Vault type accepted by this Sink
@@ -295,7 +331,7 @@ access(all) contract DeFiActions {
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             if let ab = self.autoBalancer.borrow() {
-                ab.deposit(from: <- from.withdraw(amount: from.balance))
+                ab.deposit(from: <-from.withdraw(amount: from.balance))
             }
             return
         }
@@ -306,23 +342,23 @@ access(all) contract DeFiActions {
     /// A DeFiActions Source targeting an underlying AutoBalancer resource. As written, this Source may be used with
     /// externally defined AutoBalancer implementations
     ///
-    access(all) struct AutoBalancerSource : Source {
+    access(all) resource AutoBalancerSource : Source {
         /// The Type this Source provides
         access(self) let type: Type
         /// An authorized Capability on the underlying AutoBalancer where funds are sourced
         access(self) let autoBalancer: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: @UniqueIdentifier?
 
-        init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>, uniqueID: UniqueIdentifier?) {
+        init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>, uniqueID: @UniqueIdentifier?) {
             pre {
                 autoBalancer.check():
                 "Invalid AutoBalancer Capability Provided"
             }
             self.type = autoBalancer.borrow()!.vaultType()
             self.autoBalancer = autoBalancer
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
         }
 
         /// Returns the Vault type provided by this Source
@@ -373,14 +409,14 @@ access(all) contract DeFiActions {
         /// An optional Sink used to deposit excess funds from the inner Vault once the converted value exceeds the
         /// rebalance range. This Sink may be used to compound yield into a position or direct excess value to an
         /// external Vault
-        access(self) var _rebalanceSink: {Sink}?
+        access(self) var _rebalanceSink: @{Sink}?
         /// An optional Source used to deposit excess funds to the inner Vault once the converted value is below the
         /// rebalance range
-        access(self) var _rebalanceSource: {Source}?
+        access(self) var _rebalanceSource: @{Source}?
         /// Capability on this AutoBalancer instance
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: @UniqueIdentifier?
 
         /// Emitted when the AutoBalancer is destroyed
         access(all) event ResourceDestroyed(
@@ -395,9 +431,9 @@ access(all) contract DeFiActions {
             upper: UFix64,
             oracle: {PriceOracle},
             vaultType: Type,
-            outSink: {Sink}?,
-            inSource: {Source}?,
-            uniqueID: UniqueIdentifier?
+            outSink: @{Sink}?,
+            inSource: @{Source}?,
+            uniqueID: @UniqueIdentifier?
         ) {
             pre {
                 lower < upper && 0.01 <= lower && lower < 1.0 && 1.0 < upper && upper < 2.0:
@@ -412,10 +448,10 @@ access(all) contract DeFiActions {
             self._oracle = oracle
             self._vault <- DeFiActionsUtils.getEmptyVault(vaultType)
             self._vaultType = vaultType
-            self._rebalanceSink = outSink
-            self._rebalanceSource = inSource
+            self._rebalanceSink <- outSink
+            self._rebalanceSource <- inSource
             self._selfCap = nil
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
 
             emit CreatedAutoBalancer(
                 lowerThreshold: lower,
@@ -490,11 +526,11 @@ access(all) contract DeFiActions {
         ///
         /// @return a Sink routing deposits to this AutoBalancer
         ///
-        access(all) fun createBalancerSink(): {Sink}? {
+        access(all) fun createBalancerSink(): @{Sink}? {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
             }
-            return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
+            return <- create AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: <-self.uniqueID?.copy())
         }
 
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer. If the AutoBalancer's
@@ -502,11 +538,11 @@ access(all) contract DeFiActions {
         ///
         /// @return a Source routing withdrawals from this AutoBalancer
         ///
-        access(Get) fun createBalancerSource(): {Source}? {
+        access(Get) fun createBalancerSource(): @{Source}? {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
             }
-            return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
+            return <- create AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: <-self.uniqueID?.copy())
         }
 
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
@@ -515,8 +551,12 @@ access(all) contract DeFiActions {
         ///     current value rises above the upper threshold relative to its valueOfDeposits(). If `nil`, overflown
         ///     value will not rebalance
         ///
-        access(Set) fun setSink(_ sink: {Sink}?) {
-            self._rebalanceSink = sink
+        access(Set) fun setSink(_ sink: @{Sink}?, align: Bool) {
+            if sink != nil && align {
+                sink?.alignID(with: &self as auth(Extend) &{IdentifiableResource})
+            }
+            let old <- self._rebalanceSink <- sink
+            Burner.burn(<-old)
         }
 
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn
@@ -525,8 +565,12 @@ access(all) contract DeFiActions {
         ///     current value falls below the lower threshold relative to its valueOfDeposits(). If `nil`, underflown
         ///     value will not rebalance
         ///
-        access(Set) fun setSource(_ source: {Source}?) {
-            self._rebalanceSource = source
+        access(Set) fun setSource(_ source: @{Source}?, align: Bool) {
+            if source != nil && align {
+                source?.alignID(with: &self as auth(Extend) &{IdentifiableResource})
+            }
+            let old <- self._rebalanceSource <- source
+            Burner.burn(<-old)
         }
 
         /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
@@ -583,17 +627,19 @@ access(all) contract DeFiActions {
             let vault = self._borrowVault()
             var amount = valueDiff / currentPrice!
             var executed = false
-            if isDeficit && self._rebalanceSource != nil {
+            let maybeRebalanceSource = &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
+            let maybeRebalanceSink = &self._rebalanceSink as &{Sink}?
+            if isDeficit && maybeRebalanceSource != nil {
                 // rebalance back up to baseline sourcing funds from _rebalanceSource
-                vault.deposit(from:  <- self._rebalanceSource!.withdrawAvailable(maxAmount: amount))
+                vault.deposit(from:  <- maybeRebalanceSource!.withdrawAvailable(maxAmount: amount))
                 executed = true
-            } else if !isDeficit && self._rebalanceSink != nil {
+            } else if !isDeficit && maybeRebalanceSink != nil {
                 // rebalance back down to baseline depositing excess to _rebalanceSink
                 if amount > vault.balance {
                     amount = vault.balance // protect underflow
                 }
                 let surplus <- vault.withdraw(amount: amount)
-                self._rebalanceSink!.depositCapacity(from: &surplus as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                maybeRebalanceSink!.depositCapacity(from: &surplus as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 executed = true
                 if surplus.balance == 0.0 {
                     Burner.burn(<-surplus) // could destroy
@@ -691,6 +737,7 @@ access(all) contract DeFiActions {
 
         /* Internal */
 
+        /// Returns a reference to the inner Vault
         access(self) view fun _borrowVault(): auth(FungibleToken.Withdraw) &{FungibleToken.Vault} {
             return (&self._vault)!
         }
@@ -712,20 +759,30 @@ access(all) contract DeFiActions {
         vaultType: Type,
         lowerThreshold: UFix64,
         upperThreshold: UFix64,
-        rebalanceSink: {Sink}?,
-        rebalanceSource: {Source}?,
-        uniqueID: UniqueIdentifier?
+        rebalanceSink: @{Sink}?,
+        rebalanceSource: @{Source}?,
+        uniqueID: @UniqueIdentifier?
     ): @AutoBalancer {
         let ab <- create AutoBalancer(
             lower: lowerThreshold,
             upper: upperThreshold,
             oracle: oracle,
             vaultType: vaultType,
-            outSink: rebalanceSink,
-            inSource: rebalanceSource,
-            uniqueID: uniqueID
+            outSink: <-rebalanceSink,
+            inSource: <-rebalanceSource,
+            uniqueID: <-uniqueID
         )
         return <- ab
+    }
+
+    /// Creates a new UniqueIdentifier used for identifying action stacks
+    ///
+    /// @return a new UniqueIdentifier
+    ///
+    access(all) fun createUniqueIdentifier(): @UniqueIdentifier {
+        let newID = DeFiActions.currentID
+        self.currentID = self.currentID + 1
+        return <- create UniqueIdentifier(DeFiActions.currentID)
     }
 
     /* --- INTERNAL CONDITIONAL EVENT EMITTERS --- */

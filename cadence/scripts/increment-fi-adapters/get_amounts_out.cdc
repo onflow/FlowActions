@@ -3,11 +3,13 @@ import "IncrementFiAdapters"
 
 access(all)
 fun main(forProvided: UFix64, inVaultIdentifier: String, outVaultIdentifier: String, path: [String]): {DeFiActions.Quote} {
-    let swapper = IncrementFiAdapters.Swapper(
+    let swapper <- IncrementFiAdapters.createSwapper(
         path: path,
         inVault: CompositeType(inVaultIdentifier) ?? panic("Invalid inVault \(inVaultIdentifier)"),
         outVault: CompositeType(outVaultIdentifier) ?? panic("Invalid outVault \(outVaultIdentifier)"),
         uniqueID: nil
     )
-    return swapper.quoteOut(forProvided: forProvided, reverse: false)
+    let quote = swapper.quoteOut(forProvided: forProvided, reverse: false)
+    destroy swapper
+    return quote
 }

@@ -22,7 +22,7 @@ access(all) contract DeFiActionsEVMAdapters {
 
     /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiActions.Swapper adapter interface
     ///
-    access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
+    access(all) resource UniswapV2EVMSwapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
         /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
@@ -30,7 +30,7 @@ access(all) contract DeFiActionsEVMAdapters {
         access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -44,7 +44,7 @@ access(all) contract DeFiActionsEVMAdapters {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2: "Provided path with length of \(path.length) - path must contain at least two EVM addresses)"
@@ -59,7 +59,7 @@ access(all) contract DeFiActionsEVMAdapters {
             }
             self.routerAddress = routerAddress
             self.addressPath = path
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
             self.inVault = inVault
             self.outVault = outVault
             self.coaCapability = coaCapability
@@ -197,7 +197,7 @@ access(all) contract DeFiActionsEVMAdapters {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                DeFiActionsEVMAdapters.callError("approve(address,uint256)",
+                DeFiActionsEVMAdapters._callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
@@ -210,7 +210,7 @@ access(all) contract DeFiActionsEVMAdapters {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                DeFiActionsEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                DeFiActionsEVMAdapters._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
@@ -304,7 +304,7 @@ access(all) contract DeFiActionsEVMAdapters {
     /// Converts the given amounts from their ERC20 UInt256 to UFix64 amounts according to the ERC20 defined decimals.
     /// Assumes each EVM address in path is an ERC20 contract
     access(self)
-    fun convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
+    fun _convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
         let convertedAmounts: [UFix64]= []
         for i, amount in amounts {
             convertedAmounts.append(FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(amount, erc20Address: path[i]))
@@ -314,7 +314,7 @@ access(all) contract DeFiActionsEVMAdapters {
 
     /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
     access(self)
-    fun callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
+    fun _callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
         panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) "
             .concat("with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\t"
             .concat("Status value: \(res.status.rawValue)\n\t"))

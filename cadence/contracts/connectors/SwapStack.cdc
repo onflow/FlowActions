@@ -2,6 +2,7 @@ import "Burner"
 import "FungibleToken"
 
 import "DeFiActions"
+import "DeFiActionsUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -68,17 +69,17 @@ access(all) contract SwapStack {
     /// effectively be used as an aggregator across all contained Swapper implementations, though it is limited to the
     /// routes and pools exposed by its inner Swappers as well as runtime computation limits.
     ///
-    access(all) struct MultiSwapper : DeFiActions.Swapper {
-        access(all) let swappers: [{DeFiActions.Swapper}]
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+    access(all) resource MultiSwapper : DeFiActions.Swapper {
+        access(all) let swappers: @[{DeFiActions.Swapper}]
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         access(self) let inVault: Type
         access(self) let outVault: Type
 
         init(
             inVault: Type,
             outVault: Type,
-            swappers: [{DeFiActions.Swapper}],
-            uniqueID: DeFiActions.UniqueIdentifier?
+            swappers: @[{DeFiActions.Swapper}],
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 inVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
@@ -86,16 +87,17 @@ access(all) contract SwapStack {
                 outVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Invalid outVault type - \(outVault.identifier) is not a FungibleToken Vault implementation"
             }
-            for swapper in swappers {
+            for i in InclusiveRange(0, swappers.length - 1) {
+                let swapper = &swappers[i] as &{DeFiActions.Swapper}
                 assert(swapper.inType() == inVault,
                     message: "Mismatched inVault \(inVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.inType().identifier)")
-                assert(swapper.outType() == outVault,
+                assert(swapper.outType() == outVault, 
                     message: "Mismatched outVault \(outVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.outType().identifier)")
             }
             self.inVault = inVault
             self.outVault = outVault
-            self.uniqueID = uniqueID
-            self.swappers = swappers
+            self.uniqueID <- uniqueID
+            self.swappers <- swappers
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
@@ -152,7 +154,8 @@ access(all) contract SwapStack {
         /// as a UFix64 array
         access(self) fun _estimate(amount: UFix64, out: Bool, reverse: Bool): [UFix64; 2] {
             var res: [UFix64; 2] = [0.0, 0.0]
-            for i, swapper in self.swappers {
+            for i in InclusiveRange(0, self.swappers.length - 1) {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
                 // call the appropriate estimator
                 let estimate = out
                     ? swapper.quoteOut(forProvided: amount, reverse: true).outAmount
@@ -184,20 +187,20 @@ access(all) contract SwapStack {
     /// SwapSink DeFiActions connector that deposits the resulting post-conversion currency of a token swap to an inner
     /// DeFiActions Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
-    access(all) struct SwapSink : DeFiActions.Sink {
-        access(self) let swapper: {DeFiActions.Swapper}
-        access(self) let sink: {DeFiActions.Sink}
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+    access(all) resource SwapSink : DeFiActions.Sink {
+        access(self) let swapper: @{DeFiActions.Swapper}
+        access(self) let sink: @{DeFiActions.Sink}
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
 
-        init(swapper: {DeFiActions.Swapper}, sink: {DeFiActions.Sink}, uniqueID: DeFiActions.UniqueIdentifier?) {
+        init(swapper: @{DeFiActions.Swapper}, sink: @{DeFiActions.Sink}, uniqueID: @DeFiActions.UniqueIdentifier?) {
             pre {
                 swapper.outType() == sink.getSinkType():
                 "Swapper outputs \(swapper.outType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
                     .concat("Ensure the provided Swapper outputs a Vault Type compatible with the provided Sink")
             }
-            self.swapper = swapper
-            self.sink = sink
-            self.uniqueID = uniqueID
+            self.swapper <- swapper
+            self.sink <- sink
+            self.uniqueID <- uniqueID
         }
 
         access(all) view fun getSinkType(): Type {
@@ -241,20 +244,20 @@ access(all) contract SwapStack {
     /// SwapSource DeFiActions connector that returns post-conversion currency, sourcing pre-converted funds from an inner
     /// DeFiActions Source
     ///
-    access(all) struct SwapSource : DeFiActions.Source {
-        access(self) let swapper: {DeFiActions.Swapper}
-        access(self) let source: {DeFiActions.Source}
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+    access(all) resource SwapSource : DeFiActions.Source {
+        access(self) let swapper: @{DeFiActions.Swapper}
+        access(self) let source: @{DeFiActions.Source}
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
 
-        init(swapper: {DeFiActions.Swapper}, source: {DeFiActions.Source}, uniqueID: DeFiActions.UniqueIdentifier) {
+        init(swapper: @{DeFiActions.Swapper}, source: @{DeFiActions.Source}, uniqueID: @DeFiActions.UniqueIdentifier?) {
             pre {
                 source.getSourceType() == swapper.inType():
                 "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inType().identifier) - "
                     .concat("Ensure the provided Source outputs a Vault Type compatible with the provided Swapper")
             }
-            self.swapper = swapper
-            self.source = source
-            self.uniqueID = uniqueID
+            self.swapper <- swapper
+            self.source <- source
+            self.uniqueID <- uniqueID
         }
 
         access(all) view fun getSourceType(): Type {
@@ -272,7 +275,7 @@ access(all) contract SwapStack {
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let minimumAvail = self.minimumAvailable()
             if minimumAvail == 0.0 || maxAmount == 0.0 {
-                return <- SwapStack.getEmptyVault(self.getSourceType())
+                return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
             // expect output amount as the lesser between the amount available and the maximum amount
@@ -286,7 +289,7 @@ access(all) contract SwapStack {
             let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quoteIn)
             if sourceLiquidity.balance == 0.0 {
                 Burner.burn(<-sourceLiquidity)
-                return <- SwapStack.getEmptyVault(self.getSourceType())
+                return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
             let outVault <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
             if outVault.balance > amountOut {
@@ -298,11 +301,52 @@ access(all) contract SwapStack {
         }
     }
 
-    /// Returns an empty Vault of the given Type, sourcing the new Vault from the defining FT contract
-    access(self) fun getEmptyVault(_ vaultType: Type): @{FungibleToken.Vault} {
-        return <- getAccount(vaultType.address!)
-            .contracts
-            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
-            .createEmptyVault(vaultType: vaultType)
+    /* --- PUBLIC METHODS --- */
+
+    // create a MultiSwapper
+    ///
+    /// @param inVault: the type of Vault this MultiSwapper accepts when performing a swap
+    /// @param outVault: the type of Vault this MultiSwapper provides when performing a swap
+    /// @param swappers: the array of Swappers to use for the MultiSwapper
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining a
+    ///     protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createMultiSwapper(
+        inVault: Type,
+        outVault: Type,
+        swappers: @[{DeFiActions.Swapper}],
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @MultiSwapper {
+        return <- create MultiSwapper(inVault: inVault, outVault: outVault, swappers: <-swappers, uniqueID: <-uniqueID)
+    }
+
+    // create a SwapSink
+    ///
+    /// @param swapper: the Swapper to use for the SwapSink through which the swap is performed
+    /// @param sink: the Sink to use for the SwapSink which will receive the post-conversion currency of the swap
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining
+    ///     a protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createSwapSink(
+        swapper: @{DeFiActions.Swapper},
+        sink: @{DeFiActions.Sink},
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @SwapSink {
+        return <- create SwapSink(swapper: <-swapper, sink: <-sink, uniqueID: <-uniqueID)
+    }
+
+    // create a SwapSource
+    ///
+    /// @param swapper: the Swapper to use for the SwapSource through which the swap is performed
+    /// @param source: the Source to use for the SwapSource which will provide the pre-conversion currency of the swap
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining
+    ///     a protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createSwapSource(
+        swapper: @{DeFiActions.Swapper},
+        source: @{DeFiActions.Source},
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @SwapSource {
+        return <- create SwapSource(swapper: <-swapper, source: <-source, uniqueID: <-uniqueID)
     }
 }

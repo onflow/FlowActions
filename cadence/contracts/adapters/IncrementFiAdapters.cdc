@@ -14,13 +14,13 @@ access(all) contract IncrementFiAdapters {
     /// An implementation of DeFiActions.Swapper connector that swaps between tokens using IncrementFi's
     /// SwapRouter contract
     ///
-    access(all) struct Swapper : DeFiActions.Swapper {
+    access(all) resource Swapper : DeFiActions.Swapper {
         /// A swap path as defined by IncrementFi's SwapRouter
         ///  e.g. [A.f8d6e0586b0a20c7.FUSD, A.f8d6e0586b0a20c7.FlowToken, A.f8d6e0586b0a20c7.USDC]
         access(all) let path: [String]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -30,18 +30,18 @@ access(all) contract IncrementFiAdapters {
             path: [String],
             inVault: Type,
             outVault: Type,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2:
                 "Provided path must have a length of at least 2 - provided path has \(path.length) elements"
             }
-            IncrementFiAdapters.validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
+            IncrementFiAdapters._validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
 
             self.path = path
             self.inVault = inVault
             self.outVault = outVault
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
@@ -98,11 +98,31 @@ access(all) contract IncrementFiAdapters {
         }
     }
 
+    /* --- PUBLIC METHODS --- */
+
+    /// Creates a Swapper DeFiActions connector
+    ///
+    /// @param path: the path of token key identifiers to use for swaps
+    /// @param inVault: the type of Vault this Swapper accepts when performing a swap
+    /// @param outVault: the type of Vault this Swapper provides when performing a swap
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining a
+    ///     protocol-specific Identifier to associated connectors on construction
+    access(all) fun createSwapper(
+        path: [String],
+        inVault: Type,
+        outVault: Type,
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @Swapper {
+        return <- create Swapper(path: path, inVault: inVault, outVault: outVault, uniqueID: <-uniqueID)
+    }
+
+    /* --- INTERNAL HELPERS --- */
+
     /// Reverts if the in and out Vaults are not defined by the token key path identifiers as used by IncrementFi's
     /// SwapRouter. Notably does not validate the intermediary path values if there are any.
     ///
     access(self)
-    view fun validateSwapperInitArgs(
+    view fun _validateSwapperInitArgs(
         path: [String],
         inVault: Type,
         outVault: Type

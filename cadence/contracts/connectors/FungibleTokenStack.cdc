@@ -16,21 +16,21 @@ import "DeFiActions"
 ///
 access(all) contract FungibleTokenStack {
 
-    access(all) struct VaultSink : DeFiActions.Sink {
+    access(all) resource VaultSink : DeFiActions.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
         /// The maximum balance of the linked Vault, checked before executing a deposit
         access(all) let maximumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
             max: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
@@ -38,7 +38,7 @@ access(all) contract FungibleTokenStack {
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
             self.depositVaultType = depositVault.borrow()!.getType()
             self.depositVault = depositVault
         }
@@ -68,21 +68,21 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSource : DeFiActions.Source {
+    access(all) resource VaultSource : DeFiActions.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
@@ -91,7 +91,7 @@ access(all) contract FungibleTokenStack {
             }
             self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
             self.withdrawVault = withdrawVault
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
 
@@ -121,7 +121,7 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSinkAndSource : DeFiActions.Sink, DeFiActions.Source {
+    access(all) resource VaultSinkAndSource : DeFiActions.Sink, DeFiActions.Source {
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// The maximum balance of the linked Vault
@@ -130,7 +130,7 @@ access(all) contract FungibleTokenStack {
         access(all) let vaultType: Type
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
@@ -138,7 +138,7 @@ access(all) contract FungibleTokenStack {
             min: UFix64?,
             max: UFix64?,
             vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: @DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
@@ -150,7 +150,7 @@ access(all) contract FungibleTokenStack {
             self.minimumBalance = min ?? 0.0
             self.maximumBalance = max ?? UFix64.max
             self.vaultType = vault.borrow()!.getType()
-            self.uniqueID = uniqueID
+            self.uniqueID <- uniqueID
             self.vault = vault
         }
 
@@ -196,5 +196,54 @@ access(all) contract FungibleTokenStack {
             }
             return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
         }
+    }
+
+    /* --- PUBLIC METHODS --- */
+
+    // create a VaultSink
+    ///
+    /// @param max: the maximum balance of the linked Vault up to which deposits are accepted via the new Sink
+    /// @param depositVault: the Capability on the Vault to which deposits are distributed
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining
+    ///     a protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createVaultSink(
+        max: UFix64?,
+        depositVault: Capability<&{FungibleToken.Vault}>,
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @VaultSink {
+        return <- create VaultSink(max: max, depositVault: depositVault, uniqueID: <-uniqueID)
+    }
+
+    // create a VaultSource
+    ///
+    /// @param min: the minimum balance of the linked Vault from which withdrawals are sourced via the new Source
+    /// @param withdrawVault: the Capability on the Vault from which withdrawals are sourced
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining
+    ///     a protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createVaultSource(
+        min: UFix64?,
+        withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @VaultSource {
+        return <- create VaultSource(min: min, withdrawVault: withdrawVault, uniqueID: <-uniqueID)
+    }
+
+    // create a VaultSinkAndSource
+    ///
+    /// @param min: the minimum balance of the linked Vault from which withdrawals are sourced via the new Source
+    /// @param max: the maximum balance of the linked Vault up to which deposits are accepted via the new Sink
+    /// @param vault: the Capability on the Vault from which withdrawals are sourced & deposit are routed
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining
+    ///     a protocol-specific Identifier to associated connectors on construction
+    ///
+    access(all) fun createVaultSinkAndSource(
+        min: UFix64?,
+        max: UFix64?,
+        vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+        uniqueID: @DeFiActions.UniqueIdentifier?
+    ): @VaultSinkAndSource {
+        return <- create VaultSinkAndSource(min: min, max: max, vault: vault, uniqueID: <-uniqueID)
     }
 }
