@@ -15,7 +15,21 @@ access(all) contract MockOracle {
     /// bps up or down by which current price moves when bumpPrice is called
     access(self) let bumpVariance: UInt16
 
-    access(all) struct PriceOracle : DeFiActions.PriceOracle {
+    access(all) resource PriceOracle : DeFiActions.PriceOracle {
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+
+        init(_ uniqueID: @DeFiActions.UniqueIdentifier?) {
+            self.uniqueID <- uniqueID
+        }
+
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
 
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type {
@@ -29,6 +43,10 @@ access(all) contract MockOracle {
             }
             return MockOracle.mockedPrices[ofToken]
         }
+    }
+
+    access(all) fun createPriceOracle(uniqueID: @DeFiActions.UniqueIdentifier?): @{DeFiActions.PriceOracle} {
+        return <- create PriceOracle(<-uniqueID)
     }
 
     // resets the price of the token within 0-bumpVariance (bps) of the current price

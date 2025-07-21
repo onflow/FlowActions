@@ -43,6 +43,19 @@ access(all) contract FungibleTokenStack {
             self.depositVault = depositVault
         }
 
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSink
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
+
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type {
             return self.depositVaultType
@@ -93,6 +106,19 @@ access(all) contract FungibleTokenStack {
             self.withdrawVault = withdrawVault
             self.uniqueID <- uniqueID
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSource
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
         }
 
         /// Returns the Vault type provided by this Source
@@ -152,6 +178,19 @@ access(all) contract FungibleTokenStack {
             self.vaultType = vault.borrow()!.getType()
             self.uniqueID <- uniqueID
             self.vault = vault
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSinkAndSource
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
         }
 
         /// Returns the Vault type accepted by this Sink

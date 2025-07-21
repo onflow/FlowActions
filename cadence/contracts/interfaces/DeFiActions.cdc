@@ -124,7 +124,7 @@ access(all) contract DeFiActions {
 
     /// A resource interface containing a UniqueIdentifier and convenience getters about it
     ///
-    access(all) resource interface IdentifiableResource {
+    access(all) resource interface Identifiable {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: @UniqueIdentifier?
@@ -135,11 +135,13 @@ access(all) contract DeFiActions {
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
+        /// Returns a list of ComponentInfo for each component in the stack
+        access(all) fun getStackInfo(): [ComponentInfo]
         /// Aligns the UniqueIdentifier of this component with the provided component, burning the old UniqueIdentifier
         ///
         /// @param with: The component to align the UniqueIdentifier with
         ///
-        access(Extend) fun alignID(with: auth(Extend) &{IdentifiableResource}) {
+        access(Extend) fun alignID(with: auth(Extend) &{Identifiable}) {
             post {
                 self.uniqueID?.id == with.uniqueID?.id:
                 "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
@@ -159,13 +161,31 @@ access(all) contract DeFiActions {
         }
     }
 
+    access(all) struct ComponentInfo {
+        access(all) let type: Type
+        access(all) let uuid: UInt64
+        access(all) let id: UInt64?
+        access(all) let innerComponents: {UInt64: Type}
+        init(
+            type: Type,
+            uuid: UInt64,
+            id: UInt64?,
+            innerComponents: {UInt64: Type}
+        ) {
+            self.type = type
+            self.uuid = uuid
+            self.id = id
+            self.innerComponents = innerComponents
+        }
+    }
+
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
     /// accept for deposit. Implementations should therefore avoid the possibility of reversion with graceful fallback
     /// on unexpected conditions, executing no-ops instead of reverting.
     ///
-    access(all) resource interface Sink : IdentifiableResource {
+    access(all) resource interface Sink : Identifiable {
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
@@ -191,7 +211,7 @@ access(all) contract DeFiActions {
     /// of funds available to be withdrawn. Implementations should therefore avoid the possibility of reversion with
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
-    access(all) resource interface Source : IdentifiableResource {
+    access(all) resource interface Source : Identifiable {
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
@@ -228,7 +248,7 @@ access(all) contract DeFiActions {
 
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
-    access(all) resource interface Swapper : IdentifiableResource {
+    access(all) resource interface Swapper : Identifiable {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
@@ -286,7 +306,7 @@ access(all) contract DeFiActions {
 
     /// An interface for a price oracle adapter. Implementations should adapt this interface to various price feed
     /// oracles deployed on Flow
-    access(all) struct interface PriceOracle {
+    access(all) resource interface PriceOracle : Identifiable {
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type
         /// Returns the latest price data for a given asset denominated in unitOfAccount() if available, otherwise `nil`
@@ -335,6 +355,16 @@ access(all) contract DeFiActions {
             }
             return
         }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        access(all) fun getStackInfo(): [ComponentInfo] {
+            return [ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
     }
 
     /// AutoBalancerSource
@@ -382,6 +412,16 @@ access(all) contract DeFiActions {
             }
             return <- DeFiActionsUtils.getEmptyVault(self.type)
         }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        access(all) fun getStackInfo(): [ComponentInfo] {
+            return [ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
     }
 
     /// Entitlement used by the AutoBalancer to set inner Sink and Source
@@ -393,14 +433,14 @@ access(all) contract DeFiActions {
     /// AutoBalancer can be a critical component of DeFiActions stacks by allowing for strategies to compound, repay
     /// loans or direct accumulated value to other sub-systems and/or user Vaults.
     ///
-    access(all) resource AutoBalancer : IdentifiableResource, FungibleToken.Receiver, FungibleToken.Provider, ViewResolver.Resolver, Burner.Burnable {
+    access(all) resource AutoBalancer : Identifiable, FungibleToken.Receiver, FungibleToken.Provider, ViewResolver.Resolver, Burner.Burnable {
         /// The value in deposits & withdrawals over time denominated in oracle.unitOfAccount()
         access(self) var _valueOfDeposits: UFix64
         /// The percentage low and high thresholds defining when a rebalance executes
         /// Index 0 is low, index 1 is high
         access(self) var _rebalanceRange: [UFix64; 2]
         /// Oracle used to track the baseValue for deposits & withdrawals over time
-        access(self) let _oracle: {PriceOracle}
+        access(self) let _oracle: @{PriceOracle}
         /// The inner Vault's Type captured for the ResourceDestroyed event
         access(self) let _vaultType: Type
         /// Vault used to deposit & withdraw from made optional only so the Vault can be burned via Burner.burn() if the
@@ -429,7 +469,7 @@ access(all) contract DeFiActions {
         init(
             lower: UFix64,
             upper: UFix64,
-            oracle: {PriceOracle},
+            oracle: @{PriceOracle},
             vaultType: Type,
             outSink: @{Sink}?,
             inSource: @{Source}?,
@@ -445,7 +485,7 @@ access(all) contract DeFiActions {
                 message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vaultType.identifier)")
             self._valueOfDeposits = 0.0
             self._rebalanceRange = [lower, upper]
-            self._oracle = oracle
+            self._oracle <- oracle
             self._vault <- DeFiActionsUtils.getEmptyVault(vaultType)
             self._vaultType = vaultType
             self._rebalanceSink <- outSink
@@ -521,6 +561,41 @@ access(all) contract DeFiActions {
             return nil
         }
 
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the AutoBalancer
+        ///
+        access(all) fun getStackInfo(): [ComponentInfo] {
+            let inner: {UInt64: Type} = {}
+
+            // get the inner components
+            let oracle = self._borrowOracle()
+            inner[oracle.uuid] = oracle.getType()
+
+            // get the info for the optional inner components if they exist
+            let res: [ComponentInfo] = oracle.getStackInfo()
+            let maybeSink = self._borrowSink()
+            let maybeSource = self._borrowSource()
+            if let sink = maybeSink {
+                inner[sink.uuid] = sink.getType()
+                res.appendAll(sink.getStackInfo())
+            }
+            if let source = maybeSource {
+                inner[source.uuid] = source.getType()
+                res.appendAll(source.getStackInfo())
+            }
+
+            // create the ComponentInfo for the AutoBalancer and insert it at the beginning of the list
+            res.insert(at: 0, ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: inner
+            ))
+
+            return res
+        }
+
         /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer. If the AutoBalancer's
         /// Capability on itself is not set or is invalid, `nil` is returned.
         ///
@@ -553,7 +628,7 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSink(_ sink: @{Sink}?, align: Bool) {
             if sink != nil && align {
-                sink?.alignID(with: &self as auth(Extend) &{IdentifiableResource})
+                sink?.alignID(with: &self as auth(Extend) &{Identifiable})
             }
             let old <- self._rebalanceSink <- sink
             Burner.burn(<-old)
@@ -567,7 +642,7 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSource(_ source: @{Source}?, align: Bool) {
             if source != nil && align {
-                source?.alignID(with: &self as auth(Extend) &{IdentifiableResource})
+                source?.alignID(with: &self as auth(Extend) &{Identifiable})
             }
             let old <- self._rebalanceSource <- source
             Burner.burn(<-old)
@@ -741,6 +816,18 @@ access(all) contract DeFiActions {
         access(self) view fun _borrowVault(): auth(FungibleToken.Withdraw) &{FungibleToken.Vault} {
             return (&self._vault)!
         }
+        /// Returns a reference to the inner Vault
+        access(self) view fun _borrowOracle(): &{PriceOracle} {
+            return &self._oracle
+        }
+        /// Returns a reference to the inner Vault
+        access(self) view fun _borrowSink(): &{Sink}? {
+            return &self._rebalanceSink
+        }
+        /// Returns a reference to the inner Source
+        access(self) view fun _borrowSource(): auth(FungibleToken.Withdraw) &{Source}? {
+            return &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
+        }
     }
 
     /* --- PUBLIC METHODS --- */
@@ -755,7 +842,7 @@ access(all) contract DeFiActions {
     /// @param uniqueID: An optional DeFiActions UniqueIdentifier used for identifying rebalance events
     ///
     access(all) fun createAutoBalancer(
-        oracle: {PriceOracle},
+        oracle: @{PriceOracle},
         vaultType: Type,
         lowerThreshold: UFix64,
         upperThreshold: UFix64,
@@ -766,7 +853,7 @@ access(all) contract DeFiActions {
         let ab <- create AutoBalancer(
             lower: lowerThreshold,
             upper: upperThreshold,
-            oracle: oracle,
+            oracle: <-oracle,
             vaultType: vaultType,
             outSink: <-rebalanceSink,
             inSource: <-rebalanceSource,

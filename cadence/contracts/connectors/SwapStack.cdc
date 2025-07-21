@@ -91,13 +91,34 @@ access(all) contract SwapStack {
                 let swapper = &swappers[i] as &{DeFiActions.Swapper}
                 assert(swapper.inType() == inVault,
                     message: "Mismatched inVault \(inVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.inType().identifier)")
-                assert(swapper.outType() == outVault, 
+                assert(swapper.outType() == outVault,
                     message: "Mismatched outVault \(outVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.outType().identifier)")
             }
             self.inVault = inVault
             self.outVault = outVault
             self.uniqueID <- uniqueID
             self.swappers <- swappers
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the MultiSwapper
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            let res: [DeFiActions.ComponentInfo] = []
+            let inner: {UInt64: Type} = {}
+            for i in InclusiveRange(0, self.swappers.length - 1) {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
+                inner[swapper.uuid] = swapper.getType()
+                res.appendAll(swapper.getStackInfo())
+            }
+            res.insert(at: 0, DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: inner
+            ))
+            return res
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
@@ -203,6 +224,25 @@ access(all) contract SwapStack {
             self.uniqueID <- uniqueID
         }
 
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the SwapSink
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            let res = [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {
+                    self.swapper.uuid: self.swapper.getType(),
+                    self.sink.uuid: self.sink.getType()
+                }
+            )]
+            res.appendAll(self.swapper.getStackInfo())
+            res.appendAll(self.sink.getStackInfo())
+            return res
+        }
+
         access(all) view fun getSinkType(): Type {
             return self.swapper.inType()
         }
@@ -258,6 +298,25 @@ access(all) contract SwapStack {
             self.swapper <- swapper
             self.source <- source
             self.uniqueID <- uniqueID
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the SwapSource
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            let res = [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {
+                    self.swapper.uuid: self.swapper.getType(),
+                    self.source.uuid: self.source.getType()
+                }
+            )]
+            res.appendAll(self.swapper.getStackInfo())
+            res.appendAll(self.source.getStackInfo())
+            return res
         }
 
         access(all) view fun getSourceType(): Type {

@@ -38,11 +38,11 @@ transaction(
 
             // PriceOracle is mocked here
             // PRODUCTION CASES SHOULD USE A VALID PRICEORACLE ADAPTER
-            let oracle = MockOracle.PriceOracle()
+            let oracle <- MockOracle.createPriceOracle(uniqueID: nil)
 
             // construct the AutoBalancer & save in signer's account
             let ab <- DeFiActions.createAutoBalancer(
-                oracle: oracle,
+                oracle: <-oracle,
                 vaultType: tokenType,
                 lowerThreshold: lowerThreshold,
                 upperThreshold: upperThreshold,

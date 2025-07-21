@@ -44,6 +44,19 @@ access(all) contract IncrementFiAdapters {
             self.uniqueID <- uniqueID
         }
 
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the Swapper
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
+
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type {
             return self.inVault

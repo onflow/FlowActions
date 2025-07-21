@@ -36,8 +36,10 @@ access(all) contract BandOracleAdapters {
         access(self) let feeSource: @{DeFiActions.Source}
         /// The amount of seconds beyond which a price is considered stale and a price() call reverts
         access(self) let staleThreshold: UInt64?
+        /// The unique ID of the PriceOracle
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
 
-        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: @{DeFiActions.Source}) {
+        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: @{DeFiActions.Source}, uniqueID: @DeFiActions.UniqueIdentifier?) {
             pre {
                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
@@ -49,6 +51,24 @@ access(all) contract BandOracleAdapters {
             self.feeSource <- feeSource
             self.quote = unitOfAccount
             self.staleThreshold = staleThreshold
+            self.uniqueID <- uniqueID
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the PriceOracle
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            let res = [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {
+                    self.feeSource.uuid: self.feeSource.getType()
+                }
+            )]
+            res.appendAll(self.feeSource.getStackInfo())
+            return res
         }
 
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
