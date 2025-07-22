@@ -149,12 +149,11 @@ access(all) contract DeFiActions {
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
+        /// to the inner components, traceable by the innerComponents map.
         access(all) fun getStackInfo(): [ComponentInfo]
-        /// Aligns the UniqueIdentifier of this component with the provided component, burning the old UniqueIdentifier
-        ///
-        /// @param with: The component to align the UniqueIdentifier with
-        ///
+        /// Aligns the UniqueIdentifier of this component with the provided component, destroying the old
+        /// UniqueIdentifier
         access(Extend) fun alignID(with: auth(Extend) &{Identifiable}) {
             post {
                 self.uniqueID?.id == with.uniqueID?.id:
@@ -176,10 +175,17 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// A struct containing information about a DeFiActions component
+    ///
     access(all) struct ComponentInfo {
+        /// The type of the component
         access(all) let type: Type
+        /// The unique identifier of the component
         access(all) let uuid: UInt64
+        /// The identifier of the component
         access(all) let id: UInt64?
+        /// A map of inner component types keyed on their their resource.uuid, creating a linked between the outer and
+        /// inner components
         access(all) let innerComponents: {UInt64: Type}
         init(
             type: Type,
