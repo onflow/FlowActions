@@ -26,7 +26,7 @@ import "DeFiActionsUtils"
 //      * Maintain the current state and just accept that unique IDs are forgeable
 //      * Remove all identification from components and do away with it entirely
 //      * Make each component a struct interface and use the UniqueIdentifier to identify the component
-// - [ ] Figure out how to traverse stacks from a given component to inspect components and their connections
+// - [X] Figure out how to traverse stacks from a given component to inspect components and their connections
 //      * component.traverse() returns a list of contained components and those contained by those components
 // - [ ] Establish a basic metadata view to get information about each component
 //      * e.g. Swapper - inType, outType, inAmount, outAmount, inUUID, outUUID, uniqueID, swapperType
