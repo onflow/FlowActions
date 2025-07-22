@@ -51,7 +51,8 @@ access(all) contract DeFiActions {
         amount: UFix64,
         fromUUID: UInt64,
         uniqueID: UInt64?,
-        sinkType: String
+        sinkType: String,
+        uuid: UInt64
     )
     /// Emitted when value is withdrawn from a Source
     access(all) event Withdrawn(
@@ -59,7 +60,8 @@ access(all) contract DeFiActions {
         amount: UFix64,
         withdrawnUUID: UInt64,
         uniqueID: UInt64?,
-        sourceType: String
+        sourceType: String,
+        uuid: UInt64
     )
     /// Emitted when a Swapper executes a Swap
     access(all) event Swapped(
@@ -70,14 +72,24 @@ access(all) contract DeFiActions {
         inUUID: UInt64,
         outUUID: UInt64,
         uniqueID: UInt64?,
-        swapperType: String
+        swapperType: String,
+        uuid: UInt64
+    )
+    /// Emitted when a Flasher executes a flash loan
+    access(all) event Flashed(
+        requestedAmount: UFix64,
+        borrowType: String,
+        uniqueID: UInt64?,
+        flasherType: String,
+        uuid: UInt64
     )
     /// Emitted when an IdentifiableResource's UniqueIdentifier is aligned with another DFA component
     access(all) event Aligned(
         oldID: UInt64?,
         newID: UInt64?,
         component: String,
-        with: String
+        with: String,
+        uuid: UInt64
     )
     /// Emitted when an AutoBalancer is created
     access(all) event CreatedAutoBalancer(
@@ -86,7 +98,8 @@ access(all) contract DeFiActions {
         balancerUUID: UInt64,
         vaultType: String,
         vaultUUID: UInt64,
-        uniqueID: UInt64?
+        uniqueID: UInt64?,
+        uuid: UInt64
     )
     /// Emitted when AutoBalancer.rebalance() is called
     access(all) event Rebalanced(
@@ -98,7 +111,8 @@ access(all) contract DeFiActions {
         vaultUUID: UInt64,
         balancerUUID: UInt64,
         address: Address?,
-        uniqueID: UInt64?
+        uniqueID: UInt64?,
+        uuid: UInt64
     )
 
     /* --- CONSTRUCTS --- */
@@ -155,7 +169,8 @@ access(all) contract DeFiActions {
                 oldID: old?.id,
                 newID: self.uniqueID?.id,
                 component: self.getType().identifier,
-                with: with.getType().identifier
+                with: with.getType().identifier,
+                uuid: self.uuid
             )
             Burner.burn(<-old)
         }
@@ -199,7 +214,8 @@ access(all) contract DeFiActions {
                     afterBalance: from.balance,
                     fromUUID: from.uuid,
                     uniqueID: self.uniqueID?.id,
-                    sinkType: self.getType().identifier
+                    sinkType: self.getType().identifier,
+                    uuid: self.uuid
                 ): "Unknown error emitting DeFiActions.Withdrawn from Sink \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
@@ -225,7 +241,8 @@ access(all) contract DeFiActions {
                     amount: result.balance,
                     withdrawnUUID: result.uuid,
                     uniqueID: self.uniqueID?.id ?? nil,
-                    sourceType: self.getType().identifier
+                    sourceType: self.getType().identifier,
+                    uuid: self.uuid
                 ): "Unknown error emitting DeFiActions.Withdrawn from Source \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
@@ -276,7 +293,8 @@ access(all) contract DeFiActions {
                     inUUID: before(inVault.uuid),
                     outUUID: result.uuid,
                     uniqueID: self.uniqueID?.id ?? nil,
-                    swapperType: self.getType().identifier
+                    swapperType: self.getType().identifier,
+                    uuid: self.uuid
                 )
             }
         }
@@ -298,7 +316,8 @@ access(all) contract DeFiActions {
                     inUUID: before(residual.uuid),
                     outUUID: result.uuid,
                     uniqueID: self.uniqueID?.id ?? nil,
-                    swapperType: self.getType().identifier
+                    swapperType: self.getType().identifier,
+                    uuid: self.uuid
                 )
             }
         }
@@ -313,6 +332,29 @@ access(all) contract DeFiActions {
         /// should be returned. Callers should note that although an optional is supported, implementations may choose
         /// to revert.
         access(all) fun price(ofToken: Type): UFix64?
+    }
+
+    /// An interface for a flash loan adapter. Implementations should adapt this interface to various flash loan
+    /// protocols deployed on Flow
+    access(all) resource interface Flasher : Identifiable {
+        /// Returns the asset type this Flasher can issue as a flash loan
+        access(all) view fun borrowType(): Type
+        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
+        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        access(all) fun flashLoan(
+            amount: UFix64,
+            executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault} // fee and loan are passed in
+        ) {
+            post {
+                emit Flashed(
+                    requestedAmount: amount,
+                    borrowType: self.borrowType().identifier,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    flasherType: self.getType().identifier,
+                    uuid: self.uuid
+                )
+            }
+        }
     }
 
     /// AutoBalancerSink
@@ -499,7 +541,8 @@ access(all) contract DeFiActions {
                 balancerUUID: self.uuid,
                 vaultType: vaultType.identifier,
                 vaultUUID: self._borrowVault().uuid,
-                uniqueID: self.id()
+                uniqueID: self.id(),
+                uuid: self.uuid
             )
         }
 
@@ -735,7 +778,8 @@ access(all) contract DeFiActions {
                     vaultUUID: self._borrowVault().uuid,
                     balancerUUID: self.uuid,
                     address: self.owner?.address,
-                    uniqueID: self.id()
+                    uniqueID: self.id(),
+                    uuid: self.uuid
                 )
             }
         }
@@ -881,7 +925,8 @@ access(all) contract DeFiActions {
         afterBalance: UFix64,
         fromUUID: UInt64,
         uniqueID: UInt64?,
-        sinkType: String
+        sinkType: String,
+        uuid: UInt64
     ): Bool {
         if beforeBalance == afterBalance {
             return true
@@ -891,7 +936,8 @@ access(all) contract DeFiActions {
             amount: beforeBalance > afterBalance ? beforeBalance - afterBalance : afterBalance - beforeBalance,
             fromUUID: fromUUID,
             uniqueID: uniqueID,
-            sinkType: sinkType
+            sinkType: sinkType,
+            uuid: uuid
         )
         return true
     }
@@ -902,7 +948,8 @@ access(all) contract DeFiActions {
         amount: UFix64,
         withdrawnUUID: UInt64,
         uniqueID: UInt64?,
-        sourceType: String
+        sourceType: String,
+        uuid: UInt64
     ): Bool {
         if amount == 0.0 {
             return true
@@ -912,7 +959,8 @@ access(all) contract DeFiActions {
             amount: amount,
             withdrawnUUID: withdrawnUUID,
             uniqueID: uniqueID,
-            sourceType: sourceType
+            sourceType: sourceType,
+            uuid: uuid
         )
         return true
     }
