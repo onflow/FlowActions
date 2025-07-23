@@ -9,7 +9,7 @@ updated: 2025-01-XX
 
 # FLIP XXX: DeFiActions - Composable DeFi Standards for Flow
 
-> Standardized interfaces enabling atomic composition of DeFi operations through pluggable, reusable components
+> Standardized interfaces enabling composition of common DeFi operations through pluggable, reusable components
 
 <details>
 
@@ -24,11 +24,11 @@ updated: 2025-01-XX
     - [Component Model Overview](#component-model-overview)
     - [Interface Architecture](#interface-architecture)
       - [Source Interface](#source-interface)
-      - [Sink Interface](#sink-interface)  
+      - [Sink Interface](#sink-interface)
       - [Swapper Interface](#swapper-interface)
       - [PriceOracle Interface](#priceoracle-interface)
     - [Component Composition](#component-composition)
-    - [Identification & Traceability](#identification--traceability)
+    - [Identification \& Traceability](#identification--traceability)
     - [Stack Introspection](#stack-introspection)
   - [Implementation Details](#implementation-details)
     - [Core Interfaces](#core-interfaces)
@@ -99,21 +99,20 @@ DeFiActions is inspired by Unix terminal piping, where simple commands can be co
 - **Standardized**: All components of the same type implement identical interfaces
 - **Graceful Failure**: Components handle edge cases gracefully rather than reverting
 
-This design enables developers to create complex workflows by "piping" components together, similar to how `command1 | command2 | command3` creates a pipeline in Unix systems.
-
 ### Component Model Overview
 
-DFA defines four core component types, each representing a fundamental DeFi operation:
+DFA defines five core component types, each representing a fundamental DeFi operation:
 
 1. **Source**: Provides tokens on demand (e.g., withdraw from vault, claim rewards)
 2. **Sink**: Accepts tokens up to capacity (e.g., deposit to vault, repay loan)  
 3. **Swapper**: Exchanges one token type for another (e.g., DEX trades, cross-chain swaps)
 4. **PriceOracle**: Provides price data for assets (e.g., external price feeds, DEX prices)
+5. **Flasher**: Provides flash loans with atomic repayment (e.g., arbitrage, liquidations)
 
 Additional specialized components build upon these primitives:
 
-5. **AutoBalancer**: Automated rebalancing system that uses Sources, Sinks, and PriceOracles
-6. **Quote**: Data structure for swap price estimates and execution parameters
+6. **AutoBalancer**: Automated rebalancing system that uses Sources, Sinks, and PriceOracles
+7. **Quote**: Data structure for swap price estimates and execution parameters
 
 ### Interface Architecture
 
@@ -204,6 +203,40 @@ Key design principles:
 - **Consistent Denomination**: All prices returned in the same unit of account
 - **Graceful Unavailability**: Returns nil rather than reverting when price unavailable
 - **Type-Based**: Prices indexed by Cadence Type for type safety
+
+#### Flasher Interface
+
+A Flasher provides flash loans with atomic repayment requirements:
+
+```cadence
+access(all) resource interface Flasher : Identifiable {
+    /// Returns the asset type this Flasher can issue as a flash loan
+    access(all) view fun borrowType(): Type
+    
+    /// Returns the estimated fee for a flash loan of the specified amount
+    access(all) fun calculateFee(loanAmount: UFix64): UFix64
+    
+    /// Performs a flash loan with executor function for loan logic
+    access(all) fun flashLoan(
+        amount: UFix64,
+        executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
+    )
+}
+```
+
+Key design principles:
+- **Atomic Repayment**: Loan must be repaid within the same transaction
+- **Executor Pattern**: Consumer logic runs in provided function rather than separate components
+- **Fee Transparency**: Implementations provide fee calculation before execution
+- **Repayment Guarantee**: Implementers must validate full repayment (loan + fee) before transaction completion
+
+**Design Rationale**: The executor function pattern was chosen over requiring separate Sink/Source components for several reasons:
+- **Lighter Weight**: No contract deployment required for flash loan logic
+- **Competitive Advantage**: Transaction-scoped logic maintains user edge over permanent on-chain code
+- **Consolidated Context**: Single execution scope rather than split between multiple components
+- **Flexibility**: Supports highly customized, ephemeral arbitrage strategies
+
+Common use cases include cross-DEX arbitrage and liquidation protection strategies.
 
 ### Component Composition
 
@@ -321,6 +354,15 @@ access(all) contract DeFiActions {
         access(all) view fun unitOfAccount(): Type
         access(all) fun price(ofToken: Type): UFix64?
     }
+    
+    access(all) resource interface Flasher : Identifiable {
+        access(all) view fun borrowType(): Type
+        access(all) fun calculateFee(loanAmount: UFix64): UFix64
+        access(all) fun flashLoan(
+            amount: UFix64,
+            executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
+        )
+    }
 }
 ```
 
@@ -410,6 +452,21 @@ access(all) resource IncrementFiSwapper : DeFiActions.Swapper {
 }
 ```
 
+#### Flash Loan Adapters
+
+Adapters that integrate flash loan protocols with repayment validation:
+
+```cadence
+// TODO: Add concrete Flasher implementation example
+// Example showing repayment validation pattern:
+access(all) resource ExampleFlasher : DeFiActions.Flasher {
+    access(all) fun flashLoan(amount: UFix64, executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}) {
+        // Implementation validates loan + fee repayment
+        // assert(repayment.balance == amount + fee)
+    }
+}
+```
+
 ### AutoBalancer Component
 
 The AutoBalancer is a sophisticated component that demonstrates advanced DFA composition:
@@ -458,10 +515,11 @@ DFA components emit standardized events for operation tracing:
 
 ```cadence
 // Core DFA events
-access(all) event Deposited(type: String, amount: UFix64, fromUUID: UInt64, uniqueID: UInt64?, sinkType: String)
-access(all) event Withdrawn(type: String, amount: UFix64, withdrawnUUID: UInt64, uniqueID: UInt64?, sourceType: String)  
-access(all) event Swapped(inVault: String, outVault: String, inAmount: UFix64, outAmount: UFix64, inUUID: UInt64, outUUID: UInt64, uniqueID: UInt64?, swapperType: String)
-access(all) event Rebalanced(amount: UFix64, value: UFix64, unitOfAccount: String, isSurplus: Bool, vaultType: String, vaultUUID: UInt64, balancerUUID: UInt64, address: Address?, uniqueID: UInt64?)
+access(all) event Deposited(type: String, amount: UFix64, fromUUID: UInt64, uniqueID: UInt64?, sinkType: String, uuid: UInt64)
+access(all) event Withdrawn(type: String, amount: UFix64, withdrawnUUID: UInt64, uniqueID: UInt64?, sourceType: String, uuid: UInt64)  
+access(all) event Swapped(inVault: String, outVault: String, inAmount: UFix64, outAmount: UFix64, inUUID: UInt64, outUUID: UInt64, uniqueID: UInt64?, swapperType: String, uuid: UInt64)
+access(all) event Flashed(requestedAmount: UFix64, borrowType: String, uniqueID: UInt64?, flasherType: String, uuid: UInt64)
+access(all) event Rebalanced(amount: UFix64, value: UFix64, unitOfAccount: String, isSurplus: Bool, vaultType: String, vaultUUID: UInt64, balancerUUID: UInt64, address: Address?, uniqueID: UInt64?, uuid: UInt64)
 ```
 
 ## Use Cases
@@ -621,12 +679,15 @@ DFA's design philosophy prioritizes graceful failure over strict guarantees, whi
 - **Consumer Responsibility**: Applications must validate component outputs rather than assuming behavior
 - **Type Safety**: Multiple connectors can make type tracking complex; developers should implement explicit type checks
 - **Reentrancy Risk**: Open component definitions and weak guarantees may increase reentrancy attack surface
+- **Flash Loan Risks**: Flasher implementations must validate full repayment (loan + fee) to prevent exploitation; consumer logic must execute entirely within the executor function scope
 
 **Recommended Practices:**
 - Always validate returned Vault types and amounts
 - Implement slippage protection for Swapper operations
 - Use UniqueIdentifier for comprehensive operation tracing
 - Consider implementing circuit breakers for automated strategies
+- For Flasher implementations: validate exact repayment amounts before transaction completion
+- For flash loan consumers: ensure all loan-related logic executes within the executor function
 
 ### Performance Implications
 
