@@ -345,6 +345,8 @@ access(all) contract DeFiActions {
     access(all) resource interface Flasher : Identifiable {
         /// Returns the asset type this Flasher can issue as a flash loan
         access(all) view fun borrowType(): Type
+        /// Returns the estimated fee for a flash loan of the specified amount
+        access(all) fun calculateFee(loanAmount: UFix64): UFix64
         /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
         /// containing the loan. The executor function should return a Vault containing the loan and fee.
         access(all) fun flashLoan(
