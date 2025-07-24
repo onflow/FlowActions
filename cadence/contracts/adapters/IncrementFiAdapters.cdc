@@ -1,6 +1,9 @@
 import "FungibleToken"
 import "Burner"
 
+import "SwapInterfaces"
+import "SwapConfig"
+import "SwapFactory"
 import "SwapRouter"
 import "SwapStack"
 import "DeFiActions"
@@ -111,6 +114,90 @@ access(all) contract IncrementFiAdapters {
         }
     }
 
+    /// An implementation of DeFiActions.Flasher connector that performs flash loans using IncrementFi's SwapPair contract
+    ///
+    access(all) resource Flasher : SwapInterfaces.FlashLoanExecutor, DeFiActions.Flasher {
+        /// The address of the SwapPair contract to use for flash loans
+        access(all) let pairAddress: Address
+        /// The type of token to borrow
+        access(all) let type: Type
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+
+        init(pairAddress: Address, type: Type, uniqueID: @DeFiActions.UniqueIdentifier?) {
+            let pair = getAccount(pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)
+                ?? panic("Could not reference SwapPair public capability at address \(pairAddress)")
+            let pairInfo = pair.getPairInfoStruct()
+            assert(pairInfo.token0Key == type.identifier || pairInfo.token1Key == type.identifier,
+                message: "Provided type is not supported by the SwapPair at address \(pairAddress) - "
+                    .concat("valid types for this SwapPair are \(pairInfo.token0Key) and \(pairInfo.token1Key)"))
+            self.pairAddress = pairAddress
+            self.type = type
+            self.uniqueID <- uniqueID
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the Flasher
+        ///
+        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
+            return [DeFiActions.ComponentInfo(
+                type: self.getType(),
+                uuid: self.uuid,
+                id: self.id() ?? nil,
+                innerComponents: {}
+            )]
+        }
+        /// Returns the asset type this Flasher can issue as a flash loan
+        ///
+        /// @return the type of token this Flasher can issue as a flash loan
+        ///
+        access(all) view fun borrowType(): Type {
+            return self.type
+        }
+        /// Returns the estimated fee for a flash loan of the specified amount
+        ///
+        /// @param loanAmount: The amount of tokens to borrow
+        /// @return the estimated fee for a flash loan of the specified amount
+        ///
+        access(all) fun calculateFee(loanAmount: UFix64): UFix64 {
+            return UFix64(SwapFactory.getFlashloanRateBps()) * loanAmount / 10000.0
+        }
+        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
+        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        ///
+        /// @param amount: The amount of tokens to borrow
+        /// @param executor: The executor function to use for the flash loan
+        ///
+        access(all) fun flashLoan(
+            amount: UFix64,
+            executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault} // fee and loan are passed in
+        ) {
+            let pair = getAccount(self.pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(
+                    SwapConfig.PairPublicPath
+                ) ?? panic("Could not reference SwapPair public capability at address \(self.pairAddress)")
+            let params: {String: AnyStruct} = {
+                "fee": self.calculateFee(loanAmount: amount),
+                "executor": executor
+            }
+            pair.flashloan(
+                executor: &self as &{SwapInterfaces.FlashLoanExecutor},
+                requestedTokenVaultType: self.type,
+                requestedAmount: amount,
+                params: params
+            )
+        }
+        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
+        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        access(all) fun executeAndRepay(loanedToken: @{FungibleToken.Vault}, params: {String: AnyStruct}): @{FungibleToken.Vault} {
+            let fee = params["fee"] as! UFix64
+            let executor = params["executor"] as! fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
+            let repaidToken <- executor(fee, <-loanedToken)
+            return <- repaidToken
+        }
+    }
+
     /* --- PUBLIC METHODS --- */
 
     /// Creates a Swapper DeFiActions connector
@@ -127,6 +214,16 @@ access(all) contract IncrementFiAdapters {
         uniqueID: @DeFiActions.UniqueIdentifier?
     ): @Swapper {
         return <- create Swapper(path: path, inVault: inVault, outVault: outVault, uniqueID: <-uniqueID)
+    }
+
+    /// Creates a Flasher DeFiActions connector
+    ///
+    /// @param pairAddress: The address of the SwapPair contract to use for flash loans
+    /// @param type: The type of token to borrow
+    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining a
+    ///     protocol-specific Identifier to associated connectors on construction
+    access(all) fun createFlasher(pairAddress: Address, type: Type, uniqueID: @DeFiActions.UniqueIdentifier?): @Flasher {
+        return <- create Flasher(pairAddress: pairAddress, type: type, uniqueID: <-uniqueID)
     }
 
     /* --- INTERNAL HELPERS --- */

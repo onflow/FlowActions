@@ -117,6 +117,8 @@ access(all) contract DeFiActions {
 
     /* --- CONSTRUCTS --- */
 
+    /// UniqueIdentifier
+    ///
     /// This construct enables protocols to trace stack operations via DeFiActions interface-level events, identifying
     /// them by UniqueIdentifier IDs. IdentifiableResource Implementations should ensure that access to them is
     /// encapsulated by the structures they are used to identify.
@@ -136,6 +138,8 @@ access(all) contract DeFiActions {
     /// Extend entitlement allowing for the authorized copying of UniqueIdentifiers from existing components
     access(all) entitlement Extend
 
+    /// Identifiable
+    ///
     /// A resource interface containing a UniqueIdentifier and convenience getters about it
     ///
     access(all) resource interface Identifiable {
@@ -175,6 +179,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// ComponentInfo
+    ///
     /// A struct containing information about a DeFiActions component
     ///
     access(all) struct ComponentInfo {
@@ -200,6 +206,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Sink
+    ///
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
@@ -227,6 +235,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Source
+    ///
     /// A Source Connector (or just “Source”) is analogous to the Fungible Token Provider interface that provides funds
     /// on demand. It differs from the standard Provider interface in that it is a struct interface (instead of resource
     /// interface) and allows for graceful handling of the case that the Source might not know exactly the total amount
@@ -254,6 +264,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Quote
+    ///
     /// An interface for an estimate to be returned by a Swapper when asking for a swap estimate. This may be helpful
     /// for passing additional parameters to a Swapper relevant to the use case. Implementations may choose to add
     /// fields relevant to their Swapper implementation and downcast in swap() and/or swapBack() scope.
@@ -269,8 +281,11 @@ access(all) contract DeFiActions {
         access(all) let outAmount: UFix64
     }
 
+    /// Swapper
+    ///
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
+    ///
     access(all) resource interface Swapper : Identifiable {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type
@@ -329,8 +344,11 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// PriceOracle
+    ///
     /// An interface for a price oracle adapter. Implementations should adapt this interface to various price feed
     /// oracles deployed on Flow
+    ///
     access(all) resource interface PriceOracle : Identifiable {
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type
@@ -340,8 +358,11 @@ access(all) contract DeFiActions {
         access(all) fun price(ofToken: Type): UFix64?
     }
 
+    /// Flasher
+    ///
     /// An interface for a flash loan adapter. Implementations should adapt this interface to various flash loan
     /// protocols deployed on Flow
+    ///
     access(all) resource interface Flasher : Identifiable {
         /// Returns the asset type this Flasher can issue as a flash loan
         access(all) view fun borrowType(): Type
@@ -479,6 +500,8 @@ access(all) contract DeFiActions {
     access(all) entitlement Set
     access(all) entitlement Get
 
+    /// AutoBalancer
+    ///
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
     /// AutoBalancer can be a critical component of DeFiActions stacks by allowing for strategies to compound, repay
     /// loans or direct accumulated value to other sub-systems and/or user Vaults.
