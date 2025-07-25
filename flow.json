@@ -18,6 +18,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"DeFiActionsMathUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsMathUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiActionsEVMAdapters": {
 			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
 			"aliases": {
@@ -493,6 +499,7 @@
 				"StableSwapFactory",
 				"DeFiActions",
 				"DeFiActionsUtils",
+				"DeFiActionsMathUtils",
 				"SwapStack",
 				"FungibleTokenStack",
 				"IncrementFiAdapters",
