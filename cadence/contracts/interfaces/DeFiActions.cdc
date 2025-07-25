@@ -3,6 +3,7 @@ import "ViewResolver"
 import "FungibleToken"
 
 import "DeFiActionsUtils"
+import "DeFiActionsMathUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -581,7 +582,8 @@ access(all) contract DeFiActions {
             }
 
             let vault = self._borrowVault()
-            var amount = valueDiff / currentPrice!
+            //var amount = valueDiff / currentPrice!
+            var amount = DeFiActionsMathUtils.divUFix64(valueDiff, currentPrice!)
             var executed = false
             if isDeficit && self._rebalanceSource != nil {
                 // rebalance back up to baseline sourcing funds from _rebalanceSource
