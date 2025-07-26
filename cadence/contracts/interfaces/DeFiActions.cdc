@@ -678,7 +678,10 @@ access(all) contract DeFiActions {
                 return <- self._borrowVault().createEmptyVault()
             }
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
-            self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
+            // self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
+            let proportion: UFix64 = 1.0 - DeFiActionsMathUtils.divUFix64(amount, self.vaultBalance())
+            let newValue = self._valueOfDeposits * proportion
+            self._valueOfDeposits = newValue
             return <- self._borrowVault().withdraw(amount: amount)
         }
 
