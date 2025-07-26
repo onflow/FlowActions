@@ -372,7 +372,8 @@ access(all) contract DeFiActions {
         /// containing the loan. The executor function should return a Vault containing the loan and fee.
         access(all) fun flashLoan(
             amount: UFix64,
-            executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault} // fee and loan are passed in
+            data: {String: AnyStruct},
+            callback: fun(UFix64, @{FungibleToken.Vault}, {String: AnyStruct}): @{FungibleToken.Vault} // fee, loan, data
         ) {
             post {
                 emit Flashed(
