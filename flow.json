@@ -12,8 +12,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsUtils": {
-			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
+		"DeFiActionsEVMAdapters": {
+			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -24,8 +24,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsEVMAdapters": {
-			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
+		"DeFiActionsUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
