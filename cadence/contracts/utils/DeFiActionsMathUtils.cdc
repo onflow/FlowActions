@@ -101,19 +101,31 @@ access(all) contract DeFiActionsMathUtils {
     /// Rounds a UInt256 value with 18 decimal precision to a UFix64 value (8 decimals)
     ///
     /// Example: 1e18 -> 1.0, 123456000000000000000 -> 1.23456000, 123456789012345678901 -> 1.23456789
+    /// Example: 123456789999999999999 -> 1.23456790
     ///
     /// @param value: The UInt256 value to convert and round
     /// @return: The UFix64 value, rounded to the nearest 8 decimals
-    access(all) view fun roundToUFix64(_ value: UInt256): UFix64 {
+    access(all) fun roundToUFix64(_ value: UInt256): UFix64 {
         let decimalsFrom: UInt8 = 18
         let decimalsTo: UInt8 = 8
-        let factor = self.pow(UInt256(10), to: decimalsFrom - decimalsTo) // 10^10
+        let scaleDown = self.pow(UInt256(10), to: decimalsFrom - decimalsTo) // 10^10
+        // Step 1: reduce to 8 decimal scale safely
+        let quotient = value / scaleDown
+        let remainder = value % scaleDown
 
-        // Add half the factor to round (instead of floor)
-        let rounded = (value + (factor / 2)) / factor
+        var rounded = quotient
+        if remainder >= (scaleDown / UInt256(2)) {
+            rounded = rounded + UInt256(1)
+        }
 
-        // UFix64 expects up to 8 decimals, so we can safely cast
-        return UFix64(rounded) / UFix64(1_00_000_000)
+        // Step 2: Now rounded is an integer with 8 decimals *built-in*.
+        // Instead of casting it directly (which may overflow),
+        // we first separate whole part and decimal part.
+        let wholePart = rounded / UInt256(100_000_000)        // integer part
+        let decimalPart = rounded % UInt256(100_000_000)      // fractional 8 decimals
+        // Step 3: Ensure final result fits into UFix64
+        let asUFix64 = UFix64(wholePart) + (UFix64(decimalPart) / UFix64(100_000_000))
+        return asUFix64
     }
 
     access(all) fun divUFix64(_ x: UFix64, _ y: UFix64): UFix64 {
