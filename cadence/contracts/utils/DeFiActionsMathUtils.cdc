@@ -1,14 +1,14 @@
 /// DFBMathUtils
 ///
 /// This contract contains mathematical utility methods for DeFiBlocks components
-/// using UInt256 for high-precision fixed-point arithmetic.
+/// using UInt128 for high-precision fixed-point arithmetic.
 ///
 access(all) contract DeFiActionsMathUtils {
 
     /// Constant for 10^24 (used for 24-decimal fixed-point math)
-    access(all) let e24: UInt256
+    access(all) let e24: UInt128
     /// Constant for 10^8 (UFix64 precision)
-    access(all) let e8: UInt256
+    access(all) let e8: UInt128
     /// Standard decimal precision for internal calculations
     access(all) let decimals: UInt8
     /// UFix64 decimal precision for internal calculations
@@ -33,23 +33,23 @@ access(all) contract DeFiActionsMathUtils {
     * CONVERSION UTILITIES *
     ************************/
 
-    /// Converts a UFix64 value to UInt256 with 24 decimal precision
+    /// Converts a UFix64 value to UInt128 with 24 decimal precision
     ///
     /// @param value: The UFix64 value to convert
-    /// @return: The UInt256 value scaled to 24 decimals
-    access(all) view fun toUInt256(_ value: UFix64): UInt256 {
+    /// @return: The UInt128 value scaled to 24 decimals
+    access(all) view fun toUInt128(_ value: UFix64): UInt128 {
         let rawUInt64 = UInt64.fromBigEndianBytes(value.toBigEndianBytes())!
         let scaleFactor = self.decimals - self.ufix64Decimals
-        let scaledValue: UInt256 = UInt256(rawUInt64) * self.pow(10, to: scaleFactor)
+        let scaledValue: UInt128 = UInt128(rawUInt64) * self.pow(10, to: scaleFactor)
 
         return scaledValue
     }
 
-    /// Converts a UInt256 value with 24 decimal precision to UFix64
+    /// Converts a UInt128 value with 24 decimal precision to UFix64
     ///
-    /// @param value: The UInt256 value to convert
+    /// @param value: The UInt128 value to convert
     /// @return: The UFix64 value
-    access(all) view fun toUFix64(_ value: UInt256, _ roundingMode: RoundingMode): UFix64 {
+    access(all) view fun toUFix64(_ value: UInt128, _ roundingMode: RoundingMode): UFix64 {
         let scaleFactor = self.decimals - self.ufix64Decimals
         let divisor = self.pow(10, to: scaleFactor)
 
@@ -58,12 +58,12 @@ access(all) contract DeFiActionsMathUtils {
         let remainder = (value % self.e24) % divisor
 
         if self.shouldRoundUp(roundingMode, fractionalPart, remainder, divisor) {
-            fractionalPart = fractionalPart + UInt256(1)
+            fractionalPart = fractionalPart + UInt128(1)
         }
 
         if fractionalPart >= self.e8 {
             fractionalPart = fractionalPart - self.e8
-            integerPart = integerPart + UInt256(1)
+            integerPart = integerPart + UInt128(1)
         }
 
         self.assertWithinUFix64Bounds(integerPart, fractionalPart, value)
@@ -77,38 +77,38 @@ access(all) contract DeFiActionsMathUtils {
     // Helper to determine rounding condition
     access(self) view fun shouldRoundUp(
         _ roundingMode: RoundingMode, 
-        _ fractionalPart: UInt256, 
-        _ remainder: UInt256, 
-        _ divisor: UInt256
+        _ fractionalPart: UInt128, 
+        _ remainder: UInt128, 
+        _ divisor: UInt128
     ): Bool {
         switch roundingMode {
         case self.RoundingMode.RoundUp:
-            return remainder > UInt256(0)
+            return remainder > UInt128(0)
 
         case self.RoundingMode.RoundHalfUp:
-            return remainder >= divisor / UInt256(2)
+            return remainder >= divisor / UInt128(2)
 
         case self.RoundingMode.RoundEven:
-            return remainder > divisor / UInt256(2) ||
-            (remainder == divisor / UInt256(2) && fractionalPart % UInt256(2) != UInt256(0))
+            return remainder > divisor / UInt128(2) ||
+            (remainder == divisor / UInt128(2) && fractionalPart % UInt128(2) != UInt128(0))
         }
         return false
     }
 
     // Helper to handle overflow assertion
     access(self) view fun assertWithinUFix64Bounds(
-        _ integerPart: UInt256, 
-        _ fractionalPart: UInt256, 
-        _ originalValue: UInt256
+        _ integerPart: UInt128, 
+        _ fractionalPart: UInt128, 
+        _ originalValue: UInt128
     ) {
         assert(
-            integerPart <= UInt256(UFix64.max),
+            integerPart <= UInt128(UFix64.max),
             message: "Integer part \(integerPart.toString()) exceeds UFix64 max"
         )
 
-        let maxFractionalPart = self.toUInt256(0.09551616)
+        let maxFractionalPart = self.toUInt128(0.09551616)
         assert(
-            integerPart != UInt256(UFix64.max) || fractionalPart < maxFractionalPart,
+            integerPart != UInt128(UFix64.max) || fractionalPart < maxFractionalPart,
             message: "Fractional part \(fractionalPart.toString()) of scaled integer value \(originalValue.toString()) exceeds max UFix64"
         )
     }
@@ -122,8 +122,8 @@ access(all) contract DeFiActionsMathUtils {
     /// @param x: First operand (scaled by 10^24)
     /// @param y: Second operand (scaled by 10^24)
     /// @return: Product scaled by 10^24
-    access(all) view fun mul(_ x: UInt256, _ y: UInt256): UInt256 {
-        return (x * y) / self.e24
+    access(all) view fun mul(_ x: UInt128, _ y: UInt128): UInt128 {
+        return UInt128(UInt256(x) * UInt256(y) / UInt256(self.e24))
     }
 
     /// Divides two 24-decimal fixed-point numbers
@@ -131,19 +131,20 @@ access(all) contract DeFiActionsMathUtils {
     /// @param x: Dividend (scaled by 10^24)
     /// @param y: Divisor (scaled by 10^24)
     /// @return: Quotient scaled by 10^24
-    access(all) view fun div(_ x: UInt256, _ y: UInt256): UInt256 {
+    access(all) view fun div(_ x: UInt128, _ y: UInt128): UInt128 {
         pre {
             y > 0: "Division by zero"
         }
-        return (x * self.e24) / y
+        return UInt128((UInt256(x) * UInt256(self.e24)) / UInt256(y))
+        // return (x * self.e24) / y
     }
 
     access(all) view fun divWithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
         pre {
             y > 0.0: "Division by zero"
         }
-        let uintX: UInt256 = self.toUInt256(x)
-        let uintY: UInt256 = self.toUInt256(y)
+        let uintX: UInt128 = self.toUInt128(x)
+        let uintY: UInt128 = self.toUInt128(y)
         let uintResult = self.div(uintX, uintY)
         let result = self.toUFix64Round(uintResult)
 
@@ -154,18 +155,18 @@ access(all) contract DeFiActionsMathUtils {
     * HELPER METHODS  *
     *******************/
 
-    /// Rounds a UInt256 value with 24 decimal precision to a UFix64 value (8 decimals)
+    /// Rounds a UInt128 value with 24 decimal precision to a UFix64 value (8 decimals)
     ///
     /// Example: 1e24 -> 1.0, 123456000000000000000 -> 1.23456000, 123456789012345678901 -> 1.23456789
     /// Example: 123456789999999999999 -> 1.23456790
     ///
-    /// @param value: The UInt256 value to convert and round
+    /// @param value: The UInt128 value to convert and round
     /// @return: The UFix64 value, rounded to the nearest 8 decimals
-    access(all) view fun toUFix64Round(_ value: UInt256): UFix64 {
+    access(all) view fun toUFix64Round(_ value: UInt128): UFix64 {
         return self.toUFix64(value, self.RoundingMode.RoundHalfUp)
     } 
 
-    access(all) view fun toUFix64RoundDown(_ value: UInt256): UFix64 {
+    access(all) view fun toUFix64RoundDown(_ value: UInt128): UFix64 {
         return self.toUFix64(value, self.RoundingMode.RoundDown)
     }
     /// Raises base to the power of exponent
@@ -173,17 +174,17 @@ access(all) contract DeFiActionsMathUtils {
     /// @param base: The base number
     /// @param to: The exponent
     /// @return: base^to
-    access(self) view fun pow(_ base: UInt256, to: UInt8): UInt256 {
+    access(self) view fun pow(_ base: UInt128, to: UInt8): UInt128 {
         if to == 0 {
             return 1
         }
 
         var accum = base
         var exp: UInt8 = to
-        var r: UInt256 = 1
+        var r: UInt128 = 1
         while exp != 0 {
             if exp & 1 == 1 {
-                r = r * UInt256(accum)
+                r = r * UInt128(accum)
             }
             accum = accum * accum
             exp = exp / 2
