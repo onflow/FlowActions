@@ -70,11 +70,10 @@ access(all) contract DeFiActions {
         flasherType: String
     )
     /// Emitted when an IdentifiableResource's UniqueIdentifier is aligned with another DFA component
-    access(all) event Aligned(
+    access(all) event UpdatedID(
         oldID: UInt64?,
         newID: UInt64?,
         component: String,
-        with: String,
         uuid: UInt64?
     )
     /// Emitted when an AutoBalancer is created
@@ -124,17 +123,12 @@ access(all) contract DeFiActions {
         /// created by the DeFiActions contract, thus preventing forged UniqueIdentifiers from being created.
         access(self) let authCap: Capability<auth(Identify) &AuthenticationToken>
 
-        access(contract) init(_ id: UInt64, _ authCap: Capability<auth(Identify) &AuthenticationToken>) {
+        access(contract) view init(_ id: UInt64, _ authCap: Capability<auth(Identify) &AuthenticationToken>) {
             pre {
                 authCap.check(): "Invalid AuthenticationToken Capability provided"
             }
             self.id = id
             self.authCap = authCap
-        }
-
-        /// Returns a copy of this UniqueIdentifier
-        access(all) fun copy(): UniqueIdentifier {
-            return UniqueIdentifier(self.id, self.authCap)
         }
     }
 
@@ -159,34 +153,22 @@ access(all) contract DeFiActions {
         /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
         /// to the inner components, traceable by the innerComponents map.
         access(all) fun getComponentInfo(): ComponentInfo
-        
-        /// Aligns the UniqueIdentifier of this component with the provided component, destroying the old
-        /// UniqueIdentifier
-        access(Extend) fun alignID(_ with: auth(Identify) &{IdentifiableStruct}) {
+        access(contract) view fun copyID(): UniqueIdentifier? {
             post {
-                self.uniqueID?.id == with.uniqueID?.id:
-                "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
-                DeFiActions.emitAligned(
-                    oldID: before(self.uniqueID?.id),
-                    newID: with.uniqueID?.id,
-                    component: self.getType().identifier,
-                    with: with.getType().identifier,
-                    uuid: nil // no UUID for structs
-                ): "Unknown error emitting DeFiActions.Aligned from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                result?.id == self.uniqueID?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully copied"
             }
         }
-
-        access(Extend) fun alignIDWithResource(_ with: auth(Identify) &{IdentifiableResource}) {
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
             post {
-                self.uniqueID?.id == with.uniqueID?.id:
-                "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
-                DeFiActions.emitAligned(
+                self.uniqueID?.id == id?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully set"
+                DeFiActions.emitUpdatedID(
                     oldID: before(self.uniqueID?.id),
-                    newID: with.uniqueID?.id,
+                    newID: self.uniqueID?.id,
                     component: self.getType().identifier,
-                    with: with.getType().identifier,
                     uuid: nil // no UUID for structs
-                ): "Unknown error emitting DeFiActions.Aligned from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                ): "Unknown error emitting DeFiActions.UpdatedID from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -209,34 +191,26 @@ access(all) contract DeFiActions {
         /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
         /// to the inner components, traceable by the innerComponents map.
         access(all) fun getComponentInfo(): ComponentInfo
-        /// Aligns the UniqueIdentifier of this component with the provided component, destroying the old
-        /// UniqueIdentifier
-        access(Extend) fun alignID(_ with: auth(Identify) &{IdentifiableStruct}) {
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
             post {
-                self.uniqueID?.id == with.uniqueID?.id:
-                "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
-                DeFiActions.emitAligned(
-                    oldID: before(self.uniqueID?.id),
-                    newID: with.uniqueID?.id,
-                    component: self.getType().identifier,
-                    with: with.getType().identifier,
-                    uuid: nil // no UUID for structs
-                ): "Unknown error emitting DeFiActions.Aligned from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                result?.id == self.uniqueID?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully copied"
             }
         }
-        /// Aligns the UniqueIdentifier of this component with the provided component, destroying the old
-        /// UniqueIdentifier
-        access(Extend) fun alignIDWithResource(_ with: auth(Identify) &{IdentifiableResource}) {
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
             post {
-                self.uniqueID?.id == with.uniqueID?.id:
-                "UniqueIdentifier of \(self.getType().identifier) was not successfully aligned with \(with.getType().identifier)"
-                DeFiActions.emitAligned(
+                self.uniqueID?.id == id?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully set"
+                DeFiActions.emitUpdatedID(
                     oldID: before(self.uniqueID?.id),
-                    newID: with.uniqueID?.id,
+                    newID: self.uniqueID?.id,
                     component: self.getType().identifier,
-                    with: with.getType().identifier,
-                    uuid: nil // no UUID for structs
-                ): "Unknown error emitting DeFiActions.Aligned from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+                    uuid: self.uuid
+                ): "Unknown error emitting DeFiActions.UpdatedID from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
             }
         }
     }
@@ -489,22 +463,16 @@ access(all) contract DeFiActions {
             )
         }
 
-        access(Extend) fun alignID(_ with: auth(Identify) &{IdentifiableStruct}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
         }
 
-        access(Extend) fun alignIDWithResource(_ with: auth(Identify) &{IdentifiableResource}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
         }
     }
 
@@ -554,7 +522,7 @@ access(all) contract DeFiActions {
             return <- DeFiActionsUtils.getEmptyVault(self.type)
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns information about this AutoBalancerSource
         access(all) fun getComponentInfo(): ComponentInfo {
             return ComponentInfo(
                 type: self.getType(),
@@ -563,22 +531,16 @@ access(all) contract DeFiActions {
             )
         }
 
-        access(Extend) fun alignID(_ with: auth(Identify) &{IdentifiableStruct}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
         }
 
-        access(Extend) fun alignIDWithResource(_ with: auth(Identify) &{IdentifiableResource}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
         }
     }
 
@@ -757,7 +719,7 @@ access(all) contract DeFiActions {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
             }
-            return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID?.copy())
+            return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer. If the AutoBalancer's
@@ -769,7 +731,7 @@ access(all) contract DeFiActions {
             if self._selfCap == nil || !self._selfCap!.check() {
                 return nil
             }
-            return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID?.copy())
+            return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
 
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
@@ -780,7 +742,7 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSink(_ sink: {Sink}?, updateSinkID: Bool) {
             if sink != nil && updateSinkID {
-                sink!.alignIDWithResource(&self as auth(Identify) &{IdentifiableResource})
+                sink!.setID(self.uniqueID)
             }
             self._rebalanceSink = sink
         }
@@ -793,7 +755,7 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSource(_ source: {Source}?, updateSourceID: Bool) {
             if source != nil && updateSourceID {
-                source!.alignIDWithResource(&self as auth(Identify) &{IdentifiableResource})
+                source!.setID(self.uniqueID)
             }
             self._rebalanceSource = source
         }
@@ -826,22 +788,16 @@ access(all) contract DeFiActions {
             self._rebalanceRange = range
         }
 
-        access(Extend) fun alignID(_ with: auth(Identify) &{IdentifiableStruct}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
         }
 
-        access(Extend) fun alignIDWithResource(_ with: auth(Identify) &{IdentifiableResource}) {
-            if self.uniqueID?.id == with.uniqueID?.id {
-                return // already share the same ID value
-            }
-
-            let old = self.uniqueID
-            self.uniqueID = with.uniqueID?.copy()
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
         }
 
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
@@ -1041,6 +997,34 @@ access(all) contract DeFiActions {
         return id
     }
 
+    /// Aligns the UniqueIdentifier of the provided component with the provided component, setting the UniqueIdentifier of
+    /// the provided component to the UniqueIdentifier of the provided component. Parameters are AnyStruct to allow for
+    /// alignment of both IdentifiableStruct and IdentifiableResource. However, note that the provided component must
+    /// be an auth(Extend) &{IdentifiableStruct} or auth(Extend) &{IdentifiableResource} to be aligned.
+    ///
+    /// @param toUpdate: The component to update the UniqueIdentifier of. Must be an auth(Extend) &{IdentifiableStruct}
+    ///     or auth(Extend) &{IdentifiableResource}
+    /// @param with: The component to align the UniqueIdentifier of the provided component with. Must be an
+    ///     auth(Identify) &{IdentifiableStruct} or auth(Identify) &{IdentifiableResource}
+    ///
+    access(all) fun alignID(toUpdate: AnyStruct, with: AnyStruct) {
+        let maybeISToUpdate = toUpdate as? auth(Extend) &{IdentifiableStruct}
+        let maybeIRToUpdate = toUpdate as? auth(Extend) &{IdentifiableResource}
+        let maybeISWith = with as? auth(Identify) &{IdentifiableStruct}
+        let maybeIRWith = with as? auth(Identify) &{IdentifiableResource}
+
+        if maybeISToUpdate != nil && maybeISWith != nil {
+            maybeISToUpdate!.setID(maybeISWith!.copyID())
+        } else if maybeISToUpdate != nil && maybeIRWith != nil {
+            maybeISToUpdate!.setID(maybeIRWith!.copyID())
+        } else if maybeIRToUpdate != nil && maybeISWith != nil {
+            maybeIRToUpdate!.setID(maybeISWith!.copyID())
+        } else if maybeIRToUpdate != nil && maybeIRWith != nil {
+            maybeIRToUpdate!.setID(maybeIRWith!.copyID())
+        }
+        return
+    }
+
     /* --- INTERNAL CONDITIONAL EVENT EMITTERS --- */
 
     /// Emits Deposited event if a change in balance is detected
@@ -1087,21 +1071,19 @@ access(all) contract DeFiActions {
     }
 
     /// Emits Aligned event if a change in UniqueIdentifier is detected
-    access(self) view fun emitAligned(
+    access(self) view fun emitUpdatedID(
         oldID: UInt64?,
         newID: UInt64?,
         component: String,
-        with: String,
         uuid: UInt64?
     ): Bool {
         if oldID == newID {
             return true
         }
-        emit Aligned(
+        emit UpdatedID(
             oldID: oldID,
             newID: newID,
             component: component,
-            with: with,
             uuid: uuid
         )
         return true
