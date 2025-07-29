@@ -742,7 +742,9 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSink(_ sink: {Sink}?, updateSinkID: Bool) {
             if sink != nil && updateSinkID {
-                sink!.setID(self.uniqueID)
+                let toUpdate = &sink! as auth(Extend) &{IdentifiableStruct}
+                let toAlign = &self as auth(Identify) &{IdentifiableResource}
+                DeFiActions.alignID(toUpdate: toUpdate, with: toAlign)
             }
             self._rebalanceSink = sink
         }
@@ -755,7 +757,9 @@ access(all) contract DeFiActions {
         ///
         access(Set) fun setSource(_ source: {Source}?, updateSourceID: Bool) {
             if source != nil && updateSourceID {
-                source!.setID(self.uniqueID)
+                let toUpdate = &source! as auth(Extend) &{IdentifiableStruct}
+                let toAlign = &self as auth(Identify) &{IdentifiableResource}
+                DeFiActions.alignID(toUpdate: toUpdate, with: toAlign)
             }
             self._rebalanceSource = source
         }
