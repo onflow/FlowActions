@@ -14,7 +14,7 @@ import "FungibleTokenStack"
 transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePath: StoragePath) {
 
     let autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
-    let vaultSource: @FungibleTokenStack.VaultSource?
+    let vaultSource: {DeFiActions.Source}?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         if vaultIdentifier != nil {
@@ -35,9 +35,9 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
             assert(withdrawVault.check(),
                 message: "Invalid authorized FungibleToken.Vault Capability issued against \(vaultData.storagePath) - ensure a Vault is configured at the expected path"
             )
-            self.vaultSource <-FungibleTokenStack.createVaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
+            self.vaultSource = FungibleTokenStack.VaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
         } else {
-            self.vaultSource <- nil
+            self.vaultSource = nil
         }
 
         // assign the AutoBalancer
@@ -47,6 +47,6 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
 
     execute {
         // Set the VaultSource as the AutoBalancer's rebalanceSource
-        self.autoBalancer.setSource(<-self.vaultSource, align: true)
+        self.autoBalancer.setSource(self.vaultSource, updateSourceID: true)
     }
 }

@@ -29,17 +29,17 @@ access(all) contract BandOracleAdapters {
     // PriceOracle
     //
     /// An adapter for BandOracle as an implementation of the DeFiActions PriceOracle interface
-    access(all) resource PriceOracle : DeFiActions.PriceOracle {
+    access(all) struct PriceOracle : DeFiActions.PriceOracle {
         /// The token type serving as the price basis - e.g. USD in FLOW/USD
         access(self) let quote: Type
         /// A Source providing the FlowToken necessary for BandOracle price data requests
-        access(self) let feeSource: @{DeFiActions.Source}
+        access(self) let feeSource: {DeFiActions.Source}
         /// The amount of seconds beyond which a price is considered stale and a price() call reverts
         access(self) let staleThreshold: UInt64?
         /// The unique ID of the PriceOracle
-        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: @{DeFiActions.Source}, uniqueID: @DeFiActions.UniqueIdentifier?) {
+        init(unitOfAccount: Type, staleThreshold: UInt64?, feeSource: {DeFiActions.Source}, uniqueID: DeFiActions.UniqueIdentifier?) {
             pre {
                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
@@ -48,34 +48,45 @@ access(all) contract BandOracleAdapters {
                 BandOracleAdapters.assetSymbols[unitOfAccount] != nil:
                 "Could not find a BandOracle symbol assigned to unitOfAccount \(unitOfAccount.identifier)"
             }
-            self.feeSource <- feeSource
+            self.feeSource = feeSource
             self.quote = unitOfAccount
             self.staleThreshold = staleThreshold
-            self.uniqueID <- uniqueID
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
         ///
         /// @return a list of ComponentInfo for each inner DeFiActions component in the PriceOracle
         ///
-        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
-            let res = [DeFiActions.ComponentInfo(
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                uuid: self.uuid,
                 id: self.id() ?? nil,
-                innerComponents: {
-                    self.feeSource.uuid: self.feeSource.getType()
-                }
-            )]
-            res.appendAll(self.feeSource.getStackInfo())
-            return res
+                    innerComponents: [
+                        self.feeSource.getComponentInfo()
+                    ]
+            )
         }
-
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type {
             return self.quote
         }
-
         /// Returns the latest price data for a given asset denominated in unitOfAccount(). Since BandOracle requests
         /// are paid, this implementation reverts if price data has gone stale
         access(all) fun price(ofToken: Type): UFix64? {

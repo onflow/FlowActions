@@ -17,13 +17,13 @@ access(all) contract IncrementFiAdapters {
     /// An implementation of DeFiActions.Swapper connector that swaps between tokens using IncrementFi's
     /// SwapRouter contract
     ///
-    access(all) resource Swapper : DeFiActions.Swapper {
+    access(all) struct Swapper : DeFiActions.Swapper {
         /// A swap path as defined by IncrementFi's SwapRouter
         ///  e.g. [A.f8d6e0586b0a20c7.FUSD, A.f8d6e0586b0a20c7.FlowToken, A.f8d6e0586b0a20c7.USDC]
         access(all) let path: [String]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -33,7 +33,7 @@ access(all) contract IncrementFiAdapters {
             path: [String],
             inVault: Type,
             outVault: Type,
-            uniqueID: @DeFiActions.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2:
@@ -44,22 +44,36 @@ access(all) contract IncrementFiAdapters {
             self.path = path
             self.inVault = inVault
             self.outVault = outVault
-            self.uniqueID <- uniqueID
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
         ///
         /// @return a list of ComponentInfo for each inner DeFiActions component in the Swapper
         ///
-        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
-            return [DeFiActions.ComponentInfo(
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                uuid: self.uuid,
                 id: self.id() ?? nil,
-                innerComponents: {}
-            )]
+                innerComponents: []
+            )
         }
-
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type {
             return self.inVault
@@ -116,16 +130,16 @@ access(all) contract IncrementFiAdapters {
 
     /// An implementation of DeFiActions.Flasher connector that performs flash loans using IncrementFi's SwapPair contract
     ///
-    access(all) resource Flasher : SwapInterfaces.FlashLoanExecutor, DeFiActions.Flasher {
+    access(all) struct Flasher : SwapInterfaces.FlashLoanExecutor, DeFiActions.Flasher {
         /// The address of the SwapPair contract to use for flash loans
         access(all) let pairAddress: Address
         /// The type of token to borrow
         access(all) let type: Type
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(pairAddress: Address, type: Type, uniqueID: @DeFiActions.UniqueIdentifier?) {
+        init(pairAddress: Address, type: Type, uniqueID: DeFiActions.UniqueIdentifier?) {
             let pair = getAccount(pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)
                 ?? panic("Could not reference SwapPair public capability at address \(pairAddress)")
             let pairInfo = pair.getPairInfoStruct()
@@ -134,20 +148,35 @@ access(all) contract IncrementFiAdapters {
                     .concat("valid types for this SwapPair are \(pairInfo.token0Key) and \(pairInfo.token1Key)"))
             self.pairAddress = pairAddress
             self.type = type
-            self.uniqueID <- uniqueID
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
         ///
         /// @return a list of ComponentInfo for each inner DeFiActions component in the Flasher
         ///
-        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
-            return [DeFiActions.ComponentInfo(
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                uuid: self.uuid,
                 id: self.id() ?? nil,
-                innerComponents: {}
-            )]
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
         }
         /// Returns the asset type this Flasher can issue as a flash loan
         ///
@@ -172,14 +201,15 @@ access(all) contract IncrementFiAdapters {
         ///
         access(all) fun flashLoan(
             amount: UFix64,
-            executor: fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault} // fee and loan are passed in
+            data: {String: AnyStruct},
+            callback: fun(UFix64, @{FungibleToken.Vault}, {String: AnyStruct}): @{FungibleToken.Vault} // fee, loan, data
         ) {
             let pair = getAccount(self.pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(
                     SwapConfig.PairPublicPath
                 ) ?? panic("Could not reference SwapPair public capability at address \(self.pairAddress)")
             let params: {String: AnyStruct} = {
                 "fee": self.calculateFee(loanAmount: amount),
-                "executor": executor
+                "callback": callback
             }
             pair.flashloan(
                 executor: &self as &{SwapInterfaces.FlashLoanExecutor},
@@ -192,38 +222,10 @@ access(all) contract IncrementFiAdapters {
         /// containing the loan. The executor function should return a Vault containing the loan and fee.
         access(all) fun executeAndRepay(loanedToken: @{FungibleToken.Vault}, params: {String: AnyStruct}): @{FungibleToken.Vault} {
             let fee = params["fee"] as! UFix64
-            let executor = params["executor"] as! fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
+            let executor = params["callback"] as! fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
             let repaidToken <- executor(fee, <-loanedToken)
             return <- repaidToken
         }
-    }
-
-    /* --- PUBLIC METHODS --- */
-
-    /// Creates a Swapper DeFiActions connector
-    ///
-    /// @param path: the path of token key identifiers to use for swaps
-    /// @param inVault: the type of Vault this Swapper accepts when performing a swap
-    /// @param outVault: the type of Vault this Swapper provides when performing a swap
-    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining a
-    ///     protocol-specific Identifier to associated connectors on construction
-    access(all) fun createSwapper(
-        path: [String],
-        inVault: Type,
-        outVault: Type,
-        uniqueID: @DeFiActions.UniqueIdentifier?
-    ): @Swapper {
-        return <- create Swapper(path: path, inVault: inVault, outVault: outVault, uniqueID: <-uniqueID)
-    }
-
-    /// Creates a Flasher DeFiActions connector
-    ///
-    /// @param pairAddress: The address of the SwapPair contract to use for flash loans
-    /// @param type: The type of token to borrow
-    /// @param uniqueID: an optional identifier allowing protocols to identify stacked connector operations by defining a
-    ///     protocol-specific Identifier to associated connectors on construction
-    access(all) fun createFlasher(pairAddress: Address, type: Type, uniqueID: @DeFiActions.UniqueIdentifier?): @Flasher {
-        return <- create Flasher(pairAddress: pairAddress, type: type, uniqueID: <-uniqueID)
     }
 
     /* --- INTERNAL HELPERS --- */

@@ -24,16 +24,16 @@ transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: Sto
     }
 
     execute {
-        let sink <- FungibleTokenStack.createVaultSink(
+        let sink = FungibleTokenStack.VaultSink(
                 max: max,
                 depositVault: self.depositVault,
                 uniqueID: nil
             )
-        self.signer.storage.save(<-sink, to: sinkStoragePath)
+        self.signer.storage.save(sink, to: sinkStoragePath)
     }
 
     post {
-        self.signer.storage.type(at: sinkStoragePath) == Type<@FungibleTokenStack.VaultSink>():
+        self.signer.storage.type(at: sinkStoragePath) == Type<FungibleTokenStack.VaultSink>():
         "VaultSink was not stored to sinkStoragePath \(sinkStoragePath.toString())"
     }
 }

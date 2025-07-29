@@ -22,7 +22,7 @@ access(all) contract DeFiActionsEVMAdapters {
 
     /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiActions.Swapper adapter interface
     ///
-    access(all) resource UniswapV2EVMSwapper : DeFiActions.Swapper {
+    access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
         /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
@@ -30,7 +30,7 @@ access(all) contract DeFiActionsEVMAdapters {
         access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) var uniqueID: @DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -44,7 +44,7 @@ access(all) contract DeFiActionsEVMAdapters {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: @DeFiActions.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2: "Provided path with length of \(path.length) - path must contain at least two EVM addresses)"
@@ -59,25 +59,39 @@ access(all) contract DeFiActionsEVMAdapters {
             }
             self.routerAddress = routerAddress
             self.addressPath = path
-            self.uniqueID <- uniqueID
+            self.uniqueID = uniqueID
             self.inVault = inVault
             self.outVault = outVault
             self.coaCapability = coaCapability
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns information about this UniswapV2EVMSwapper
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the UniswapV2EVMSwapper
+        /// @return a ComponentInfo for this UniswapV2EVMSwapper
         ///
-        access(all) fun getStackInfo(): [DeFiActions.ComponentInfo] {
-            return [DeFiActions.ComponentInfo(
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                uuid: self.uuid,
-                id: self.id() ?? nil,
-                innerComponents: {}
-            )]
+                id: self.uniqueID?.id,
+                innerComponents: []
+            )
         }
-
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type {
             return self.inVault
