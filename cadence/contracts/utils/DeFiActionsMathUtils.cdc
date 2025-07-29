@@ -14,6 +14,21 @@ access(all) contract DeFiActionsMathUtils {
     /// UFix64 decimal precision for internal calculations
     access(self) let ufix64Decimals: UInt8
 
+    access(all)
+    enum RoundingMode: UInt8 {
+        access(all)
+        case RoundDown
+
+        access(all)
+        case RoundUp
+
+        access(all)
+        case RoundHalfUp // normal rounding
+
+        access(all)
+        case RoundEven
+    }
+
     /************************
     * CONVERSION UTILITIES *
     ************************/
@@ -34,16 +49,24 @@ access(all) contract DeFiActionsMathUtils {
     ///
     /// @param value: The UInt256 value to convert
     /// @return: The UFix64 value
-    access(all) view fun toUFix64(_ value: UInt256): UFix64 {
+    access(all) view fun toUFix64(_ value: UInt256, _ roundingMode: RoundingMode): UFix64 {
         let scaleFactor = self.decimals - self.ufix64Decimals
         let divisor = self.pow(10, to: scaleFactor)
-        let integerPart = value / self.e24
-        let fractionalPart = value % self.e24 / divisor
 
-        assert(
-            integerPart <= UInt256(UFix64.max),
-            message: "Scaled value ".concat(integerPart.toString()).concat(" exceeds max UFix64 value")
-        )
+        var integerPart = value / self.e24
+        var fractionalPart = value % self.e24 / divisor
+        let remainder = (value % self.e24) % divisor
+
+        if self.shouldRoundUp(roundingMode, fractionalPart, remainder, divisor) {
+            fractionalPart = fractionalPart + UInt256(1)
+        }
+
+        if fractionalPart >= self.e8 {
+            fractionalPart = fractionalPart - self.e8
+            integerPart = integerPart + UInt256(1)
+        }
+
+        self.assertWithinUFix64Bounds(integerPart, fractionalPart, value)
 
         let scaled = UFix64(integerPart) + UFix64(fractionalPart)/UFix64(self.e8)
 
@@ -51,22 +74,44 @@ access(all) contract DeFiActionsMathUtils {
         return UFix64(scaled)
     }
 
-    /// Converts a UInt256 to a UFix64 with specified decimal precision
-    ///
-    /// @param value: The UInt256 value to convert
-    /// @param decimals: The number of decimal places in the UInt256
-    /// @return: The UFix64 value
-    access(all) view fun uint256ToUFix64(_ value: UInt256, decimals: UInt8): UFix64 {
-        pre {
-            value / self.pow(10, to: decimals) <= UInt256(UFix64.max): "Value too large to fit in UFix64"
+
+    // Helper to determine rounding condition
+    access(self) view fun shouldRoundUp(
+        _ roundingMode: RoundingMode, 
+        _ fractionalPart: UInt256, 
+        _ remainder: UInt256, 
+        _ divisor: UInt256
+    ): Bool {
+        switch roundingMode {
+        case self.RoundingMode.RoundUp:
+            return remainder > UInt256(0)
+
+        case self.RoundingMode.RoundHalfUp:
+            return remainder >= divisor / UInt256(2)
+
+        case self.RoundingMode.RoundEven:
+            return remainder > divisor / UInt256(2) ||
+            (remainder == divisor / UInt256(2) && fractionalPart % UInt256(2) != UInt256(0))
         }
+        return false
+    }
 
-        let divisor = self.pow(10, to: decimals)
-        let integerPart = value / divisor
-        let fractionalPart = value % divisor
-        let fractionalUFix = self.uint256FractionalToScaledUFix64Decimals(fractionalPart, decimals: decimals)
+    // Helper to handle overflow assertion
+    access(self) view fun assertWithinUFix64Bounds(
+        _ integerPart: UInt256, 
+        _ fractionalPart: UInt256, 
+        _ originalValue: UInt256
+    ) {
+        assert(
+            integerPart <= UInt256(UFix64.max),
+            message: "Integer part \(integerPart.toString()) exceeds UFix64 max"
+        )
 
-        return UFix64(integerPart) + fractionalUFix
+        let maxFractionalPart = self.toUInt256(0.09551616)
+        assert(
+            integerPart != UInt256(UFix64.max) || fractionalPart < maxFractionalPart,
+            message: "Fractional part \(fractionalPart.toString()) of scaled integer value \(originalValue.toString()) exceeds max UFix64"
+        )
     }
 
     /***********************
@@ -94,6 +139,21 @@ access(all) contract DeFiActionsMathUtils {
         return (x * self.e24) / y
     }
 
+    access(all) fun divUFix64(_ x: UFix64, _ y: UFix64): UFix64 {
+        pre {
+            y > 0.0: "Division by zero"
+        }
+        let uintX: UInt256 = self.toUInt256(x)
+        let uintY: UInt256 = self.toUInt256(y)
+        let uintResult = self.div(uintX, uintY)
+        let result = self.toUFix64Round(uintResult)
+
+        return result
+    }
+
+    /*******************
+    * HELPER METHODS  *
+    *******************/
 
     /// Rounds a UInt256 value with 24 decimal precision to a UFix64 value (8 decimals)
     ///
@@ -102,67 +162,13 @@ access(all) contract DeFiActionsMathUtils {
     ///
     /// @param value: The UInt256 value to convert and round
     /// @return: The UFix64 value, rounded to the nearest 8 decimals
-    access(all) view fun roundToUFix64(_ value: UInt256): UFix64 {
-        let decimalsFrom: UInt8 = self.decimals
-        let decimalsTo: UInt8 = 8
-        let scaleDown = self.pow(UInt256(10), to: decimalsFrom - decimalsTo) // 10^10
-        // Step 1: reduce to 8 decimal scale safely
-        let quotient = value / scaleDown
-        let remainder = value % scaleDown
+    access(all) view fun toUFix64Round(_ value: UInt256): UFix64 {
+        return self.toUFix64(value, self.RoundingMode.RoundHalfUp)
+    } 
 
-        var rounded = quotient
-        if remainder >= (scaleDown / UInt256(2)) {
-            rounded = rounded + UInt256(1)
-        }
-
-        // Step 2: Now rounded is an integer with 8 decimals *built-in*.
-        // Instead of casting it directly (which may overflow),
-        // we first separate whole part and decimal part.
-        let wholePart = rounded / UInt256(100_000_000)        // integer part
-        let decimalPart = rounded % UInt256(100_000_000)      // fractional 8 decimals
-        // Step 3: Ensure final result fits into UFix64
-        let asUFix64 = UFix64(wholePart) + (UFix64(decimalPart) / UFix64(100_000_000))
-        return asUFix64
+    access(all) view fun toUFix64RoundDown(_ value: UInt256): UFix64 {
+        return self.toUFix64(value, self.RoundingMode.RoundDown)
     }
-
-    access(all) fun divUFix64(_ x: UFix64, _ y: UFix64): UFix64 {
-        pre {
-            y > 0.0: "Division by zero"
-        }
-        let uintX: UInt256 = self.toUInt256(x)
-        let uintY: UInt256 = self.toUInt256(y)
-        let uintResult = self.div(uintX, uintY)
-        let result = self.roundToUFix64(uintResult)
-
-        return result
-
-    }
-
-    /// Multiplies a fixed-point number by a scalar
-    ///
-    /// @param x: Fixed-point number (scaled by 10^24)
-    /// @param y: Scalar value (not scaled)
-    /// @return: Product scaled by 10^24
-    access(all) view fun mulScalar(_ x: UInt256, _ y: UInt256): UInt256 {
-        return x * y
-    }
-
-    /// Divides a fixed-point number by a scalar
-    ///
-    /// @param x: Fixed-point number (scaled by 10^24)
-    /// @param y: Scalar value (not scaled)
-    /// @return: Quotient scaled by 10^24
-    access(all) view fun divScalar(_ x: UInt256, _ y: UInt256): UInt256 {
-        pre {
-            y > 0: "Division by zero"
-        }
-        return x / y
-    }
-
-    /*******************
-    * HELPER METHODS  *
-    *******************/
-
     /// Raises base to the power of exponent
     ///
     /// @param base: The base number
@@ -173,61 +179,15 @@ access(all) contract DeFiActionsMathUtils {
             return 1
         }
 
-        var r = base
-        var exp: UInt8 = 1
-        while exp < to {
-            r = r * base
-            exp = exp + 1
-        }
-
-        return r
-    }
-
-    /// Converts fractional part to UFix64 decimal representation
-    access(all) view fun uint256FractionalToScaledUFix64Decimals(_ value: UInt256, decimals: UInt8): UFix64 {
-        pre {
-            self.getNumberOfDigits(value) <= decimals: "Fractional digits exceed the defined decimal places"
-        }
-        post {
-            result < 1.0: "Resulting scaled fractional exceeds 1.0"
-        }
-
-        var fractional = value
-        // Truncate to 8 decimal places (UFix64 max precision)
-        if decimals >= 8 {
-            fractional = fractional / self.pow(10, to: decimals - 8)
-        }
-        if fractional == 0 {
-            return 0.0
-        }
-
-        // Scale the fractional part
-        let fractionalMultiplier = self.ufixPow(0.1, to: decimals < 8 ? decimals : 8)
-        return UFix64(fractional) * fractionalMultiplier
-    }
-
-    /// Returns the number of digits in a UInt256
-    access(all) view fun getNumberOfDigits(_ value: UInt256): UInt8 {
-        var tmp = value
-        var digits: UInt8 = 0
-        while tmp > 0 {
-            tmp = tmp / 10
-            digits = digits + 1
-        }
-        return digits
-    }
-
-    /// Raises UFix64 base to power
-    access(all) view fun ufixPow(_ base: UFix64, to: UInt8): UFix64 {
-        if to == 0 {
-            return 1.0
-        }
-
-        var r = base
-        var exp: UInt8 = 1
-        while exp < to {
-            r = r * base
-            exp = exp + 1
+        var accum = base
+        var exp: UInt8 = to
+        var r: UInt256 = 1
+        while exp != 0 {
+            if exp & 1 == 1 {
+                r = r * UInt256(accum)
+            }
+            accum = accum * accum
+            exp = exp / 2
         }
 
         return r

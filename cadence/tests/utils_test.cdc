@@ -20,7 +20,7 @@ fun testReducedPrecisionUInt256ToUFix64Succeeds() {
     let uintAmount: UInt256 = 24_244_814_054_591_000_000_000_000_000_000
     let ufixAmount: UFix64 = 24_244_814.05459100
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -29,7 +29,7 @@ fun testReducedPrecisionUInt256SmallChangeToUFix64Succeeds() {
     let uintAmount: UInt256 = 24_244_814_000_020_000_000_000_000_000_000
     let ufixAmount: UFix64 = 24_244_814.000020
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -48,7 +48,7 @@ fun testDustUInt256ToUFix64Succeeds() {
     let dustUFixAmount: UFix64 = 0.00002547
     let dustUIntAmount: UInt256 = 25_470_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(dustUIntAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(dustUIntAmount)
     Test.assertEqual(dustUFixAmount, actualUFixAmount)
     Test.assert(actualUFixAmount > 0.0)
 }
@@ -68,7 +68,7 @@ fun testZeroUInt256ToUFix64Succeeds() {
     let zeroUFixAmount: UFix64 = 0.0
     let zeroUIntAmount: UInt256 = 0
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(zeroUIntAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(zeroUIntAmount)
     Test.assertEqual(zeroUFixAmount, actualUFixAmount)
 }
 
@@ -86,7 +86,7 @@ fun testNonFractionalUInt256ToUFix64Succeeds() {
     let nonFractionalUFixAmount: UFix64 = 100.0
     let nonFractionalUIntAmount: UInt256 = 100_000_000_000_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(nonFractionalUIntAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(nonFractionalUIntAmount)
     Test.assertEqual(nonFractionalUFixAmount, actualUFixAmount)
 }
 
@@ -104,7 +104,7 @@ fun testLargeFractionalUInt256ToUFix64Succeeds() {
     let largeFractionalUFixAmount: UFix64 = 1.99785982
     let largeFractionalUIntAmount: UInt256 = 1_997_859_829_999_999_999_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(largeFractionalUIntAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(largeFractionalUIntAmount)
     Test.assertEqual(largeFractionalUFixAmount, actualUFixAmount)
 }
 
@@ -113,7 +113,7 @@ fun testLargeFractionalTrailingZerosUInt256ToUFix64Succeeds() {
     let largeFractionalUFixAmount: UFix64 = 1.99785982
     let largeFractionalUIntAmount: UInt256 = 1_997_859_829_999_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(largeFractionalUIntAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(largeFractionalUIntAmount)
     Test.assertEqual(largeFractionalUFixAmount, actualUFixAmount)
 }
 
@@ -131,7 +131,7 @@ fun testIntegerAndLeadingZeroFractionalUInt256ToUFix64Succeeds() {
     let ufixAmount: UFix64 = 100.00000500
     let uintAmount: UInt256 = 100_000_005_000_000_888_999_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -159,33 +159,9 @@ fun testMaxUFix64AsUInt256ToUFix64Succeds() {
     let ufixAmount: UFix64 = UFix64.max
     var uintAmount: UInt256 = 184_467_440_737_095_516_150_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
 
     Test.assertEqual(ufixAmount, actualUFixAmount)
-}
-
-access(all)
-fun testFractionalPartMaxUFix64AsUInt256ToUFix64Fails() {
-    let ufixAmount: UFix64 = UFix64.max
-    var uintAmount: UInt256 = 184_467_440_737_095_516_150_000_000_000_000_000 + 10_000_000_000_000_000
-
-    let convertedResult = executeScript(
-        "./scripts/uint256_to_ufix64.cdc",
-        [uintAmount, UInt8(18)]
-    )
-    Test.expect(convertedResult, Test.beFailed())
-}
-
-access(all)
-fun testIntegerPartMaxUFix64AsUInt256ToUFix64Fails() {
-    let ufixAmount: UFix64 = UFix64.max
-    var uintAmount: UInt256 = 184_467_440_737_095_516_150_000_000_000_000_000 + 100_000_000_000_000_000_000_000_000_000
-
-    let convertedResult = executeScript(
-        "./scripts/uint256_to_ufix64.cdc",
-        [uintAmount, UInt8(18)]
-    )
-    Test.expect(convertedResult, Test.beFailed())
 }
 
 /************************
@@ -206,7 +182,7 @@ fun testUInt256BalanceToUFix64BasicSucceeds() {
     let ufixAmount: UFix64 = 100.0
     let uintAmount: UInt256 = 100_000_000_000_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -224,7 +200,7 @@ fun testUInt256BalanceToUFix64WithFractionalSucceeds() {
     let ufixAmount: UFix64 = 100.12345678
     let uintAmount: UInt256 = 100_123_456_780_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -242,7 +218,7 @@ fun testUInt256BalanceToUFix64ZeroSucceeds() {
     let ufixAmount: UFix64 = 0.0
     let uintAmount: UInt256 = 0
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -260,7 +236,7 @@ fun testUInt256BalanceToUFix64SmallAmountSucceeds() {
     let ufixAmount: UFix64 = 0.00000001
     let uintAmount: UInt256 = 10_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -278,7 +254,7 @@ fun testUInt256BalanceToUFix64LargeAmountSucceeds() {
     let ufixAmount: UFix64 = 1_000_000.0
     let uintAmount: UInt256 = 1_000_000_000_000_000_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -300,7 +276,7 @@ fun testUInt256BalanceToUFix64PrecisionLossSucceeds() {
     // separate uintAmount with underscores to avoid confusion
     let uintAmount: UInt256 = 1_123_456_780_000_000_000_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -311,7 +287,7 @@ fun testUInt256BalanceToUFix64PrecisionLossTrimSucceeds() {
     // separate uintAmount with underscores to avoid confusion
     let uintAmount: UInt256 = 1_123_456_789_999_999_999_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.toUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64RoundDown(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -322,7 +298,7 @@ fun testUInt256ToUFix64RoundDownSucceeds() {
     // separate uintAmount with underscores to avoid confusion
     let uintAmount: UInt256 = 1_123_456_784_444_444_444_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.roundToUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64Round(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -333,7 +309,7 @@ fun testUInt256ToUFix64RoundUpSucceeds() {
     // separate uintAmount with underscores to avoid confusion
     let uintAmount: UInt256 = 1_123_456_789_999_999_999_000_000
 
-    let actualUFixAmount = DeFiActionsMathUtils.roundToUFix64(uintAmount)
+    let actualUFixAmount = DeFiActionsMathUtils.toUFix64Round(uintAmount)
     Test.assertEqual(ufixAmount, actualUFixAmount)
 }
 
@@ -343,7 +319,7 @@ fun testBalanceConversionRoundTripSucceeds() {
     let originalUFix: UFix64 = 123.45678901
 
     let toUInt = DeFiActionsMathUtils.toUInt256(originalUFix)
-    let backToUFix = DeFiActionsMathUtils.toUFix64(toUInt)
+    let backToUFix = DeFiActionsMathUtils.toUFix64RoundDown(toUInt)
 
     Test.assertEqual(originalUFix, backToUFix)
 }
@@ -354,7 +330,7 @@ fun testBalanceConversionRoundTripWithZeroSucceeds() {
     let originalUFix: UFix64 = 0.0
 
     let toUInt = DeFiActionsMathUtils.toUInt256(originalUFix)
-    let backToUFix = DeFiActionsMathUtils.toUFix64(toUInt)
+    let backToUFix = DeFiActionsMathUtils.toUFix64RoundDown(toUInt)
 
     Test.assertEqual(originalUFix, backToUFix)
 }
@@ -365,7 +341,7 @@ fun testBalanceConversionRoundTripWithLargeNumberSucceeds() {
     let originalUFix: UFix64 = 999_999.99999999
 
     let toUInt = DeFiActionsMathUtils.toUInt256(originalUFix)
-    let backToUFix = DeFiActionsMathUtils.toUFix64(toUInt)
+    let backToUFix = DeFiActionsMathUtils.toUFix64RoundDown(toUInt)
 
     Test.assertEqual(originalUFix, backToUFix)
 }
@@ -522,96 +498,6 @@ fun testDivByZeroFails() {
     Test.expect(divResult, Test.beFailed())
 }
 
-// mulUp() tests - multiplies 18-decimal by regular UInt256
-access(all)
-fun testMulScalarBasicSucceeds() {
-    // 2.5 * 4 = 10.0
-    let x: UInt256 = 2_500_000_000_000_000_000_000_000  // 2.5 in 24-decimal
-    let y: UInt256 = 4  // Regular integer
-    let expected: UInt256 = 10 * DeFiActionsMathUtils.e24  // 10.0 in 24-decimal
-
-    let result = DeFiActionsMathUtils.mulScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testMulScalarWithZeroSucceeds() {
-    // 5.0 * 0 = 0.0
-    let x: UInt256 = 5 * DeFiActionsMathUtils.e24
-    let y: UInt256 = 0
-    let expected: UInt256 = 0
-
-    let result = DeFiActionsMathUtils.mulScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testMulScalarWithOneSucceeds() {
-    // 5.5 * 1 = 5.5
-    let x: UInt256 = 5_500_000_000_000_000_000_000_000  // 5.5 in 24-decimal
-    let y: UInt256 = 1
-    let expected: UInt256 = 5_500_000_000_000_000_000_000_000
-
-    let result = DeFiActionsMathUtils.mulScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testMulScalarLargeMultiplierSucceeds() {
-    // 0.1 * 1000 = 100.0
-    let x: UInt256 = 100_000_000_000_000_000_000_000  // 0.1 in 24-decimal
-    let y: UInt256 = 1_000
-    let expected: UInt256 = 100 * DeFiActionsMathUtils.e24  // 100.0 in 24-decimal
-
-    let result = DeFiActionsMathUtils.mulScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-// divScalar() tests - divides 18-decimal by regular UInt256
-access(all)
-fun testDivScalarBasicSucceeds() {
-    // 10.0 / 4 = 2.5
-    let x: UInt256 = 10 * DeFiActionsMathUtils.e24
-    let y: UInt256 = 4
-    let expected: UInt256 = 2_500_000_000_000_000_000_000_000  // 2.5 in 24-decimal
-
-    let result = DeFiActionsMathUtils.divScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testDivScalarWithOneSucceeds() {
-    // 5.5 / 1 = 5.5
-    let x: UInt256 = 5_500_000_000_000_000_000_000_000  // 5.5 in 24-decimal
-    let y: UInt256 = 1
-    let expected: UInt256 = 5_500_000_000_000_000_000_000_000
-
-    let result = DeFiActionsMathUtils.divScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testDivScalarPrecisionSucceeds() {
-    // 1.0 / 3 = 0.333333333333333333 (truncated)
-    let x: UInt256 = DeFiActionsMathUtils.e24
-    let y: UInt256 = 3
-    let expected: UInt256 = 333_333_333_333_333_333_333_333  // Truncated result
-
-    let result = DeFiActionsMathUtils.divScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
-access(all)
-fun testDivScalarZeroNumeratorSucceeds() {
-    // 0.0 / 5 = 0.0
-    let x: UInt256 = 0
-    let y: UInt256 = 5
-    let expected: UInt256 = 0
-
-    let result = DeFiActionsMathUtils.divScalar(x, y)
-    Test.assertEqual(expected, result)
-}
-
 access(all)
 fun testDivScalarByZeroFails() {
     let x: UInt256 = 5 * DeFiActionsMathUtils.e24
@@ -638,17 +524,6 @@ fun testMulDivRoundTripSucceeds() {
     Test.assertEqual(original, divided)
 }
 
-access(all)
-fun testMulScalarDivUpRoundTripSucceeds() {
-    // Test that mulUp and divUp are inverse operations
-    let original: UInt256 = 123_456_789_012_345_678_900_000_000  // 123.4567890123456789 in 24-decimal
-    let factor: UInt256 = 5  // Regular integer
-
-    let multiplied = DeFiActionsMathUtils.mulScalar(original, factor)
-    let divided = DeFiActionsMathUtils.divScalar(multiplied, factor)
-
-    Test.assertEqual(original, divided)
-}
 
 access(all)
 fun testFixedPointPrecisionConsistencySucceeds() {
