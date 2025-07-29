@@ -34,7 +34,7 @@ access(all) contract DeFiActionsMathUtils {
     ///
     /// @param value: The UInt256 value to convert
     /// @return: The UFix64 value
-    access(all) fun toUFix64(_ value: UInt256): UFix64 {
+    access(all) view fun toUFix64(_ value: UInt256): UFix64 {
         let scaleFactor = self.decimals - self.ufix64Decimals
         let divisor = self.pow(10, to: scaleFactor)
         let integerPart = value / self.e24
