@@ -74,7 +74,6 @@ access(all) contract DeFiActionsMathUtils {
         return UFix64(scaled)
     }
 
-
     // Helper to determine rounding condition
     access(self) view fun shouldRoundUp(
         _ roundingMode: RoundingMode, 
@@ -139,7 +138,7 @@ access(all) contract DeFiActionsMathUtils {
         return (x * self.e24) / y
     }
 
-    access(all) fun divUFix64(_ x: UFix64, _ y: UFix64): UFix64 {
+    access(all) view fun divWithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
         pre {
             y > 0.0: "Division by zero"
         }

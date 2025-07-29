@@ -552,3 +552,15 @@ fun testInterestRateCalculationSucceeds() {
 
     Test.assertEqual(expected, result)
 }
+
+access(all)
+fun testDivWithRoundingSucceeds() {
+    // Test interest calculation: principal * (1 + rate)
+    let dividend  = 10.0
+    let divisor = 11.0
+
+    let result = DeFiActionsMathUtils.divWithRounding(dividend, divisor)
+    let expected = 0.90909091
+
+    Test.assertEqual(expected, result)
+}
