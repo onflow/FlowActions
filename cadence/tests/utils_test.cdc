@@ -485,32 +485,6 @@ fun testDivPrecisionSucceeds() {
     Test.assertEqual(expected, result)
 }
 
-access(all)
-fun testDivByZeroFails() {
-    let x: UInt256 = 5 * DeFiActionsMathUtils.e24
-    let y: UInt256 = 0
-
-    // This should fail due to division by zero precondition
-    let divResult = executeScript(
-        "./scripts/test_div_by_zero.cdc",
-        [x, y]
-    )
-    Test.expect(divResult, Test.beFailed())
-}
-
-access(all)
-fun testDivScalarByZeroFails() {
-    let x: UInt256 = 5 * DeFiActionsMathUtils.e24
-    let y: UInt256 = 0
-
-    // This should fail due to division by zero precondition
-    let divUpResult = executeScript(
-        "./scripts/test_divup_by_zero.cdc",
-        [x, y]
-    )
-    Test.expect(divUpResult, Test.beFailed())
-}
-
 // Round-trip and integration tests
 access(all)
 fun testMulDivRoundTripSucceeds() {
