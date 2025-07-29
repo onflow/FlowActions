@@ -5,53 +5,50 @@
 ///
 access(all) contract DeFiActionsMathUtils {
 
-    /// Constant for 10^18 (used for 18-decimal fixed-point math)
-    access(all) let e18: UInt256
+    /// Constant for 10^24 (used for 24-decimal fixed-point math)
+    access(all) let e24: UInt256
     /// Constant for 10^8 (UFix64 precision)
     access(all) let e8: UInt256
     /// Standard decimal precision for internal calculations
     access(all) let decimals: UInt8
+    /// UFix64 decimal precision for internal calculations
+    access(self) let ufix64Decimals: UInt8
 
     /************************
     * CONVERSION UTILITIES *
     ************************/
 
-    /// Converts a UFix64 value to UInt256 with 18 decimal precision
+    /// Converts a UFix64 value to UInt256 with 24 decimal precision
     ///
     /// @param value: The UFix64 value to convert
-    /// @return: The UInt256 value scaled to 18 decimals
+    /// @return: The UInt256 value scaled to 24 decimals
     access(all) view fun toUInt256(_ value: UFix64): UInt256 {
-        return self.ufix64ToUInt256(value, decimals: 18)
+        let rawUInt64 = UInt64.fromBigEndianBytes(value.toBigEndianBytes())!
+        let scaleFactor = self.decimals - self.ufix64Decimals
+        let scaledValue: UInt256 = UInt256(rawUInt64) * self.pow(10, to: scaleFactor)
+
+        return scaledValue
     }
 
-    /// Converts a UInt256 value with 18 decimal precision to UFix64
+    /// Converts a UInt256 value with 24 decimal precision to UFix64
     ///
     /// @param value: The UInt256 value to convert
     /// @return: The UFix64 value
-    access(all) view fun toUFix64(_ value: UInt256): UFix64 {
-        return self.uint256ToUFix64(value, decimals: 18)
-    }
+    access(all) fun toUFix64(_ value: UInt256): UFix64 {
+        let scaleFactor = self.decimals - self.ufix64Decimals
+        let divisor = self.pow(10, to: scaleFactor)
+        let integerPart = value / self.e24
+        let fractionalPart = value % self.e24 / divisor
 
-    /// Converts a UFix64 to a UInt256 with specified decimal precision
-    ///
-    /// @param value: The UFix64 value to convert
-    /// @param decimals: The number of decimal places for the UInt256
-    /// @return: The UInt256 value
-    access(all) view fun ufix64ToUInt256(_ value: UFix64, decimals: UInt8): UInt256 {
-        let scaledValue = value.toBigEndianBytes()
-        let integerPart = UInt256(UInt64.fromBigEndianBytes(scaledValue)!) / self.e8
+        assert(
+            integerPart <= UInt256(UFix64.max),
+            message: "Scaled value ".concat(integerPart.toString()).concat(" exceeds max UFix64 value")
+        )
 
-        // Extract fractional part
-        let fractionalBytes = value.toBigEndianBytes()
-        let fractionalUInt64 = UInt64.fromBigEndianBytes(fractionalBytes)! % UInt64(self.e8)
-        let fractionalPart = UInt256(fractionalUInt64)
+        let scaled = UFix64(integerPart) + UFix64(fractionalPart)/UFix64(self.e8)
 
-        // Scale to target decimals
-        let multiplier = self.pow(10, to: decimals)
-        let scaledInteger = integerPart * multiplier
-        let scaledFractional = (fractionalPart * multiplier) / self.e8
-
-        return scaledInteger + scaledFractional
+        // Convert to UFix64 — `scaled` is now at 1e8 base so fractional precision is preserved
+        return UFix64(scaled)
     }
 
     /// Converts a UInt256 to a UFix64 with specified decimal precision
@@ -61,7 +58,7 @@ access(all) contract DeFiActionsMathUtils {
     /// @return: The UFix64 value
     access(all) view fun uint256ToUFix64(_ value: UInt256, decimals: UInt8): UFix64 {
         pre {
-            value / self.pow(10, to: decimals) <= UInt256(UFix64.max / 1.0): "Value too large to fit in UFix64"
+            value / self.pow(10, to: decimals) <= UInt256(UFix64.max): "Value too large to fit in UFix64"
         }
 
         let divisor = self.pow(10, to: decimals)
@@ -76,37 +73,37 @@ access(all) contract DeFiActionsMathUtils {
     * FIXED POINT MATH   *
     ***********************/
 
-    /// Multiplies two 18-decimal fixed-point numbers
+    /// Multiplies two 24-decimal fixed-point numbers
     ///
-    /// @param x: First operand (scaled by 10^18)
-    /// @param y: Second operand (scaled by 10^18)
-    /// @return: Product scaled by 10^18
+    /// @param x: First operand (scaled by 10^24)
+    /// @param y: Second operand (scaled by 10^24)
+    /// @return: Product scaled by 10^24
     access(all) view fun mul(_ x: UInt256, _ y: UInt256): UInt256 {
-        return (x * y) / self.e18
+        return (x * y) / self.e24
     }
 
-    /// Divides two 18-decimal fixed-point numbers
+    /// Divides two 24-decimal fixed-point numbers
     ///
-    /// @param x: Dividend (scaled by 10^18)
-    /// @param y: Divisor (scaled by 10^18)
-    /// @return: Quotient scaled by 10^18
+    /// @param x: Dividend (scaled by 10^24)
+    /// @param y: Divisor (scaled by 10^24)
+    /// @return: Quotient scaled by 10^24
     access(all) view fun div(_ x: UInt256, _ y: UInt256): UInt256 {
         pre {
             y > 0: "Division by zero"
         }
-        return (x * self.e18) / y
+        return (x * self.e24) / y
     }
 
 
-    /// Rounds a UInt256 value with 18 decimal precision to a UFix64 value (8 decimals)
+    /// Rounds a UInt256 value with 24 decimal precision to a UFix64 value (8 decimals)
     ///
-    /// Example: 1e18 -> 1.0, 123456000000000000000 -> 1.23456000, 123456789012345678901 -> 1.23456789
+    /// Example: 1e24 -> 1.0, 123456000000000000000 -> 1.23456000, 123456789012345678901 -> 1.23456789
     /// Example: 123456789999999999999 -> 1.23456790
     ///
     /// @param value: The UInt256 value to convert and round
     /// @return: The UFix64 value, rounded to the nearest 8 decimals
-    access(all) fun roundToUFix64(_ value: UInt256): UFix64 {
-        let decimalsFrom: UInt8 = 18
+    access(all) view fun roundToUFix64(_ value: UInt256): UFix64 {
+        let decimalsFrom: UInt8 = self.decimals
         let decimalsTo: UInt8 = 8
         let scaleDown = self.pow(UInt256(10), to: decimalsFrom - decimalsTo) // 10^10
         // Step 1: reduce to 8 decimal scale safely
@@ -143,18 +140,18 @@ access(all) contract DeFiActionsMathUtils {
 
     /// Multiplies a fixed-point number by a scalar
     ///
-    /// @param x: Fixed-point number (scaled by 10^18)
+    /// @param x: Fixed-point number (scaled by 10^24)
     /// @param y: Scalar value (not scaled)
-    /// @return: Product scaled by 10^18
+    /// @return: Product scaled by 10^24
     access(all) view fun mulScalar(_ x: UInt256, _ y: UInt256): UInt256 {
         return x * y
     }
 
     /// Divides a fixed-point number by a scalar
     ///
-    /// @param x: Fixed-point number (scaled by 10^18)
+    /// @param x: Fixed-point number (scaled by 10^24)
     /// @param y: Scalar value (not scaled)
-    /// @return: Quotient scaled by 10^18
+    /// @return: Quotient scaled by 10^24
     access(all) view fun divScalar(_ x: UInt256, _ y: UInt256): UInt256 {
         pre {
             y > 0: "Division by zero"
@@ -171,7 +168,7 @@ access(all) contract DeFiActionsMathUtils {
     /// @param base: The base number
     /// @param to: The exponent
     /// @return: base^to
-    access(all) view fun pow(_ base: UInt256, to: UInt8): UInt256 {
+    access(self) view fun pow(_ base: UInt256, to: UInt8): UInt256 {
         if to == 0 {
             return 1
         }
@@ -237,8 +234,9 @@ access(all) contract DeFiActionsMathUtils {
     }
 
     init() {
-        self.e18 = 1_000_000_000_000_000_000
+        self.e24 = 1_000_000_000_000_000_000_000_000
         self.e8 = 100_000_000
-        self.decimals = 18
+        self.decimals = 24
+        self.ufix64Decimals = 8
     }
 } 
