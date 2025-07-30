@@ -62,7 +62,6 @@ access(all) contract FungibleTokenStack {
         access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
             return self.uniqueID
         }
-
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
         /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         ///
@@ -139,7 +138,6 @@ access(all) contract FungibleTokenStack {
         access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
             return self.uniqueID
         }
-
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
         /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         ///

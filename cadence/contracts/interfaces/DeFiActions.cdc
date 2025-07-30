@@ -118,8 +118,8 @@ access(all) contract DeFiActions {
     access(all) struct UniqueIdentifier {
         /// The ID value of this UniqueIdentifier
         access(all) let id: UInt64
-        /// The AuthenticationToken Capability required to create this UniqueIdentifier. Since this is a struct which 
-        /// can be created in any context, this authorized Capability ensures that the UniqueIdentifier can only be 
+        /// The AuthenticationToken Capability required to create this UniqueIdentifier. Since this is a struct which
+        /// can be created in any context, this authorized Capability ensures that the UniqueIdentifier can only be
         /// created by the DeFiActions contract, thus preventing forged UniqueIdentifiers from being created.
         access(self) let authCap: Capability<auth(Identify) &AuthenticationToken>
 
@@ -129,6 +129,28 @@ access(all) contract DeFiActions {
             }
             self.id = id
             self.authCap = authCap
+        }
+    }
+
+    /// ComponentInfo
+    ///
+    /// A struct containing minimal information about a DeFiActions component and its inner components
+    ///
+    access(all) struct ComponentInfo {
+        /// The type of the component
+        access(all) let type: Type
+        /// The identifier of the component
+        access(all) let id: UInt64?
+        /// The inner component types of the serving component
+        access(all) let innerComponents: [ComponentInfo]
+        init(
+            type: Type,
+            id: UInt64?,
+            innerComponents: [ComponentInfo]
+        ) {
+            self.type = type
+            self.id = id
+            self.innerComponents = innerComponents
         }
     }
 
@@ -153,12 +175,16 @@ access(all) contract DeFiActions {
         /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
         /// to the inner components, traceable by the innerComponents map.
         access(all) fun getComponentInfo(): ComponentInfo
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) view fun copyID(): UniqueIdentifier? {
             post {
                 result?.id == self.uniqueID?.id:
                 "UniqueIdentifier of \(self.getType().identifier) was not successfully copied"
             }
         }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) fun setID(_ id: UniqueIdentifier?) {
             post {
                 self.uniqueID?.id == id?.id:
@@ -215,28 +241,6 @@ access(all) contract DeFiActions {
         }
     }
 
-    /// ComponentInfo
-    ///
-    /// A struct containing information about a DeFiActions component
-    ///
-    access(all) struct ComponentInfo {
-        /// The type of the component
-        access(all) let type: Type
-        /// The identifier of the component
-        access(all) let id: UInt64?
-        /// The inner component types of the serving component
-        access(all) let innerComponents: [ComponentInfo]
-        init(
-            type: Type,
-            id: UInt64?,
-            innerComponents: [ComponentInfo]
-        ) {
-            self.type = type
-            self.id = id
-            self.innerComponents = innerComponents
-        }
-    }
-
     /// Sink
     ///
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
@@ -252,6 +256,10 @@ access(all) contract DeFiActions {
         access(all) fun minimumCapacity(): UFix64
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            pre {
+                from.getType() == self.getSinkType():
+                "Invalid vault provided for deposit - \(from.getType().identifier) is not \(self.getSinkType().identifier)"
+            }
             post {
                 DeFiActions.emitDeposited(
                     type: from.getType().identifier,
@@ -282,6 +290,8 @@ access(all) contract DeFiActions {
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
+                result.getType() == self.getSourceType():
+                "Invalid vault provided for withdraw - \(result.getType().identifier) is not \(self.getSourceType().identifier)"
                 DeFiActions.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
