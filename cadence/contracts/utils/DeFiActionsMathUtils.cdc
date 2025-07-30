@@ -136,21 +136,31 @@ access(all) contract DeFiActionsMathUtils {
             y > 0: "Division by zero"
         }
         return UInt128((UInt256(x) * UInt256(self.e24)) / UInt256(y))
-        // return (x * self.e24) / y
     }
 
-    access(all) view fun divWithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
+    access(self) view fun divUFix64(_ x: UFix64, _ y: UFix64, _ roundingMode: RoundingMode): UFix64 {
         pre {
             y > 0.0: "Division by zero"
         }
         let uintX: UInt128 = self.toUInt128(x)
         let uintY: UInt128 = self.toUInt128(y)
         let uintResult = self.div(uintX, uintY)
-        let result = self.toUFix64Round(uintResult)
+        let result = self.toUFix64(uintResult, roundingMode)
 
         return result
     }
 
+    access(all) view fun divWithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
+        return self.divUFix64(x, y, self.RoundingMode.RoundHalfUp)
+    }
+
+    access(all) view fun divWithRoundingUp(_ x: UFix64, _ y: UFix64): UFix64 {
+        return self.divUFix64(x, y, self.RoundingMode.RoundUp)
+    }
+
+    access(all) view fun divWithRoundingDown(_ x: UFix64, _ y: UFix64): UFix64 {
+        return self.divUFix64(x, y, self.RoundingMode.RoundDown)
+    }
     /*******************
     * HELPER METHODS  *
     *******************/
@@ -168,6 +178,10 @@ access(all) contract DeFiActionsMathUtils {
 
     access(all) view fun toUFix64RoundDown(_ value: UInt128): UFix64 {
         return self.toUFix64(value, self.RoundingMode.RoundDown)
+    }
+
+    access(all) view fun toUFix64RoundUp(_ value: UInt128): UFix64 {
+        return self.toUFix64(value, self.RoundingMode.RoundUp)
     }
     /// Raises base to the power of exponent
     ///
