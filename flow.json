@@ -36,6 +36,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"IncrementFiStack": {
+			"source": "cadence/contracts/connectors/IncrementFiStack.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"MockOracle": {
 			"source": "cadence/tests/contracts/MockOracle.cdc",
 			"aliases": {
@@ -400,6 +406,22 @@
 				"testing": "0000000000000008"
 			}
 		},
+		"Staking": {
+			"source": "mainnet://1b77ba4b414de352.Staking",
+			"hash": "2faa0180c406f783165d6b2e3370076f126ac6a0e8b800ace55707e838147811",
+			"aliases": {
+				"mainnet": "1b77ba4b414de352",
+				"testing": "0000000000000008"
+			}
+		},
+		"StakingError": {
+			"source": "mainnet://1b77ba4b414de352.StakingError",
+			"hash": "f76be3a19f8b640149fa0860316a34058b96c4ac2154486e337fd449306c730e",
+			"aliases": {
+				"mainnet": "1b77ba4b414de352",
+				"testing": "0000000000000008"
+			}
+		},
 		"StringUtils": {
 			"source": "mainnet://1e4aa0b87d10b141.StringUtils",
 			"hash": "a2a029e106525b53f1a2bbb25aedd161bf79dce66f76bae1a2d75a63522b6460",
@@ -530,7 +552,9 @@
 				"FlowEVMBridgeResolver",
 				"BandOracle",
 				"FlowEVMBridgeCustomAssociations",
-				"FlowEVMBridgeCustomAssociationTypes"
+				"FlowEVMBridgeCustomAssociationTypes",
+				"Staking",
+				"StakingError"
 			]
 		}
 	}
