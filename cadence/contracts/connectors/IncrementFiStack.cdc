@@ -120,7 +120,9 @@ access(all) contract IncrementFiStack {
             poolID: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
-            self.vaultType = Staking.getType() // TODO
+            let stakingPoolCollection = stakingPool.borrow() ?? panic("Could not borrow reference to Staking Pool")
+            let pool = stakingPoolCollection.getPool(pid: poolID)
+            self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
             self.poolID = poolID
             self.stakingPool = stakingPool
             self.uniqueID = uniqueID
@@ -166,7 +168,7 @@ access(all) contract IncrementFiStack {
             if let address = self.userCertificate.borrow()?.owner?.address {
                 if let pool = self.borrowPool() {
                     // Get the staking amount for the user in the pool
-                    let stakingAmount = (pool.getUserInfo(address: address) ?? nil)?.stakingAmount ?? 0.0
+                    let stakingAmount = (pool.getUserInfo(address: address)?.stakingAmount) ?? 0.0
                     return pool.getPoolInfo().limitAmount - stakingAmount
                 }
             }
@@ -187,7 +189,6 @@ access(all) contract IncrementFiStack {
                         ? maxAmount
                         : minimumAvailable
 
-                    
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
                     let vaultRewards <- rewards.remove(key: SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier))
                     destroy rewards

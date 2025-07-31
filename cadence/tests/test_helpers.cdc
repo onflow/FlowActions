@@ -287,21 +287,6 @@ fun setupIncrementFiDependencies() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-
-    let limitAmount: UFix64 = 1000000.0
-    let stakingTokenType = Type<@TokenA.Vault>()
-    let rewardInfo = [Staking.RewardInfo(
-        rewardPerSession: 100.0,
-        sessionInterval: 100.0,
-        rewardTokenKey: SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: Type<@TokenA.Vault>().identifier),
-        startTimestamp: 1000.0
-    )]
-    createStakingPool(
-        incrementFiAccount,
-        limitAmount,
-        stakingTokenType,
-        rewardInfo
-    )
 }
 
 access(all)
@@ -317,12 +302,14 @@ fun createStakingPool(
     _ signer: Test.TestAccount,
     _ limitAmount: UFix64,
     _ stakingTokenType: Type,
-    _ rewardInfo: [Staking.RewardInfo]
+    _ rewardInfo: [Staking.RewardInfo],
+    _ depositAmount: UFix64
 ) {
     let res = _executeTransaction("./transactions/create_staking_pool.cdc", [
         limitAmount,
         stakingTokenType,
-        rewardInfo
+        rewardInfo,
+        depositAmount
     ], signer)
     Test.expect(res, Test.beSucceeded())
 }
