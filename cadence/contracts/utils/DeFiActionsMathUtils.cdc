@@ -39,8 +39,7 @@ access(all) contract DeFiActionsMathUtils {
     /// @return: The UInt128 value scaled to 24 decimals
     access(all) view fun toUInt128(_ value: UFix64): UInt128 {
         let rawUInt64 = UInt64.fromBigEndianBytes(value.toBigEndianBytes())!
-        let scaleFactor = self.decimals - self.ufix64Decimals
-        let scaledValue: UInt128 = UInt128(rawUInt64) * self.pow(10, to: scaleFactor)
+        let scaledValue: UInt128 = UInt128(rawUInt64) * self.pow(10, to: self.scaleFactor)
 
         return scaledValue
     }
@@ -50,8 +49,7 @@ access(all) contract DeFiActionsMathUtils {
     /// @param value: The UInt128 value to convert
     /// @return: The UFix64 value
     access(all) view fun toUFix64(_ value: UInt128, _ roundingMode: RoundingMode): UFix64 {
-        let scaleFactor = self.decimals - self.ufix64Decimals
-        let divisor = self.pow(10, to: scaleFactor)
+        let divisor = self.pow(10, to: self.scaleFactor)
 
         var integerPart = value / self.e24
         var fractionalPart = value % self.e24 / divisor
@@ -59,12 +57,13 @@ access(all) contract DeFiActionsMathUtils {
 
         if self.shouldRoundUp(roundingMode, fractionalPart, remainder, divisor) {
             fractionalPart = fractionalPart + UInt128(1)
+
+            if fractionalPart >= self.e8 {
+                fractionalPart = fractionalPart - self.e8
+                integerPart = integerPart + UInt128(1)
+            }
         }
 
-        if fractionalPart >= self.e8 {
-            fractionalPart = fractionalPart - self.e8
-            integerPart = integerPart + UInt128(1)
-        }
 
         self.assertWithinUFix64Bounds(integerPart, fractionalPart, value)
 
@@ -106,9 +105,9 @@ access(all) contract DeFiActionsMathUtils {
             message: "Integer part \(integerPart.toString()) exceeds UFix64 max"
         )
 
-        let maxFractionalPart = self.toUInt128(0.09551616)
+        let MAX_FRACTIONAL_PART = self.toUInt128(0.09551616)
         assert(
-            integerPart != UInt128(UFix64.max) || fractionalPart < maxFractionalPart,
+            integerPart != UInt128(UFix64.max) || fractionalPart < MAX_FRACTIONAL_PART,
             message: "Fractional part \(fractionalPart.toString()) of scaled integer value \(originalValue.toString()) exceeds max UFix64"
         )
     }
@@ -212,5 +211,6 @@ access(all) contract DeFiActionsMathUtils {
         self.e8 = 100_000_000
         self.decimals = 24
         self.ufix64Decimals = 8
+        self.scaleFactor = self.decimals - self.ufix64Decimals
     }
 } 
