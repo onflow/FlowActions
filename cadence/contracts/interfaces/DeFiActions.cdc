@@ -139,7 +139,7 @@ access(all) contract DeFiActions {
     access(all) struct ComponentInfo {
         /// The type of the component
         access(all) let type: Type
-        /// The identifier of the component
+        /// The UniqueIdentifier.id of the component
         access(all) let id: UInt64?
         /// The inner component types of the serving component
         access(all) let innerComponents: [ComponentInfo]
@@ -468,7 +468,7 @@ access(all) contract DeFiActions {
         access(all) fun getComponentInfo(): ComponentInfo {
             return ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
@@ -534,7 +534,7 @@ access(all) contract DeFiActions {
         access(all) fun getComponentInfo(): ComponentInfo {
             return ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
@@ -706,7 +706,7 @@ access(all) contract DeFiActions {
             // create the ComponentInfo for the AutoBalancer and insert it at the beginning of the list
             return ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: inner
             )
         }

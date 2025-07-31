@@ -20,7 +20,9 @@ import "SwapStack"
 ///
 access(all) contract DeFiActionsEVMConnectors {
 
-    /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiActions.Swapper connector
+    /// UniswapV2EVMSwapper
+    ///
+    /// A DeFiActions connector that swaps between tokens using an EVM-based UniswapV2Router contract
     ///
     access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
@@ -65,9 +67,10 @@ access(all) contract DeFiActionsEVMConnectors {
             self.coaCapability = coaCapability
         }
 
-        /// Returns information about this UniswapV2EVMSwapper
+        /// Returns a ComponentInfo struct containing information about this Swapper and its inner DFA components
         ///
-        /// @return a ComponentInfo for this UniswapV2EVMSwapper
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(

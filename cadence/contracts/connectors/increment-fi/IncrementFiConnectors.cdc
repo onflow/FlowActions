@@ -14,8 +14,9 @@ import "DeFiActions"
 ///
 access(all) contract IncrementFiConnectors {
 
-    /// An implementation of DeFiActions.Swapper connector that swaps between tokens using IncrementFi's
-    /// SwapRouter contract
+    /// Swapper
+    ///
+    /// A DeFiActions connector that swaps between tokens using IncrementFi's SwapRouter contract
     ///
     access(all) struct Swapper : DeFiActions.Swapper {
         /// A swap path as defined by IncrementFi's SwapRouter
@@ -47,14 +48,15 @@ access(all) contract IncrementFiConnectors {
             self.uniqueID = uniqueID
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this Swapper and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the Swapper
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
@@ -128,7 +130,9 @@ access(all) contract IncrementFiConnectors {
         }
     }
 
-    /// An implementation of DeFiActions.Flasher connector that performs flash loans using IncrementFi's SwapPair contract
+    /// Flasher
+    ///
+    /// A DeFiActions connector that performs flash loans using IncrementFi's SwapPair contract
     ///
     access(all) struct Flasher : SwapInterfaces.FlashLoanExecutor, DeFiActions.Flasher {
         /// The address of the SwapPair contract to use for flash loans
@@ -151,14 +155,15 @@ access(all) contract IncrementFiConnectors {
             self.uniqueID = uniqueID
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this Flasher and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the Flasher
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
