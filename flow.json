@@ -1,7 +1,7 @@
 {
 	"contracts": {
 		"BandOracleConnectors": {
-			"source": "cadence/contracts/adapters/BandOracleConnectors.cdc",
+			"source": "cadence/contracts/connectors/band-oracle/BandOracleConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
@@ -13,7 +13,7 @@
 			}
 		},
 		"DeFiActionsEVMConnectors": {
-			"source": "cadence/contracts/adapters/DeFiActionsEVMConn.cdc",
+			"source": "cadence/contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -31,7 +31,7 @@
 			}
 		},
 		"IncrementFiConnectors": {
-			"source": "cadence/contracts/adapters/increment-fi/IncrementFiConnectors.cdc",
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}

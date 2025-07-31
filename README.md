@@ -81,7 +81,7 @@ To understand DeFiActions, start with these key files:
 
 1. **[`cadence/contracts/interfaces/DeFiActions.cdc`](cadence/contracts/interfaces/DeFiActions.cdc)** - Core interface definitions and documentation
 2. **[`cadence/contracts/connectors/FungibleTokenStack.cdc`](cadence/contracts/connectors/FungibleTokenStack.cdc)** - Basic Source/Sink implementations for FungibleToken vaults
-3. **[`cadence/contracts/adapters/increment-fi/IncrementFiConnectors.cdc`](cadence/contracts/adapters/increment-fi/IncrementFiConnectors.cdc)** - Example protocol adapter for IncrementFi DEX integration
+3. **[`cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc)** - Example protocol adapter for IncrementFi DEX integration
 
 ### Understanding the System
 
@@ -137,9 +137,9 @@ To understand DeFiActions, start with these key files:
 - [`VaultSinkAndSource`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Combined deposit/withdrawal functionality for a single vault
 
 **Protocol Connectors:**
-- [`IncrementFiSwapper`](cadence/contracts/adapters/increment-fi/IncrementFiConnectors.cdc) - DEX integration for token swapping via IncrementFi
-- [`BandPriceOracle`](cadence/contracts/adapters/BandOracleConnectors.cdc) - Price feed integration with Band Protocol oracle
-- [`EVMSwapper`](cadence/contracts/adapters/DeFiActionsEVMConnectors.cdc) - UniswapV2-style swapping on Flow EVM
+- [`IncrementFiSwapper`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc) - DEX integration for token swapping via IncrementFi
+- [`BandPriceOracle`](cadence/contracts/connectors/bande-oracle/BandOracleConnectors.cdc) - Price feed integration with Band Protocol oracle
+- [`EVMSwapper`](cadence/contracts/connectors/evm/DeFiActionsEVMConnectors.cdc) - UniswapV2-style swapping on Flow EVM
 
 ### Usage Patterns
 

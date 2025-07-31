@@ -47,7 +47,7 @@ fun setup() {
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
         name: "DeFiActionsEVMConnectors",
-        path: "../contracts/adapters/DeFiActionsEVMConnectors.cdc",
+        path: "../contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

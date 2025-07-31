@@ -25,7 +25,7 @@ access(all) fun setup() {
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
         name: "BandOracleConnectors",
-        path: "../contracts/adapters/BandOracleConnectors.cdc",
+        path: "../contracts/connectors/band-oracle/BandOracleConnectors.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
