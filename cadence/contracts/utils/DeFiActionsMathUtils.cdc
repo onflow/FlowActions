@@ -1,6 +1,6 @@
-/// DFBMathUtils
+/// DeFiActionsMathUtils
 ///
-/// This contract contains mathematical utility methods for DeFiBlocks components
+/// This contract contains mathematical utility methods for DeFiActions components
 /// using UInt128 for high-precision fixed-point arithmetic.
 ///
 access(all) contract DeFiActionsMathUtils {
