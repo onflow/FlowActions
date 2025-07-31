@@ -162,22 +162,21 @@ access(all) contract IncrementFiStakingConnectors {
         /// @param userCertificate: Capability to access the user's staking certificate
         /// @param stakingPool: Capability to access the staking pool collection
         /// @param poolID: The unique identifier of the staking pool to claim rewards from
+        /// @param vaultType: The type of Vault this Source provides when claiming rewards
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
             stakingPool: Capability<&{Staking.PoolCollectionPublic}>,
             poolID: UInt64,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            vaultType: Type,
+            uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
-            let stakingPoolCollection = stakingPool.borrow() ?? panic("Could not borrow reference to Staking Pool")
-            let pool = stakingPoolCollection.getPool(pid: poolID)
-            
-            self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
             self.poolID = poolID
             self.stakingPool = stakingPool
             self.userCertificate = userCertificate
             self.uniqueID = uniqueID
+            self.vaultType = vaultType
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
@@ -253,7 +252,11 @@ access(all) contract IncrementFiStakingConnectors {
 
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
                     let vaultRewards <- rewards.remove(key: SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier))
-                    destroy rewards
+                    if rewards.keys.length == 0 {
+                        destroy rewards
+                    } else {
+                        panic("Staking pool rewards contain multiple token types, which is not supported by this connector")
+                    }
                     
                     if vaultRewards != nil {
                         return <- vaultRewards!

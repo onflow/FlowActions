@@ -158,7 +158,7 @@ access(all) fun testSource() {
     // Create and test the rewards source
     result = executeTransaction(
         "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())

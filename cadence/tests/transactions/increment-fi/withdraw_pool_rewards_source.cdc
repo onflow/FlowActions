@@ -3,7 +3,7 @@ import "Staking"
 import "FungibleToken"
 import "TokenA"
 
-transaction(pid: UInt64) {
+transaction(pid: UInt64, vaultType: Type) {
     let userCertificateCap: Capability<&Staking.UserCertificate>
     let stakingPoolCap: Capability<&{Staking.PoolCollectionPublic}>
     
@@ -25,6 +25,7 @@ transaction(pid: UInt64) {
             userCertificate: self.userCertificateCap,
             stakingPool: self.stakingPoolCap,
             poolID: pid,
+            vaultType: vaultType,
             uniqueID: nil
         )
 
