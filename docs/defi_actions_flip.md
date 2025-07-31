@@ -49,6 +49,7 @@ updated: 2025-01-XX
     - [Performance Implications](#performance-implications)
     - [Testing Challenges](#testing-challenges)
     - [Drawbacks](#drawbacks)
+    - [Interface Concerns](#interface-concerns)
   - [Compatibility](#compatibility)
   - [Future Extensions](#future-extensions)
 
@@ -63,8 +64,7 @@ This proposal introduces DeFiActions (DFA), a suite of standardized Cadence inte
 Flow's DeFi ecosystem currently lacks standardized interfaces for connecting protocols and creating complex workflows. Developers building applications that interact with multiple DeFi protocols face several challenges:
 
 1. **Protocol Fragmentation**: Each DeFi protocol implements unique interfaces, requiring custom integration code and deep protocol-specific knowledge
-<!-- Not so sure about wording or even the underlying concern in 2. -->
-2. **Workflow Complexity**: Building multi-step DeFi strategies (like leverage, yield farming, or automated rebalancing) requires managing multiple protocol calls with custom error handling and state management
+2. **Workflow Complexity**: Building multi-step DeFi strategies (like leverage, yield farming, or automated rebalancing) requires managing multiple protocol calls
 3. **Limited Composability**: Without shared interfaces, protocols cannot easily integrate with each other, limiting composability and increasing the barrier to entry for new developers
 4. **Development Overhead**: Each application must implement protocol-specific logic, leading to duplicated effort and increased maintenance burden
 
@@ -83,8 +83,6 @@ DeFiActions provides significant benefits to different stakeholders in the Flow 
 **For Protocol Developers:**
 - **Increased Adoption**: Protocols become instantly compatible with any DFA-built application by simply creating DFA connectors adapted to their protocol
 - **Network Effects**: Benefit from integration work done by other protocols in the ecosystem and tapping into a community of DFA-focussed developers
-<!-- Need to expand on this one -->
-- **Innovation Platform**: Focus on protocol-specific logic rather than integration concerns
 
 **For End Users:**
 - **Advanced Strategies**: Access to sophisticated DeFi workflows through simple interfaces
@@ -95,7 +93,7 @@ DeFiActions provides significant benefits to different stakeholders in the Flow 
 
 ### Core Philosophy
 
-DeFiActions is inspired by Unix terminal piping, where simple command outputs can be connected together to create complex operations in aggregate. Analagously, ach DFA component should exhibit:
+DeFiActions is inspired by Unix terminal piping, where simple command outputs can be connected together to create complex operations in aggregate. Analagously, each DFA component should exhibit:
 
 - **Single Responsibility**: Each component performs one specific DeFi operation
 - **Composable**: Shared standards in an open environment allow developers to reuse and remix actions built by others
@@ -2236,7 +2234,7 @@ access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
             dryCall: false
         )!
         if res.status != EVM.Status.successful {
-            DeFiActionsEVMAdapters._callError("approve(address,uint256)",
+            DeFiActionsEVMConnectors._callError("approve(address,uint256)",
                 res, inTokenAddress, idType, id, self.getType())
         }
         // perform the swap
@@ -2249,7 +2247,7 @@ access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
         )!
         if res.status != EVM.Status.successful {
             // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-            DeFiActionsEVMAdapters._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+            DeFiActionsEVMConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                 res, self.routerAddress, idType, id, self.getType())
         }
         let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
@@ -2635,7 +2633,7 @@ This example `Shuttle` object can be used to simply move tokens, as in the case 
 
 1. A VaultSink would simply receive the deposited tokens, transferring from the Shuttle's Source to the Sink.
 2. Configured with a SwapSink, the deposited tokens would be swapped before depositing to an inner SwapSink's inner Sink.
-3. Provided a Source tied to staking rewards and a Sink directing funds to protocol staking, this object could be used to optimize staking rewards by auto-claiming & re-staking.
+3. Provided a Source tied to staking rewards and a Sink that stakes deposited tokens, this object could be used to optimize staking rewards by auto-claiming & re-staking.
 
 > :information_source: This example is included to demonstrate the modularity of DFA architecture and not as an accompanying standard object in its own right.
 
@@ -2656,11 +2654,11 @@ access(all) contract TokenShuttleService {
     /// Moves tokens from a source to a target in conformance with CallbackHandler
     access(all) resource Shuttle : UnsafeCallbackScheduler.CallbackHandler {
         /// Provides tokens to move - composite connector so any excess withdrawals can be re-deposited
-        access(self) let tokenOrigin: @{DeFiActions.Sink, DeFiActions.Source}
+        access(self) let tokenOrigin: {DeFiActions.Sink, DeFiActions.Source}
         /// Sink to which source tokens are deposited - a SwapSink would swap into a target denomination
-        access(self) let tokenDestination: @{DeFiActions.Sink}
+        access(self) let tokenDestination: {DeFiActions.Sink}
         /// Provides FLOW to pay for scheduled callbacks
-        access(self) let callbackFeeSource: @{DeFiActions.Source}
+        access(self) let callbackFeeSource: {DeFiActions.Source}
         /// The amount of tokens to withdraw from tokenOrigin when executed. If `nil`, transmission amount is whatever
         /// the tokenOrigin reports as available. Note that this is the amount of tokens withdrawn, not a dollar value.
         /// If this were taken to production, it might be considered to include a PriceOracle to ensure a dollar value
@@ -2760,7 +2758,7 @@ access(all) contract TokenShuttleService {
 
 </detail>
 
-To drive home the example, here's a transaction that would configure the `Shuttle` for a DCA strategy:
+To drive home the example, below is a transaction that would configure the `Shuttle` for a DCA strategy:
 
 <detail>
 
@@ -2810,7 +2808,7 @@ transaction(
         // configure the FLOW VaultSource which pays for scheduled callback fees
         let flowProvider = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault)
         assert(flowProvider.check(), message: "Invalid Provider Capability issued targeting storage path \(/storage/flowTokenVault)")
-        let flowSource = FungibleTokenStack.VaultSinkSource(
+        let flowSource = FungibleTokenStack.VaultSource(
                 min: nil,
                 withdrawVault: flowProvider,
                 uniqueID: id
@@ -2875,12 +2873,6 @@ transaction(
 
 ## Considerations
 
-<!--
-    TODO:
-    - add issue of multi-asset type handling "merge-sink" (e.g. add liquidity via Sink not possible bc need two vaults in proportion to each other, but sink only handles one vault type)
-    - some action interfaces may run counter to existing mental models (e.g. slippage often set on a per-trade basis but interfaces require that to be set internally on Swapper init)
--->
-
 ### Security Model
 
 DFA's design philosophy prioritizes graceful failure over strict guarantees, which creates both benefits and security considerations:
@@ -2933,7 +2925,7 @@ DFA's design philosophy prioritizes graceful failure over strict guarantees, whi
 ### Drawbacks
 
 **Learning Curve:**
-- Component composition patterns require new mental models and approaches, often working backwards from a desired end state
+- Component composition patterns require new approaches, often working backwards from a desired end state
 - Debugging complex stacks can be challenging as the stacks can be quite deep
 - Performance characteristics are not yet well-understood
 
@@ -2942,6 +2934,16 @@ DFA's design philosophy prioritizes graceful failure over strict guarantees, whi
 - Limited ecosystem tooling and documentation
 - Few connectors at the start may mean early adopters may need to implement their own connectors
 - Building on scheduled callbacks prior to real-world implementation feedback could introduce unknown risks
+
+### Interface Concerns
+
+**Single Asset Type**
+- Current [Sink](#sink-interface) and [Source](#source-interface) interfaces only support single Vault operations, which may not accommodate multi-asset actions such as liquidity provision or removal that require handling multiple Vaults simultaneously.
+- The [Swapper](#swapper-interface) interface currently requires slippage to be set at initialization, limiting per-trade flexibility.
+
+**Recomendations:**
+- Consider whether to introduce a multi-asset Sink/Source interface, extend existing interfaces to accept multiple Vaults, or define a new connector type for these scenarios.
+- Clarify expected behavior when slippage exceeds the configured threshold, especially in the context of graceful failure requirements.
 
 ## Compatibility
 

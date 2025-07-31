@@ -9,11 +9,11 @@ import "DeFiActions"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// BandOracleAdapters
+/// BandOracleConnectors
 ///
 /// This contract adapts BandOracle's price data oracle contracts for use as a DeFiActions PriceOracle connector
 ///
-access(all) contract BandOracleAdapters {
+access(all) contract BandOracleConnectors {
 
     /// Mapping of asset Types to BandOracle symbols
     access(all) let assetSymbols: {Type: String}
@@ -28,7 +28,7 @@ access(all) contract BandOracleAdapters {
 
     // PriceOracle
     //
-    /// An adapter for BandOracle as an implementation of the DeFiActions PriceOracle interface
+    /// A connector for BandOracle as an implementation of the DeFiActions PriceOracle interface
     access(all) struct PriceOracle : DeFiActions.PriceOracle {
         /// The token type serving as the price basis - e.g. USD in FLOW/USD
         access(self) let quote: Type
@@ -45,7 +45,7 @@ access(all) contract BandOracleAdapters {
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
                 unitOfAccount.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Invalid unitOfAccount - \(unitOfAccount.identifier) is not a FungibleToken.Vault implementation"
-                BandOracleAdapters.assetSymbols[unitOfAccount] != nil:
+                BandOracleConnectors.assetSymbols[unitOfAccount] != nil:
                 "Could not find a BandOracle symbol assigned to unitOfAccount \(unitOfAccount.identifier)"
             }
             self.feeSource = feeSource
@@ -91,9 +91,9 @@ access(all) contract BandOracleAdapters {
         /// are paid, this implementation reverts if price data has gone stale
         access(all) fun price(ofToken: Type): UFix64? {
             // lookup the symbols
-            let baseSymbol = BandOracleAdapters.assetSymbols[ofToken]
+            let baseSymbol = BandOracleConnectors.assetSymbols[ofToken]
                 ?? panic("Base asset type \(ofToken.identifier) does not have an assigned symbol")
-            let quoteSymbol = BandOracleAdapters.assetSymbols[self.unitOfAccount()]!
+            let quoteSymbol = BandOracleConnectors.assetSymbols[self.unitOfAccount()]!
             // withdraw the oracle fee & get the price data from BandOracle
             let fee <- self.feeSource.withdrawAvailable(maxAmount: BandOracle.getFee())
             let priceData = BandOracle.getReferenceData(baseSymbol: baseSymbol, quoteSymbol: quoteSymbol, payment: <-fee)
@@ -120,10 +120,10 @@ access(all) contract BandOracleAdapters {
         /// Adds a Type:SYMBOL pairing to the contract's mapping. Reverts if the asset Type is already assigned a symbol
         access(all) fun addSymbol(_ symbol: String, forAsset: Type) {
             pre {
-                BandOracleAdapters.assetSymbols[forAsset] == nil:
-                "Asset \(forAsset.identifier) is already assigned symbol \(BandOracleAdapters.assetSymbols[forAsset]!)"
+                BandOracleConnectors.assetSymbols[forAsset] == nil:
+                "Asset \(forAsset.identifier) is already assigned symbol \(BandOracleConnectors.assetSymbols[forAsset]!)"
             }
-            BandOracleAdapters.assetSymbols[forAsset] = symbol
+            BandOracleConnectors.assetSymbols[forAsset] = symbol
 
             emit SymbolAdded(symbol: symbol, asset: forAsset.identifier)
         }
@@ -133,7 +133,7 @@ access(all) contract BandOracleAdapters {
         self.assetSymbols = {
             Type<@FlowToken.Vault>(): "FLOW"
         }
-        self.SymbolUpdaterStoragePath = StoragePath(identifier: "BandOracleAdapterSymbolUpdater_\(self.account.address)")!
+        self.SymbolUpdaterStoragePath = StoragePath(identifier: "BandOracleConnectorSymbolUpdater_\(self.account.address)")!
         self.account.storage.save(<-create SymbolUpdater(), to: self.SymbolUpdaterStoragePath)
     }
 }

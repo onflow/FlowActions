@@ -1,6 +1,6 @@
-import "BandOracleAdapters"
+import "BandOracleConnectors"
 
-/// Adds the asset Type's symbol designation to the BandOracleAdapters contract making its price available for query
+/// Adds the asset Type's symbol designation to the BandOracleConnectors contract making its price available for query
 /// via the PriceOracle
 ///
 /// @param symbol: The symbol of the asset type as known by the BandOracle contract
@@ -8,10 +8,10 @@ import "BandOracleAdapters"
 ///
 transaction(symbol: String, assetTypeIdentifier: String) {
     let assetType: Type
-    let updater: &BandOracleAdapters.SymbolUpdater
+    let updater: &BandOracleConnectors.SymbolUpdater
     prepare(signer: auth(BorrowValue) &Account) {
-        self.updater = signer.storage.borrow<&BandOracleAdapters.SymbolUpdater>(from: BandOracleAdapters.SymbolUpdaterStoragePath)
-            ?? panic("Could not borrow reference to BandOracleAdapaters.SymbolUpdater from \(BandOracleAdapters.SymbolUpdaterStoragePath)")
+        self.updater = signer.storage.borrow<&BandOracleConnectors.SymbolUpdater>(from: BandOracleConnectors.SymbolUpdaterStoragePath)
+            ?? panic("Could not borrow reference to BandOracleAdapaters.SymbolUpdater from \(BandOracleConnectors.SymbolUpdaterStoragePath)")
         self.assetType = CompositeType(assetTypeIdentifier) ?? panic("Invalid assetTypeIdentifier \(assetTypeIdentifier)")
     }
 
