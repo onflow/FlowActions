@@ -5,6 +5,8 @@ import "EVM"
 import "TokenA"
 import "TokenB"
 import "SwapFactory"
+import "Staking"
+import "SwapConfig"
 
 /* --- Test Helpers --- */
 
@@ -270,6 +272,21 @@ fun setupIncrementFiDependencies() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
+
+
+    // deploy Staking contracts
+    err = Test.deployContract(
+        name: "StakingError",
+        path: "../../imports/1b77ba4b414de352/StakingError.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "Staking",
+        path: "../../imports/1b77ba4b414de352/Staking.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
 }
 
 access(all)
@@ -277,6 +294,23 @@ fun deploySwapPairTemplate(_ signer: Test.TestAccount) {
     // must be deployed by transaction and not by Test.deployContract() because init args accept @{FungibleToken.Vault}
     // but the Test.deployContract() args parameter only accepts [AnyStruct]
     let res = _executeTransaction("./transactions/deploy_swap_pair.cdc", [swapPairTemplateCode], signer)
+    Test.expect(res, Test.beSucceeded())
+}
+
+access(all)
+fun createStakingPool(
+    _ signer: Test.TestAccount,
+    _ limitAmount: UFix64,
+    _ stakingTokenType: Type,
+    _ rewardInfo: [Staking.RewardInfo],
+    _ depositAmount: UFix64
+) {
+    let res = _executeTransaction("./transactions/increment-fi/create_staking_pool.cdc", [
+        limitAmount,
+        stakingTokenType,
+        rewardInfo,
+        depositAmount
+    ], signer)
     Test.expect(res, Test.beSucceeded())
 }
 
