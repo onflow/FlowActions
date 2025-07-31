@@ -30,8 +30,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"IncrementFiAdapters": {
-			"source": "cadence/contracts/adapters/IncrementFiAdapters.cdc",
+		"IncrementFiConnectors": {
+			"source": "cadence/contracts/adapters/increment-fi/IncrementFiConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -501,7 +501,7 @@
 				"DeFiActionsUtils",
 				"SwapStack",
 				"FungibleTokenStack",
-				"IncrementFiAdapters",
+				"IncrementFiConnectors",
 				"SwapPair",
 				"FlowEVMBridgeUtils",
 				"SerializeMetadata",

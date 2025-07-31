@@ -8,11 +8,11 @@ import "SwapRouter"
 import "SwapStack"
 import "DeFiActions"
 
-/// IncrementFiAdapters
+/// IncrementFiConnectors
 ///
 /// DeFiActions adapter implementations fitting IncrementFi protocols to the data structure defined in DeFiActions.
 ///
-access(all) contract IncrementFiAdapters {
+access(all) contract IncrementFiConnectors {
 
     /// An implementation of DeFiActions.Swapper connector that swaps between tokens using IncrementFi's
     /// SwapRouter contract
@@ -39,7 +39,7 @@ access(all) contract IncrementFiAdapters {
                 path.length >= 2:
                 "Provided path must have a length of at least 2 - provided path has \(path.length) elements"
             }
-            IncrementFiAdapters._validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
+            IncrementFiConnectors._validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
 
             self.path = path
             self.inVault = inVault
