@@ -13,6 +13,8 @@ access(all) contract DeFiActionsMathUtils {
     access(all) let decimals: UInt8
     /// UFix64 decimal precision for internal calculations
     access(self) let ufix64Decimals: UInt8
+    /// Scale factor for UInt128 <-> UFix64 conversions
+    access(self) let scaleFactor: UInt8
 
     access(all)
     enum RoundingMode: UInt8 {
