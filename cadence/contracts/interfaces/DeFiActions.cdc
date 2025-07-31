@@ -172,8 +172,8 @@ access(all) contract DeFiActions {
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
-        /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
-        /// to the inner components, traceable by the innerComponents map.
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
         access(all) fun getComponentInfo(): ComponentInfo
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
@@ -214,8 +214,8 @@ access(all) contract DeFiActions {
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
-        /// Returns a list of ComponentInfo for each component in the stack. This list should be ordered from the outer
-        /// to the inner components, traceable by the innerComponents map.
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
         access(all) fun getComponentInfo(): ComponentInfo
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
@@ -463,8 +463,8 @@ access(all) contract DeFiActions {
             }
             return
         }
-
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
         access(all) fun getComponentInfo(): ComponentInfo {
             return ComponentInfo(
                 type: self.getType(),
@@ -472,13 +472,11 @@ access(all) contract DeFiActions {
                 innerComponents: []
             )
         }
-
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) view fun copyID(): UniqueIdentifier? {
             return self.uniqueID
         }
-
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
         /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) fun setID(_ id: UniqueIdentifier?) {
@@ -531,8 +529,8 @@ access(all) contract DeFiActions {
             }
             return <- DeFiActionsUtils.getEmptyVault(self.type)
         }
-
-        /// Returns information about this AutoBalancerSource
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
         access(all) fun getComponentInfo(): ComponentInfo {
             return ComponentInfo(
                 type: self.getType(),
@@ -540,13 +538,11 @@ access(all) contract DeFiActions {
                 innerComponents: []
             )
         }
-
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) view fun copyID(): UniqueIdentifier? {
             return self.uniqueID
         }
-
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
         /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) fun setID(_ id: UniqueIdentifier?) {
@@ -644,7 +640,6 @@ access(all) contract DeFiActions {
         access(all) view fun vaultBalance(): UFix64 {
             return self._borrowVault().balance
         }
-
         /// Returns the Type of the inner Vault
         ///
         /// @return the Type of the inner Vault
@@ -652,7 +647,6 @@ access(all) contract DeFiActions {
         access(all) view fun vaultType(): Type {
             return self._borrowVault().getType()
         }
-
         /// Returns the low and high rebalance thresholds as a fixed length UFix64 containing [low, high]
         ///
         /// @return a sorted fixed-length array containing the relative lower and upper thresholds conditioning
@@ -661,7 +655,6 @@ access(all) contract DeFiActions {
         access(all) view fun rebalanceThresholds(): [UFix64; 2] {
             return self._rebalanceRange
         }
-
         /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount.
         /// The returned value is the value as tracked historically, not necessarily the current value of the inner
         /// Vault's balance.
@@ -671,7 +664,6 @@ access(all) contract DeFiActions {
         access(all) view fun valueOfDeposits(): UFix64 {
             return self._valueOfDeposits
         }
-
         /// Returns the token Type serving as the price basis of this AutoBalancer
         ///
         /// @return the price denomination of value of the underlying vault as returned from the inner PriceOracle
@@ -679,7 +671,6 @@ access(all) contract DeFiActions {
         access(all) view fun unitOfAccount(): Type {
             return self._oracle.unitOfAccount()
         }
-
         /// Returns the current value of the inner Vault's balance. If a price is not available from the AutoBalancer's
         /// PriceOracle, `nil` is returned
         ///
@@ -692,10 +683,10 @@ access(all) contract DeFiActions {
             }
             return nil
         }
-
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this AutoBalancer and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the AutoBalancer
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): ComponentInfo {
             // get the inner components
@@ -719,7 +710,6 @@ access(all) contract DeFiActions {
                 innerComponents: inner
             )
         }
-
         /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer. If the AutoBalancer's
         /// Capability on itself is not set or is invalid, `nil` is returned.
         ///
@@ -731,7 +721,6 @@ access(all) contract DeFiActions {
             }
             return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
-
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer. If the AutoBalancer's
         /// Capability on itself is not set or is invalid, `nil` is returned.
         ///
@@ -743,7 +732,6 @@ access(all) contract DeFiActions {
             }
             return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
-
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
         ///
         /// @param sink: The optional Sink DeFiActions connector from which funds are sourced when this AutoBalancer
@@ -758,7 +746,6 @@ access(all) contract DeFiActions {
             }
             self._rebalanceSink = sink
         }
-
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn
         ///
         /// @param source: The optional Source DeFiActions connector from which funds are sourced when this AutoBalancer
@@ -773,7 +760,6 @@ access(all) contract DeFiActions {
             }
             self._rebalanceSource = source
         }
-
         /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
         /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
         /// has been saved to account storage and an authorized Capability has been issued.
@@ -788,7 +774,6 @@ access(all) contract DeFiActions {
             }
             self._selfCap = cap
         }
-
         /// Sets the rebalance range of this AutoBalancer
         ///
         /// @param range: a sorted array containing lower and upper thresholds that condition rebalance execution. The
@@ -801,19 +786,16 @@ access(all) contract DeFiActions {
             }
             self._rebalanceRange = range
         }
-
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) view fun copyID(): UniqueIdentifier? {
             return self.uniqueID
         }
-
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
         /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) fun setID(_ id: UniqueIdentifier?) {
             self.uniqueID = id
         }
-
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. This method must be called by external party regularly in order for rebalancing to occur.
         ///
@@ -885,7 +867,6 @@ access(all) contract DeFiActions {
         access(all) view fun getViews(): [Type] {
             return self._borrowVault().getViews()
         }
-
         /// Passthrough to inner Vault's view resolution
         access(all) fun resolveView(_ view: Type): AnyStruct? {
             return self._borrowVault().resolveView(view)
@@ -898,17 +879,14 @@ access(all) contract DeFiActions {
         access(all) view fun getSupportedVaultTypes(): {Type: Bool} {
             return { self.vaultType(): true }
         }
-
         /// True if the provided Type is the nested Vault Type, false otherwise
         access(all) view fun isSupportedVaultType(type: Type): Bool {
             return self.getSupportedVaultTypes()[type] == true
         }
-
         /// Passthrough to the inner Vault's isAvailableToWithdraw() method
         access(all) view fun isAvailableToWithdraw(amount: UFix64): Bool {
             return self._borrowVault().isAvailableToWithdraw(amount: amount)
         }
-
         /// Deposits the provided Vault to the nested Vault if it is of the same Type, reverting otherwise. In the
         /// process, the current value of the deposited amount (denominated in unitOfAccount) increments the
         /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, an average price is
@@ -924,7 +902,6 @@ access(all) contract DeFiActions {
             self._valueOfDeposits = self._valueOfDeposits + (from.balance * price)
             self._borrowVault().deposit(from: <-from)
         }
-
         /// Returns the requested amount of the nested Vault type, reducing the baseValue by the current value
         /// (denominated in unitOfAccount) of the token amount. The AutoBalancer's valueOfDeposits is decremented
         /// in proportion to the amount withdrawn relative to the inner Vault's balance
