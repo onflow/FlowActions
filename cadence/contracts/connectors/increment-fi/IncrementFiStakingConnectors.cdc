@@ -23,15 +23,15 @@ access(all) contract IncrementFiStakingConnectors {
     access(all) struct StakingPoolSink: DeFiActions.Sink {
         /// The type of Vault this Sink accepts when performing a deposit
         access(all) let vaultType: Type
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The unique identifier of the staking pool to deposit into
         access(self) let poolID: UInt64
         /// Capability to access the staking pool collection
         access(self) let stakingPool: Capability<&{Staking.PoolCollectionPublic}>
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new StakingPoolSink
         ///
@@ -50,10 +50,10 @@ access(all) contract IncrementFiStakingConnectors {
             let pool = stakingPoolCollection.getPool(pid: poolID)
 
             self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
-            self.uniqueID = uniqueID
             self.poolID = poolID
             self.stakingPool = stakingPool
             self.userCertificate = userCertificate
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
@@ -147,15 +147,15 @@ access(all) contract IncrementFiStakingConnectors {
     access(all) struct StakingPoolRewardsSource: DeFiActions.Source {
         /// The type of Vault this Source provides when claiming rewards
         access(all) let vaultType: Type
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The unique identifier of the staking pool to claim rewards from
         access(self) let poolID: UInt64
         /// Capability to access the staking pool collection
         access(self) let stakingPool: Capability<&{Staking.PoolCollectionPublic}>
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new StakingPoolRewardsSource
         ///
@@ -174,10 +174,10 @@ access(all) contract IncrementFiStakingConnectors {
             let pool = stakingPoolCollection.getPool(pid: poolID)
             
             self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
-            self.uniqueID = uniqueID
             self.poolID = poolID
             self.stakingPool = stakingPool
             self.userCertificate = userCertificate
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
