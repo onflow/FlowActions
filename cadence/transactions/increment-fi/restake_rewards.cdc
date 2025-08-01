@@ -4,7 +4,7 @@ import "Staking"
 import "IncrementFiStakingConnectors"
 
 transaction(pid: UInt64, vaultType: Type) {
-    let stakingPoolRewardsSource: IncrementFiStakingConnectors.StakingPoolRewardsSource
+    let lpTokenStakingPoolRewardsSink: IncrementFiStakingConnectors.StakingPoolRewardsSource
     let stakingPoolSink: IncrementFiStakingConnectors.StakingPoolSink
 
     prepare(acct: auth(Storage, Capabilities) &Account) {
@@ -19,7 +19,7 @@ transaction(pid: UInt64, vaultType: Type) {
         let stakingPoolCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
 
         // Create the IncrementFiRewardsSource
-        self.stakingPoolRewardsSource = IncrementFiStakingConnectors.StakingPoolRewardsSource(
+        let stakingPoolRewardsSource = IncrementFiStakingConnectors.StakingPoolRewardsSource(
             userCertificate: userCertificateCap!,
             stakingPool: stakingPoolCap,
             poolID: pid,
@@ -28,7 +28,7 @@ transaction(pid: UInt64, vaultType: Type) {
         )
 
         // TODO: We need to insert the swapper here to convert rewards to LP tokens
-        let lpTokenStakingPoolRewardsSink = self.stakingPoolRewardsSource
+        self.lpTokenStakingPoolRewardsSink = stakingPoolRewardsSource
 
         // Create the IncrementFiSink
         self.stakingPoolSink = IncrementFiStakingConnectors.StakingPoolSink(
@@ -40,7 +40,7 @@ transaction(pid: UInt64, vaultType: Type) {
     }
 
     execute {
-        let tokenAVault <- self.stakingPoolRewardsSource.withdrawAvailable(maxAmount: self.stakingPoolSink.minimumCapacity())
+        let tokenAVault <- self.lpTokenStakingPoolRewardsSink.withdrawAvailable(maxAmount: self.stakingPoolSink.minimumCapacity())
         self.stakingPoolSink.depositCapacity(from: &tokenAVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
         assert(tokenAVault.balance == 0.0, message: "TokenA Vault should be empty after withdrawal")
         destroy tokenAVault
