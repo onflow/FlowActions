@@ -16,19 +16,15 @@ access(all) contract DeFiActionsMathUtils {
     /// Scale factor for UInt128 <-> UFix64 conversions
     access(self) let scaleFactor: UInt8
 
-    access(all)
-    enum RoundingMode: UInt8 {
-        access(all)
-        case RoundDown
-
-        access(all)
-        case RoundUp
-
-        access(all)
-        case RoundHalfUp // normal rounding
-
-        access(all)
-        case RoundEven
+    access(all) enum RoundingMode: UInt8 {
+        /// Rounds down to the nearest decimal
+        access(all) case RoundDown
+        /// Rounds up to the nearest decimal
+        access(all) case RoundUp
+        /// Normal rounding: < 5 - round down | >= 5 - round up
+        access(all) case RoundHalfUp
+        /// TODO: comment about rounding pattern
+        access(all) case RoundEven
     }
 
     /************************
@@ -75,7 +71,7 @@ access(all) contract DeFiActionsMathUtils {
         return UFix64(scaled)
     }
 
-    // Helper to determine rounding condition
+    /// Helper to determine rounding condition
     access(self) view fun shouldRoundUp(
         _ roundingMode: RoundingMode, 
         _ fractionalPart: UInt128, 
@@ -96,7 +92,7 @@ access(all) contract DeFiActionsMathUtils {
         return false
     }
 
-    // Helper to handle overflow assertion
+    /// Helper to handle overflow assertion
     access(self) view fun assertWithinUFix64Bounds(
         _ integerPart: UInt128, 
         _ fractionalPart: UInt128, 
