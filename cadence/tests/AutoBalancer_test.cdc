@@ -523,7 +523,7 @@ access(all) fun test_UnforcedRebalanceFromSourceSucceeds() {
     Test.assertEqual(nil, evt.uniqueID)
 }
 
-// /* --- Helper --- */
+/* --- Helper --- */
 
 access(all) fun equalWithinVariance(_ expected: UFix64, _ actual: UFix64): Bool {
     if expected == actual + varianceThreshold {
