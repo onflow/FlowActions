@@ -5,8 +5,8 @@ import "SwapStack"
 import "DeFiActions"
 
 transaction(pid: UInt64, vaultType: Type) {
-    let lpTokenStakingPoolRewardsSource: {DeFiActions.Source}
-    let stakingPoolSink: {DeFiActions.Sink}
+    let lpTokenPoolRewardsSource: {DeFiActions.Source}
+    let poolSink: {DeFiActions.Sink}
 
     prepare(acct: auth(Storage, Capabilities) &Account) {
         var userCertificateCap: Capability<&Staking.UserCertificate>? = nil
@@ -16,13 +16,10 @@ transaction(pid: UInt64, vaultType: Type) {
             acct.storage.save(<- Staking.setupUser(), to: Staking.UserCertificateStoragePath)
             userCertificateCap = acct.capabilities.storage.issue<&Staking.UserCertificate>(Staking.UserCertificateStoragePath)
         }
-
-        let stakingPoolCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-
-        // Create the StakingPoolRewardsSource
-        let stakingPoolRewardsSource = IncrementFiStakingConnectors.StakingPoolRewardsSource(
+        
+        // Create the PoolRewardsSource
+        let poolRewardsSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: userCertificateCap!,
-            stakingPool: stakingPoolCap,
             poolID: pid,
             vaultType: vaultType,
             uniqueID: nil
@@ -30,24 +27,23 @@ transaction(pid: UInt64, vaultType: Type) {
 
         // TODO: We need to insert the swapper here to convert rewards to LP tokens
         let swapper = nil as AnyStruct as! {DeFiActions.Swapper}
-        self.lpTokenStakingPoolRewardsSource = SwapStack.SwapSource(
+        self.lpTokenPoolRewardsSource = SwapStack.SwapSource(
             swapper: swapper,
-            source: stakingPoolRewardsSource,
+            source: poolRewardsSource,
             uniqueID: nil
         )
 
-        // Create the StakingPoolSink
-        self.stakingPoolSink = IncrementFiStakingConnectors.StakingPoolSink(
+        // Create the PoolSink
+        self.poolSink = IncrementFiStakingConnectors.PoolSink(
             userCertificate: userCertificateCap!,
-            stakingPool: stakingPoolCap,
             poolID: pid,
             uniqueID: nil
         )
     }
 
     execute {
-        let vault <- self.lpTokenStakingPoolRewardsSource.withdrawAvailable(maxAmount: self.stakingPoolSink.minimumCapacity())
-        self.stakingPoolSink.depositCapacity(from: &vault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+        let vault <- self.lpTokenPoolRewardsSource.withdrawAvailable(maxAmount: self.poolSink.minimumCapacity())
+        self.poolSink.depositCapacity(from: &vault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
         assert(vault.balance == 0.0, message: "TokenA Vault should be empty after withdrawal")
         destroy vault
     }

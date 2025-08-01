@@ -5,7 +5,6 @@ import "TokenA"
 
 transaction(pid: UInt64, vaultType: Type) {
     let userCertificateCap: Capability<&Staking.UserCertificate>
-    let stakingPoolCap: Capability<&{Staking.PoolCollectionPublic}>
     
     prepare(acct: auth(Storage, Capabilities) &Account) {
         if let userCertificate = acct.storage.borrow<&Staking.UserCertificate>(from: Staking.UserCertificateStoragePath) {
@@ -15,15 +14,8 @@ transaction(pid: UInt64, vaultType: Type) {
             self.userCertificateCap = acct.capabilities.storage.issue<&Staking.UserCertificate>(Staking.UserCertificateStoragePath)
         }
 
-        self.stakingPoolCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-
-        self.stakingPoolCap.borrow()!
-            .getPool(pid: pid)
-            .updatePool()
-
-        let incrementFiSource = IncrementFiStakingConnectors.StakingPoolRewardsSource(
+        let incrementFiSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: self.userCertificateCap,
-            stakingPool: self.stakingPoolCap,
             poolID: pid,
             vaultType: vaultType,
             uniqueID: nil

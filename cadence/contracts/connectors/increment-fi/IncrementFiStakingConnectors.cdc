@@ -11,54 +11,50 @@ import "SwapConfig"
 /// DeFiActions framework.
 ///
 /// The contract contains two main connector types:
-/// - StakingPoolSink: Allows depositing tokens into IncrementFi staking pools
-/// - StakingPoolRewardsSource: Allows claiming rewards from IncrementFi staking pools
+/// - PoolSink: Allows depositing tokens into IncrementFi staking pools
+/// - PoolRewardsSource: Allows claiming rewards from IncrementFi staking pools
 ///
 access(all) contract IncrementFiStakingConnectors {
-    /// StakingPoolSink
+    /// PoolSink
     ///
     /// A DeFiActions.Sink implementation that allows depositing tokens into IncrementFi staking pools.
     /// This connector accepts tokens of a specific type and stakes them in the designated staking pool.
     ///
-    access(all) struct StakingPoolSink: DeFiActions.Sink {
+    access(all) struct PoolSink: DeFiActions.Sink {
         /// The type of Vault this Sink accepts when performing a deposit
         access(all) let vaultType: Type
         /// The unique identifier of the staking pool to deposit into
         access(self) let poolID: UInt64
-        /// Capability to access the staking pool collection
-        access(self) let stakingPool: Capability<&{Staking.PoolCollectionPublic}>
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        /// Initializes a new StakingPoolSink
+        /// Initializes a new PoolSink
         ///
         /// @param userCertificate: Capability to access the user's staking certificate
-        /// @param stakingPool: Capability to access the staking pool collection
         /// @param poolID: The unique identifier of the staking pool to deposit into
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
-            stakingPool: Capability<&{Staking.PoolCollectionPublic}>,
             poolID: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
-            let stakingPoolCollection = stakingPool.borrow() ?? panic("Could not borrow reference to Staking Pool")
-            let pool = stakingPoolCollection.getPool(pid: poolID)
+            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
+            let poolCollectionCollection = poolCollectionCap.borrow() ?? panic("Could not borrow reference to Staking Pool")
+            let pool = poolCollectionCollection.getPool(pid: poolID)
 
             self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
             self.poolID = poolID
-            self.stakingPool = stakingPool
             self.userCertificate = userCertificate
             self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the StakingPoolSink
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the PoolSink
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
@@ -135,45 +131,41 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return a reference to the staking pool, or nil if not available
         ///
         access(self) fun borrowPool(): &{Staking.PoolPublic}? {
-            return self.stakingPool.borrow()?.getPool(pid: self.poolID)
+            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
+            return poolCollectionCap.borrow()?.getPool(pid: self.poolID)
         }
     }
 
-    /// StakingPoolRewardsSource
+    /// PoolRewardsSource
     ///
     /// A DeFiActions.Source implementation that allows claiming rewards from IncrementFi staking pools.
     /// This connector provides tokens by claiming rewards from the designated staking pool.
     ///
-    access(all) struct StakingPoolRewardsSource: DeFiActions.Source {
+    access(all) struct PoolRewardsSource: DeFiActions.Source {
         /// The type of Vault this Source provides when claiming rewards
         access(all) let vaultType: Type
         /// The unique identifier of the staking pool to claim rewards from
         access(self) let poolID: UInt64
-        /// Capability to access the staking pool collection
-        access(self) let stakingPool: Capability<&{Staking.PoolCollectionPublic}>
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        /// Initializes a new StakingPoolRewardsSource
+        /// Initializes a new PoolRewardsSource
         ///
         /// @param userCertificate: Capability to access the user's staking certificate
-        /// @param stakingPool: Capability to access the staking pool collection
         /// @param poolID: The unique identifier of the staking pool to claim rewards from
         /// @param vaultType: The type of Vault this Source provides when claiming rewards
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
-            stakingPool: Capability<&{Staking.PoolCollectionPublic}>,
             poolID: UInt64,
             vaultType: Type,
             uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
             self.poolID = poolID
-            self.stakingPool = stakingPool
             self.userCertificate = userCertificate
             self.uniqueID = uniqueID
             self.vaultType = vaultType
@@ -181,7 +173,7 @@ access(all) contract IncrementFiStakingConnectors {
 
         /// Returns a list of ComponentInfo for each component in the stack
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the StakingPoolRewardsSource
+        /// @return a list of ComponentInfo for each inner DeFiActions component in the PoolRewardsSource
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
@@ -275,7 +267,8 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return a reference to the staking pool, or nil if not available
         ///
         access(self) fun borrowPool(): &{Staking.PoolPublic}? {
-            return self.stakingPool.borrow()?.getPool(pid: self.poolID)
+            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
+            return poolCollectionCap.borrow()?.getPool(pid: self.poolID)
         }
     }
 }
