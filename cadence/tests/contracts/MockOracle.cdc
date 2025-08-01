@@ -25,7 +25,7 @@ access(all) contract MockOracle {
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }

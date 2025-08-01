@@ -18,6 +18,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"DeFiActionsMathUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsMathUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiActionsUtils": {
 			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
@@ -519,6 +525,7 @@
 				"SwapConfig",
 				"SwapInterfaces",
 				"StableSwapFactory",
+				"DeFiActionsMathUtils",
 				"DeFiActions",
 				"DeFiActionsUtils",
 				"SwapStack",

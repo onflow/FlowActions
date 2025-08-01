@@ -16,6 +16,10 @@ import "DeFiActions"
 ///
 access(all) contract FungibleTokenStack {
 
+    /// VaultSink
+    ///
+    /// A DeFiActions connector that deposits tokens into a Vault
+    ///
     access(all) struct VaultSink : DeFiActions.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
@@ -43,14 +47,15 @@ access(all) contract FungibleTokenStack {
             self.depositVault = depositVault
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this VaultSink and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSink
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
@@ -93,6 +98,10 @@ access(all) contract FungibleTokenStack {
         }
     }
 
+    /// VaultSource
+    ///
+    /// A DeFiActions connector that withdraws tokens from a Vault
+    ///
     access(all) struct VaultSource : DeFiActions.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
@@ -119,14 +128,15 @@ access(all) contract FungibleTokenStack {
             self.uniqueID = uniqueID
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this VaultSource and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSource
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }
@@ -170,6 +180,10 @@ access(all) contract FungibleTokenStack {
         }
     }
 
+    /// VaultSinkAndSource
+    ///
+    /// A DeFiActions connector that both deposits and withdraws tokens from a Vault
+    ///
     access(all) struct VaultSinkAndSource : DeFiActions.Sink, DeFiActions.Source {
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
@@ -203,14 +217,15 @@ access(all) contract FungibleTokenStack {
             self.vault = vault
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this VaultSinkAndSource and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the VaultSinkAndSource
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: []
             )
         }

@@ -15,6 +15,8 @@ import "DeFiActionsUtils"
 ///
 access(all) contract SwapStack {
 
+    /// BasicQuote
+    ///
     /// A simple implementation of DeFiActions.Quote allowing callers of Swapper.quoteIn() and .quoteOut() to cache quoted
     /// amount in and/or out.
     ///
@@ -37,8 +39,10 @@ access(all) contract SwapStack {
         }
     }
 
-    /// A MultiSwapper specific DeFiActions.Quote implementation allowing for callers to set the Swapper used in MultiSwapper
-    /// that should fulfill the Swap
+    /// MultiSwapperQuote
+    ///
+    /// A MultiSwapper specific DeFiActions.Quote implementation allowing for callers to set the Swapper used in
+    /// MultiSwapper that should fulfill the Swap
     ///
     access(all) struct MultiSwapperQuote : DeFiActions.Quote {
         access(all) let inType: Type
@@ -65,6 +69,8 @@ access(all) contract SwapStack {
         }
     }
 
+    /// MultiSwapper
+    ///
     /// A Swapper implementation routing swap requests to the optimal contained Swapper. Once constructed, this can
     /// effectively be used as an aggregator across all contained Swapper implementations, though it is limited to the
     /// routes and pools exposed by its inner Swappers as well as runtime computation limits.
@@ -100,9 +106,10 @@ access(all) contract SwapStack {
             self.swappers = swappers
         }
 
-        /// Returns information about this MultiSwapper
+        /// Returns a ComponentInfo struct containing information about this MultiSwapper and its inner DFA components
         ///
-        /// @return a ComponentInfo for this MultiSwapper including the ComponentInfo for each inner Swapper
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             let inner: [DeFiActions.ComponentInfo] = []
@@ -111,7 +118,7 @@ access(all) contract SwapStack {
             }
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: inner
             )
         }
@@ -209,7 +216,9 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSink DeFiActions connector that deposits the resulting post-conversion currency of a token swap to an inner
+    /// SwapSink
+    ///
+    /// A DeFiActions connector that deposits the resulting post-conversion currency of a token swap to an inner
     /// DeFiActions Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
     access(all) struct SwapSink : DeFiActions.Sink {
@@ -228,14 +237,15 @@ access(all) contract SwapStack {
             self.uniqueID = uniqueID
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this SwapSink and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the SwapSink
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: [
                     self.swapper.getComponentInfo(),
                     self.sink.getComponentInfo()
@@ -306,7 +316,9 @@ access(all) contract SwapStack {
         }
     }
 
-    /// SwapSource DeFiActions connector that returns post-conversion currency, sourcing pre-converted funds from an inner
+    /// SwapSource
+    ///
+    /// A DeFiActions connector that returns post-conversion currency, sourcing pre-converted funds from an inner
     /// DeFiActions Source
     ///
     access(all) struct SwapSource : DeFiActions.Source {
@@ -325,14 +337,15 @@ access(all) contract SwapStack {
             self.uniqueID = uniqueID
         }
 
-        /// Returns information about this SwapSource
+        /// Returns a ComponentInfo struct containing information about this SwapSource and its inner DFA components
         ///
-        /// @return a ComponentInfo for this SwapSource
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                 innerComponents: [
                     self.swapper.getComponentInfo(),
                     self.source.getComponentInfo()

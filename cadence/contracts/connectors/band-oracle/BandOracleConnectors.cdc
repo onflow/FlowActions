@@ -26,9 +26,10 @@ access(all) contract BandOracleConnectors {
 
     /* CONSTRUCTS */
 
-    // PriceOracle
-    //
-    /// A connector for BandOracle as an implementation of the DeFiActions PriceOracle interface
+    /// PriceOracle
+    ///
+    /// A DeFiActions connector that provides price data for a given asset using BandOracle
+    ///
     access(all) struct PriceOracle : DeFiActions.PriceOracle {
         /// The token type serving as the price basis - e.g. USD in FLOW/USD
         access(self) let quote: Type
@@ -54,14 +55,15 @@ access(all) contract BandOracleConnectors {
             self.uniqueID = uniqueID
         }
 
-        /// Returns a list of ComponentInfo for each component in the stack
+        /// Returns a ComponentInfo struct containing information about this PriceOracle and its inner DFA components
         ///
-        /// @return a list of ComponentInfo for each inner DeFiActions component in the PriceOracle
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
         ///
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
-                id: self.id() ?? nil,
+                id: self.id(),
                     innerComponents: [
                         self.feeSource.getComponentInfo()
                     ]
