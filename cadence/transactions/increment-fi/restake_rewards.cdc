@@ -46,9 +46,9 @@ transaction(pid: UInt64, vaultType: Type) {
     }
 
     execute {
-        let tokenAVault <- self.lpTokenStakingPoolRewardsSource.withdrawAvailable(maxAmount: self.stakingPoolSink.minimumCapacity())
-        self.stakingPoolSink.depositCapacity(from: &tokenAVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-        assert(tokenAVault.balance == 0.0, message: "TokenA Vault should be empty after withdrawal")
-        destroy tokenAVault
+        let vault <- self.lpTokenStakingPoolRewardsSource.withdrawAvailable(maxAmount: self.stakingPoolSink.minimumCapacity())
+        self.stakingPoolSink.depositCapacity(from: &vault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+        assert(vault.balance == 0.0, message: "TokenA Vault should be empty after withdrawal")
+        destroy vault
     }
 }
