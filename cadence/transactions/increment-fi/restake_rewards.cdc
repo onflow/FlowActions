@@ -1,10 +1,12 @@
 import "FungibleToken"
 import "Staking"
 import "IncrementFiStakingConnectors"
+import "SwapStack"
+import "DeFiActions"
 
 transaction(pid: UInt64, vaultType: Type) {
-    let lpTokenStakingPoolRewardsSource: IncrementFiStakingConnectors.StakingPoolRewardsSource
-    let stakingPoolSink: IncrementFiStakingConnectors.StakingPoolSink
+    let lpTokenStakingPoolRewardsSource: {DeFiActions.Source}
+    let stakingPoolSink: {DeFiActions.Sink}
 
     prepare(acct: auth(Storage, Capabilities) &Account) {
         var userCertificateCap: Capability<&Staking.UserCertificate>? = nil
@@ -27,7 +29,12 @@ transaction(pid: UInt64, vaultType: Type) {
         )
 
         // TODO: We need to insert the swapper here to convert rewards to LP tokens
-        self.lpTokenStakingPoolRewardsSource = stakingPoolRewardsSource
+        let swapper = nil as AnyStruct as! {DeFiActions.Swapper}
+        self.lpTokenStakingPoolRewardsSource = SwapStack.SwapSource(
+            swapper: swapper,
+            source: stakingPoolRewardsSource,
+            uniqueID: nil
+        )
 
         // Create the StakingPoolSink
         self.stakingPoolSink = IncrementFiStakingConnectors.StakingPoolSink(
