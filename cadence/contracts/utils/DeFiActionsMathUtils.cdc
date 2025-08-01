@@ -14,7 +14,7 @@ access(all) contract DeFiActionsMathUtils {
     /// UFix64 decimal precision for internal calculations
     access(self) let ufix64Decimals: UInt8
     /// Scale factor for UInt128 <-> UFix64 conversions
-    access(self) let scaleFactor: UInt8
+    access(self) let scaleFactor: UInt128 
 
     access(all) enum RoundingMode: UInt8 {
         /// Rounds down to the nearest decimal
@@ -37,7 +37,7 @@ access(all) contract DeFiActionsMathUtils {
     /// @return: The UInt128 value scaled to 24 decimals
     access(all) view fun toUInt128(_ value: UFix64): UInt128 {
         let rawUInt64 = UInt64.fromBigEndianBytes(value.toBigEndianBytes())!
-        let scaledValue: UInt128 = UInt128(rawUInt64) * self.pow(10, to: self.scaleFactor)
+        let scaledValue: UInt128 = UInt128(rawUInt64) * self.scaleFactor
 
         return scaledValue
     }
@@ -47,13 +47,11 @@ access(all) contract DeFiActionsMathUtils {
     /// @param value: The UInt128 value to convert
     /// @return: The UFix64 value
     access(all) view fun toUFix64(_ value: UInt128, _ roundingMode: RoundingMode): UFix64 {
-        let divisor = self.pow(10, to: self.scaleFactor)
-
         var integerPart = value / self.e24
-        var fractionalPart = value % self.e24 / divisor
-        let remainder = (value % self.e24) % divisor
+        var fractionalPart = value % self.e24 / self.scaleFactor
+        let remainder = (value % self.e24) % self.scaleFactor
 
-        if self.shouldRoundUp(roundingMode, fractionalPart, remainder, divisor) {
+        if self.shouldRoundUp(roundingMode, fractionalPart, remainder) {
             fractionalPart = fractionalPart + UInt128(1)
 
             if fractionalPart >= self.e8 {
@@ -76,18 +74,17 @@ access(all) contract DeFiActionsMathUtils {
         _ roundingMode: RoundingMode, 
         _ fractionalPart: UInt128, 
         _ remainder: UInt128, 
-        _ divisor: UInt128
     ): Bool {
         switch roundingMode {
         case self.RoundingMode.RoundUp:
             return remainder > UInt128(0)
 
         case self.RoundingMode.RoundHalfUp:
-            return remainder >= divisor / UInt128(2)
+            return remainder >= self.scaleFactor / UInt128(2)
 
         case self.RoundingMode.RoundEven:
-            return remainder > divisor / UInt128(2) ||
-            (remainder == divisor / UInt128(2) && fractionalPart % UInt128(2) != UInt128(0))
+            return remainder > self.scaleFactor / UInt128(2) ||
+            (remainder == self.scaleFactor / UInt128(2) && fractionalPart % UInt128(2) != UInt128(0))
         }
         return false
     }
@@ -135,6 +132,15 @@ access(all) contract DeFiActionsMathUtils {
         return UInt128((UInt256(x) * UInt256(self.e24)) / UInt256(y))
     }
 
+    /// Divides two UFix64 values with configurable rounding mode.
+    ///
+    /// Converts both UFix64 inputs to internal UInt128 (24-decimal fixed-point),
+    /// performs division, then converts the result back to UFix64, applying the chosen rounding mode.
+    ///
+    /// @param x: Dividend (UFix64)
+    /// @param y: Divisor (UFix64)
+    /// @param roundingMode: Rounding mode to use (RoundHalfUp, RoundUp, RoundDown, etc.)
+    /// @return: UFix64 quotient, rounded per roundingMode
     access(self) view fun divUFix64(_ x: UFix64, _ y: UFix64, _ roundingMode: RoundingMode): UFix64 {
         pre {
             y > 0.0: "Division by zero"
@@ -147,39 +153,60 @@ access(all) contract DeFiActionsMathUtils {
         return result
     }
 
-    access(all) view fun divWithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
+    /// Divide two UFix64 values and round to the nearest (ties go up).
+    ///
+    /// Equivalent to dividing with standard financial "round to nearest" mode.
+    access(all) view fun divUFix64WithRounding(_ x: UFix64, _ y: UFix64): UFix64 {
         return self.divUFix64(x, y, self.RoundingMode.RoundHalfUp)
     }
 
-    access(all) view fun divWithRoundingUp(_ x: UFix64, _ y: UFix64): UFix64 {
+    /// Divide two UFix64 values and always round up (ceiling).
+    ///
+    /// Use for cases where over-estimation is safer (e.g., fee calculations).
+    access(all) view fun divUFix64WithRoundingUp(_ x: UFix64, _ y: UFix64): UFix64 {
         return self.divUFix64(x, y, self.RoundingMode.RoundUp)
     }
 
-    access(all) view fun divWithRoundingDown(_ x: UFix64, _ y: UFix64): UFix64 {
+    /// Divide two UFix64 values and always round down (truncate/floor).
+    ///
+    /// Use for cases where under-estimation is safer (e.g., payout calculations).
+    access(all) view fun divUFix64WithRoundingDown(_ x: UFix64, _ y: UFix64): UFix64 {
         return self.divUFix64(x, y, self.RoundingMode.RoundDown)
     }
+
     /*******************
     * HELPER METHODS  *
     *******************/
 
-    /// Rounds a UInt128 value with 24 decimal precision to a UFix64 value (8 decimals)
+    /// Rounds a UInt128 value (24 decimals) to a UFix64 value (8 decimals) using round-to-nearest (ties go up).
     ///
-    /// Example: 1e24 -> 1.0, 123456000000000000000 -> 1.23456000, 123456789012345678901 -> 1.23456789
-    /// Example: 123456789999999999999 -> 1.23456790
+    /// Example conversions:
+    ///   1e24   -> 1.0
+    ///   123456000000000000000 -> 1.23456000
+    ///   123456789012345678901 -> 1.23456789
+    ///   123456789999999999999 -> 1.23456790  (shows rounding)
     ///
     /// @param value: The UInt128 value to convert and round
     /// @return: The UFix64 value, rounded to the nearest 8 decimals
     access(all) view fun toUFix64Round(_ value: UInt128): UFix64 {
+        // Use standard round-half-up (nearest neighbor; ties round away from zero)
         return self.toUFix64(value, self.RoundingMode.RoundHalfUp)
     } 
 
+    /// Rounds a UInt128 value (24 decimals) to UFix64 (8 decimals), always rounding down (truncate).
+    ///
+    /// Use when you want to avoid overestimating user balances or payouts.
     access(all) view fun toUFix64RoundDown(_ value: UInt128): UFix64 {
         return self.toUFix64(value, self.RoundingMode.RoundDown)
     }
 
+    /// Rounds a UInt128 value (24 decimals) to UFix64 (8 decimals), always rounding up (ceiling).
+    ///
+    /// Use when you want to avoid underestimating liabilities or fees.
     access(all) view fun toUFix64RoundUp(_ value: UInt128): UFix64 {
         return self.toUFix64(value, self.RoundingMode.RoundUp)
     }
+
     /// Raises base to the power of exponent
     ///
     /// @param base: The base number
@@ -209,6 +236,6 @@ access(all) contract DeFiActionsMathUtils {
         self.e8 = 100_000_000
         self.decimals = 24
         self.ufix64Decimals = 8
-        self.scaleFactor = self.decimals - self.ufix64Decimals
+        self.scaleFactor = self.pow(10, to: self.decimals - self.ufix64Decimals)
     }
 } 
