@@ -3,6 +3,7 @@ import "ViewResolver"
 import "FungibleToken"
 
 import "DeFiActionsUtils"
+import "DeFiActionsMathUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -581,7 +582,8 @@ access(all) contract DeFiActions {
             }
 
             let vault = self._borrowVault()
-            var amount = valueDiff / currentPrice!
+            //var amount = valueDiff / currentPrice!
+            var amount = DeFiActionsMathUtils.divUFix64WithRounding(valueDiff, currentPrice!)
             var executed = false
             if isDeficit && self._rebalanceSource != nil {
                 // rebalance back up to baseline sourcing funds from _rebalanceSource
@@ -676,7 +678,10 @@ access(all) contract DeFiActions {
                 return <- self._borrowVault().createEmptyVault()
             }
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
-            self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
+            // self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
+            let proportion: UFix64 = 1.0 - DeFiActionsMathUtils.divUFix64WithRounding(amount, self.vaultBalance())
+            let newValue = self._valueOfDeposits * proportion
+            self._valueOfDeposits = newValue
             return <- self._borrowVault().withdraw(amount: amount)
         }
 

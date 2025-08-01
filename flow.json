@@ -12,14 +12,20 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsUtils": {
-			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
+		"DeFiActionsEVMAdapters": {
+			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsEVMAdapters": {
-			"source": "cadence/contracts/adapters/DeFiActionsEVMAdapters.cdc",
+		"DeFiActionsMathUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsMathUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"DeFiActionsUtils": {
+			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -491,6 +497,7 @@
 				"SwapConfig",
 				"SwapInterfaces",
 				"StableSwapFactory",
+				"DeFiActionsMathUtils",
 				"DeFiActions",
 				"DeFiActionsUtils",
 				"SwapStack",
