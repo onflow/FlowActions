@@ -559,7 +559,7 @@ fun testDivWithRoundingSucceeds() {
     let dividend  = 10.0
     let divisor = 11.0
 
-    let result = DeFiActionsMathUtils.divWithRounding(dividend, divisor)
+    let result = DeFiActionsMathUtils.divUFix64WithRounding(dividend, divisor)
     let expected = 0.90909091
 
     Test.assertEqual(expected, result)
