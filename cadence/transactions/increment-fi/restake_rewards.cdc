@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "TokenA"
 import "Staking"
 import "IncrementFiStakingConnectors"
 
@@ -18,7 +17,7 @@ transaction(pid: UInt64, vaultType: Type) {
 
         let stakingPoolCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
 
-        // Create the IncrementFiRewardsSource
+        // Create the StakingPoolRewardsSource
         let stakingPoolRewardsSource = IncrementFiStakingConnectors.StakingPoolRewardsSource(
             userCertificate: userCertificateCap!,
             stakingPool: stakingPoolCap,
@@ -30,7 +29,7 @@ transaction(pid: UInt64, vaultType: Type) {
         // TODO: We need to insert the swapper here to convert rewards to LP tokens
         self.lpTokenStakingPoolRewardsSink = stakingPoolRewardsSource
 
-        // Create the IncrementFiSink
+        // Create the StakingPoolSink
         self.stakingPoolSink = IncrementFiStakingConnectors.StakingPoolSink(
             userCertificate: userCertificateCap!,
             stakingPool: stakingPoolCap,
