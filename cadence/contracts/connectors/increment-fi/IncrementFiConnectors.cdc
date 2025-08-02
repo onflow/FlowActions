@@ -198,24 +198,29 @@ access(all) contract IncrementFiConnectors {
         access(all) fun calculateFee(loanAmount: UFix64): UFix64 {
             return UFix64(SwapFactory.getFlashloanRateBps()) * loanAmount / 10000.0
         }
-        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
-        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        /// Performs a flash loan of the specified amount. The callback function is passed the fee amount, a Vault
+        /// containing the loan, and the data. The callback function should return a Vault containing the loan + fee.
         ///
         /// @param amount: The amount of tokens to borrow
-        /// @param executor: The executor function to use for the flash loan
+        /// @param data: Optional data to pass to the callback function
+        /// @param callback: The callback function to use for the flash loan
         ///
         access(all) fun flashLoan(
             amount: UFix64,
-            data: {String: AnyStruct},
-            callback: fun(UFix64, @{FungibleToken.Vault}, {String: AnyStruct}): @{FungibleToken.Vault} // fee, loan, data
+            data: AnyStruct?,
+            callback: fun(UFix64, @{FungibleToken.Vault}, AnyStruct?): @{FungibleToken.Vault} // fee, loan, data
         ) {
+            // get the SwapPair public capability on which to perform the flash loan
             let pair = getAccount(self.pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(
                     SwapConfig.PairPublicPath
                 ) ?? panic("Could not reference SwapPair public capability at address \(self.pairAddress)")
-            let params: {String: AnyStruct} = {
-                "fee": self.calculateFee(loanAmount: amount),
-                "callback": callback
-            }
+
+            // cast data to expected params type and add fee and callback to params for the callback function
+            let params = data as! {String: AnyStruct}? ?? {}
+            params["fee"] = self.calculateFee(loanAmount: amount)
+            params["callback"] = callback
+
+            // perform the flash loan
             pair.flashloan(
                 executor: &self as &{SwapInterfaces.FlashLoanExecutor},
                 requestedTokenVaultType: self.type,
@@ -223,12 +228,20 @@ access(all) contract IncrementFiConnectors {
                 params: params
             )
         }
-        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
-        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        /// Performs a flash loan of the specified amount. The Flasher.flashLoan() callback function should be found in
+        /// the params object passed to this function under the key "callback". The callback function is passed the fee
+        /// amount, a Vault containing the loan, and the data. The callback function should return a Vault containing
+        /// the loan + fee.
         access(all) fun executeAndRepay(loanedToken: @{FungibleToken.Vault}, params: {String: AnyStruct}): @{FungibleToken.Vault} {
-            let fee = params["fee"] as! UFix64
-            let executor = params["callback"] as! fun(UFix64, @{FungibleToken.Vault}): @{FungibleToken.Vault}
-            let repaidToken <- executor(fee, <-loanedToken)
+            // cast params to expected types and execute the callback
+            let fee = params.remove(key: "fee") as? UFix64 ?? panic("No fee provided in params to executeAndRepay")
+            let callback = params.remove(key: "callback") as? fun(UFix64, @{FungibleToken.Vault}, AnyStruct?): @{FungibleToken.Vault}
+                ?? panic("No callback function provided in params to executeAndRepay")
+
+            // execute the callback logic
+            let repaidToken <- callback(fee, <-loanedToken, params)
+
+            // return the repaid token
             return <- repaidToken
         }
     }
