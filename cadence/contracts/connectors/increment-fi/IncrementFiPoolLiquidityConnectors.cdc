@@ -111,8 +111,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
             let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
 
-            let pairPublicRef = getAccount(self.pairAddress)
-                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+            let pairPublicRef = self.getPairPublicRef()
 
             // calculate how much to zap from token0 to token1
             let zappedAmount = self.calculateZappedAmount(forProvided: forProvided, pairPublicRef: pairPublicRef)
@@ -133,8 +132,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
         /// Converts inToken to LP token
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let pairPublicRef = getAccount(self.pairAddress)
-                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+            let pairPublicRef = self.getPairPublicRef()
             let zappedAmount = self.calculateZappedAmount(forProvided: inVault.balance, pairPublicRef: pairPublicRef)
 
             // Swap
@@ -157,7 +155,25 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
         /// Converts back LP token to inToken
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            panic("TODO: swapBack operation is not supported")
+            let pairPublicRef = self.getPairPublicRef()
+
+            // Remove liquidity
+            let tokens <- pairPublicRef.removeLiquidity(lpTokenVault: <-residual)
+            let token0Vault <- tokens[0].withdraw(amount: tokens[0].balance)
+            let token1Vault <- tokens[1].withdraw(amount: tokens[1].balance)
+            destroy tokens
+
+            // Swap token1 to token0
+            let swappedVault <- pairPublicRef.swap(vaultIn: <-token1Vault, exactAmountOut: nil)
+            token0Vault.deposit(from: <-swappedVault)
+
+            return <-token0Vault
+        }
+
+        /// Returns a reference to the pair public interface
+        access(self) fun getPairPublicRef(): &{SwapInterfaces.PairPublic} {
+            return getAccount(self.pairAddress)
+                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
         }
 
         /// Calculates the zapped amount for a given provided amount
