@@ -42,6 +42,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"IncrementFiPoolLiquidityConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiPoolLiquidityConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"IncrementFiStakingConnectors": {
 			"source": "cadence/contracts/connectors/increment-fi/IncrementFiStakingConnectors.cdc",
 			"aliases": {

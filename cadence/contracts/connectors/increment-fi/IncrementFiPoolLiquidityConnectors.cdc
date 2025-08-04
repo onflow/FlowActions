@@ -1,0 +1,316 @@
+import "FungibleToken"
+
+import "SwapStack"
+import "DeFiActions"
+
+import "SwapRouter"
+import "SwapConfig"
+import "SwapFactory"
+import "StableSwapFactory"
+import "SwapInterfaces"
+
+/// IncrementFiPoolLiquidityConnectors
+/// Connector for adding liquidity to IncrementFi pools using one token.
+///
+access(all) contract IncrementFiPoolLiquidityConnectors {
+
+    /// An implementation of DeFiActions.Swapper connector that swaps token0 to token1 and adds liquidity
+    /// to the pool using both tokens. It will then return the LP token. It is commonly called a
+    /// "zap" operation in other protocols.
+    ///
+    access(all) struct Zapper : DeFiActions.Swapper {
+
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
+        /// The pools token0 type
+        access(self) let token0Type: Type
+        /// The pools token1 type
+        access(self) let token1Type: Type
+        /// The pools LP token type
+        access(self) let lpType: Type
+        /// Stable pool mode flag
+        access(self) let stableMode: Bool
+        /// The address to access pair capabilities
+        access(self) let pairAddress: Address
+
+        init(
+            token0Type: Type,
+            token1Type: Type,
+            stableMode: Bool,
+            uniqueID: DeFiActions.UniqueIdentifier?
+        ) {
+            self.token0Type = token0Type
+            self.token1Type = token1Type
+            self.stableMode = stableMode
+            self.uniqueID = uniqueID
+
+            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: token0Type.identifier)
+            let token1Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: token1Type.identifier)
+
+            self.pairAddress = (stableMode)?
+                StableSwapFactory.getPairAddress(token0Key: token0Key, token1Key: token1Key)
+                    ?? panic("nonexistent stable pair \(token0Key) -> \(token1Key)")
+                :
+                SwapFactory.getPairAddress(token0Key: token0Key, token1Key: token1Key)
+                    ?? panic("nonexistent pair \(token0Key) -> \(token1Key)")
+
+            let pairPublicRef = getAccount(self.pairAddress)
+                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+            self.lpType = pairPublicRef.getLpTokenVaultType()
+        }
+
+        /// Returns a list of ComponentInfo for each component in the stack
+        ///
+        /// @return a list of ComponentInfo for each inner DeFiActions component
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id() ?? nil,
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
+
+        /// The type of Vault this Swapper accepts when performing a swap
+        access(all) view fun inType(): Type {
+            return self.token0Type
+        }
+
+        /// The type of Vault this Swapper provides when performing a swap
+        /// In a zap operation, the outType is the LP token type
+        access(all) view fun outType(): Type {
+            return self.lpType
+        }
+
+        /// The estimated amount required to provide a Vault with the desired output balance
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            panic("TODO: quoteIn operation is not supported")
+        }
+
+        /// The estimated amount delivered out for a provided input balance
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            assert(!reverse, message: "TODO: reverse operation is not supported")
+
+            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
+
+            let pairPublicRef = getAccount(self.pairAddress)
+                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+
+            // calculate how much to zap from token0 to token1
+            let zappedAmount = self.calculateZappedAmount(forProvided: forProvided, pairPublicRef: pairPublicRef)
+
+            // calculate how much we get after swapping zappedAmount of token0 to token1
+            let swappedAmount = pairPublicRef.getAmountOut(amountIn: zappedAmount, tokenInKey: token0Key)
+
+            // calculate lp tokens we're receiving
+            let lpAmount = self.calculateLpAmount(token0Amount: forProvided - zappedAmount, token1Amount: swappedAmount, pairPublicRef: pairPublicRef)
+
+            return SwapStack.BasicQuote(
+                inType: self.inType(),
+                outType: self.outType(),
+                inAmount: forProvided,
+                outAmount: lpAmount
+            )
+        }
+
+        /// Converts inToken to LP token
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            let pairPublicRef = getAccount(self.pairAddress)
+                .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+            let zappedAmount = self.calculateZappedAmount(forProvided: inVault.balance, pairPublicRef: pairPublicRef)
+
+            // Swap
+            let swapVaultIn <- inVault.withdraw(amount: zappedAmount)
+            let token0Vault <- inVault.withdraw(amount: inVault.balance - zappedAmount)
+            let token1Vault <- pairPublicRef.swap(vaultIn: <-swapVaultIn, exactAmountOut: nil)
+
+            // Add liquidity
+            let lpTokenVault <- pairPublicRef.addLiquidity(
+                tokenAVault: <- token0Vault,
+                tokenBVault: <- token1Vault
+            )
+
+            assert(inVault.balance == 0.0, message: "Failed to swap inToken to LP token")
+            destroy(inVault)
+
+            // Return the LP token vault
+            return <-lpTokenVault
+        }
+
+        /// Converts back LP token to inToken
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            panic("TODO: swapBack operation is not supported")
+        }
+
+        /// Calculates the zapped amount for a given provided amount
+        /// This amount is swapped from token A to token B in order to add liquidity to the pool
+        access(self) view fun calculateZappedAmount(forProvided: UFix64, pairPublicRef: &{SwapInterfaces.PairPublic}): UFix64 {
+            let pairInfo = pairPublicRef.getPairInfo()
+            var token0Reserve = 0.0
+            var token1Reserve = 0.0
+            if self.token0Type.identifier == (pairInfo[0] as! String) {
+                token0Reserve = (pairInfo[2] as! UFix64)
+                token1Reserve = (pairInfo[3] as! UFix64)
+            } else {
+                token0Reserve = (pairInfo[3] as! UFix64)
+                token1Reserve = (pairInfo[2] as! UFix64)
+            }
+            assert(token0Reserve != 0.0, message: "Cannot add liquidity zapped in a new pool.")
+            var zappedAmount = 0.0
+            if (self.stableMode == false) {
+                // Cal optimized zapped amount through dex
+                let r0Scaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
+                let swapFeeRateBps = pairInfo[6] as! UInt64
+                let fee = 1.0 - UFix64(swapFeeRateBps)/10000.0
+                let kplus1SquareScaled = SwapConfig.UFix64ToScaledUInt256((1.0+fee)*(1.0+fee))
+                let kScaled = SwapConfig.UFix64ToScaledUInt256(fee)
+                let kplus1Scaled = SwapConfig.UFix64ToScaledUInt256(fee+1.0)
+                let token0InScaled = SwapConfig.UFix64ToScaledUInt256(forProvided)
+                let qScaled = SwapConfig.sqrt(
+                    r0Scaled * r0Scaled / SwapConfig.scaleFactor * kplus1SquareScaled / SwapConfig.scaleFactor
+                    + 4 * kScaled * r0Scaled / SwapConfig.scaleFactor * token0InScaled / SwapConfig.scaleFactor)
+                zappedAmount = SwapConfig.ScaledUInt256ToUFix64(
+                    (qScaled - r0Scaled*kplus1Scaled/SwapConfig.scaleFactor)*SwapConfig.scaleFactor/(kScaled*2)
+                )
+            } else {
+                let desiredZappedAmount = forProvided * token1Reserve / token0Reserve
+                let token0Key = self.token0Type.identifier
+                let desiredAmountOut = pairPublicRef.getAmountOut(amountIn: desiredZappedAmount, tokenInKey: token0Key)
+                let propAmountOut = (forProvided - desiredZappedAmount) / (token0Reserve + desiredZappedAmount) * (token1Reserve - desiredAmountOut)
+                var bias = 0.0
+                if (desiredAmountOut > propAmountOut) {
+                    bias = desiredAmountOut - propAmountOut
+                } else {
+                    bias = propAmountOut - desiredAmountOut
+                }
+                if (bias <= 0.0001) {
+                    zappedAmount = desiredZappedAmount
+                } else {
+                    var minAmount = SwapConfig.ufix64NonZeroMin
+                    var maxAmount = forProvided - SwapConfig.ufix64NonZeroMin
+                    var midAmount = 0.0
+                    if (desiredAmountOut > propAmountOut) {
+                        maxAmount = desiredZappedAmount
+                    } else {
+                        minAmount = desiredZappedAmount
+                    }
+                    var epoch = 0
+                    while (epoch < 36) {
+                        midAmount = (minAmount + maxAmount) * 0.5;
+                        if maxAmount - midAmount < SwapConfig.ufix64NonZeroMin {
+                            break
+                        }
+                        let amountOut = pairPublicRef.getAmountOut(amountIn: midAmount, tokenInKey: token0Key)
+                        let reserveAft0 = token0Reserve + midAmount
+                        let reserveAft1 = token1Reserve - amountOut
+                        let ratioUser = (forProvided - midAmount) / amountOut
+                        let ratioPool = reserveAft0 / reserveAft1
+                        var ratioBias = 0.0
+                        if (ratioUser >= ratioPool) {
+                            if (ratioUser - ratioPool) <= SwapConfig.ufix64NonZeroMin {
+                                break
+                            }
+                            minAmount = midAmount
+                        } else {
+                            if (ratioPool - ratioUser) <= SwapConfig.ufix64NonZeroMin {
+                                break
+                            }
+                            maxAmount = midAmount
+                        }
+                        epoch = epoch + 1
+                    }
+                    zappedAmount = midAmount
+                }
+            }
+            return zappedAmount
+        }
+
+        /// Calculates the amount of LP tokens received for a given token0Amount and token1Amount
+        access(self) view fun
+        calculateLpAmount(
+            token0Amount: UFix64,
+            token1Amount: UFix64,
+            pairPublicRef: &{SwapInterfaces.PairPublic},
+        ): UFix64 {
+            let pairInfo = pairPublicRef.getPairInfo()
+            var token0Reserve = 0.0
+            var token1Reserve = 0.0
+            if self.token0Type.identifier == (pairInfo[0] as! String) {
+                token0Reserve = (pairInfo[2] as! UFix64)
+                token1Reserve = (pairInfo[3] as! UFix64)
+            } else {
+                token0Reserve = (pairInfo[3] as! UFix64)
+                token1Reserve = (pairInfo[2] as! UFix64)
+            }
+            let reserve0LastScaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
+            let reserve1LastScaled = SwapConfig.UFix64ToScaledUInt256(token1Reserve)
+
+            let lpTokenSupply = pairInfo[5] as! UFix64
+
+            var liquidity = 0.0
+            var amount0Added = 0.0
+            var amount1Added = 0.0
+            if (token0Reserve == 0.0 && token1Reserve == 0.0) {
+                var donateLpBalance = 0.0
+                if self.stableMode {
+                    donateLpBalance = 0.0001    // 1e-4
+                } else {
+                    donateLpBalance = 0.000001  // 1e-6
+                }
+                // When adding initial liquidity, the balance should not be below certain minimum amount
+                assert(token0Amount > donateLpBalance && token1Amount > donateLpBalance, message:
+                    "Token0 and token1 amounts must be greater than minimum donation amount"
+                )
+                /// Calculate rootK
+                let e18: UInt256 = SwapConfig.scaleFactor
+                let balance0Scaled = SwapConfig.UFix64ToScaledUInt256(token0Amount)
+                let balance1Scaled = SwapConfig.UFix64ToScaledUInt256(token1Amount)
+                var initialLpAmount = 0.0
+                if self.stableMode {
+                    let _p_scaled: UInt256 = SwapConfig.UFix64ToScaledUInt256(1.0)
+                    let _k_scaled: UInt256 = SwapConfig.k_stable_p(balance0Scaled, balance1Scaled, _p_scaled)
+                    initialLpAmount = SwapConfig.ScaledUInt256ToUFix64(SwapConfig.sqrt(SwapConfig.sqrt(_k_scaled / 2)))
+                } else {
+                    initialLpAmount = SwapConfig.ScaledUInt256ToUFix64(SwapConfig.sqrt(balance0Scaled * balance1Scaled / e18))
+                }
+                liquidity = initialLpAmount - donateLpBalance
+            } else {
+                var lptokenMintAmount0Scaled: UInt256 = 0
+                var lptokenMintAmount1Scaled: UInt256 = 0
+
+                /// Use UFIx64ToUInt256 in division & multiply to solve precision issues
+                let inAmountAScaled = SwapConfig.UFix64ToScaledUInt256(token0Amount)
+                let inAmountBScaled = SwapConfig.UFix64ToScaledUInt256(token1Amount)
+
+                let totalSupplyScaled = SwapConfig.UFix64ToScaledUInt256(lpTokenSupply)
+
+                lptokenMintAmount0Scaled = inAmountAScaled * totalSupplyScaled / reserve0LastScaled
+                lptokenMintAmount1Scaled = inAmountBScaled * totalSupplyScaled / reserve1LastScaled
+
+                /// Note: User should add proportional liquidity as any extra is added into pool.
+                let mintLptokenAmountScaled = lptokenMintAmount0Scaled < lptokenMintAmount1Scaled ? lptokenMintAmount0Scaled : lptokenMintAmount1Scaled
+                liquidity = SwapConfig.ScaledUInt256ToUFix64(mintLptokenAmountScaled)
+            }
+            return liquidity
+        }
+    }
+
+}
