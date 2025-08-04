@@ -48,7 +48,7 @@ access(all) fun beforeEach() {
         amount: testAdminSeedAmount,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
-    ) 
+    )
 
     // Create a staking pool
     let stakingTokenType = Type<@TokenA.Vault>()
@@ -71,6 +71,12 @@ access(all) fun beforeEach() {
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "DeFiActionsMathUtils",
+        path: "../contracts/utils/DeFiActionsMathUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -118,7 +124,7 @@ access(all) fun testSink() {
 
     let tokenStakedEvent = tokenStakedEvents[0] as! Staking.TokenStaked
     let expectedTokenKey = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: Type<@TokenA.Vault>().identifier)
-    
+
     Test.expect(tokenStakedEvent.tokenKey, Test.equal(expectedTokenKey))
     Test.expect(tokenStakedEvent.operator, Test.equal(user.address))
     Test.expect(tokenStakedEvent.amount, Test.equal(testDepositAmount))
@@ -139,10 +145,10 @@ access(all) fun testSource() {
         amount: testDepositAmount,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
-    ) 
+    )
 
     let poolId: UInt64 = 0
-    
+
     // First deposit tokens into the staking pool
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool.cdc",
@@ -218,7 +224,7 @@ access(all) fun testSinkAtCapacityLimit() {
 access(all) fun testSinkMultipleUsers() {
     let user1 = Test.createAccount()
     let user2 = Test.createAccount()
-    // Each user can stake up to testLimitAmount individually  
+    // Each user can stake up to testLimitAmount individually
     let user1StakeAmount = testLimitAmount * 0.8 // 800000.0
     let user2StakeAmount = testLimitAmount * 0.5 // 500000.0
 
@@ -269,7 +275,7 @@ access(all) fun testSinkMultipleUsers() {
 
     let firstStakeEvent = tokenStakedEvents[0] as! Staking.TokenStaked
     let secondStakeEvent = tokenStakedEvents[1] as! Staking.TokenStaked
-    
+
     // The transaction deposits the entire vault balance, so amounts should match what we minted
     Test.expect(firstStakeEvent.amount, Test.equal(user1StakeAmount))
     Test.expect(secondStakeEvent.amount, Test.equal(user2StakeAmount))
@@ -279,7 +285,7 @@ access(all) fun testSinkMultipleUsers() {
 
 access(all) fun testSinkWithUserAtCapacityLimit() {
     let user = Test.createAccount()
-    
+
     // Setup user and stake up to their full limit
     setupGenericVault(
         signer: user,
@@ -363,10 +369,10 @@ access(all) fun testMinimumCapacityCalculation() {
 
     let tokenStakedEvent = tokenStakedEvents[0] as! Staking.TokenStaked
     Test.expect(tokenStakedEvent.amount, Test.equal(partialStakeAmount))
-    
+
     // The remaining capacity should be testLimitAmount - partialStakeAmount
     let expectedRemainingCapacity = testLimitAmount - partialStakeAmount
-    
+
     // Note: We can't directly test minimumCapacity() without creating the connector object,
     // but we can verify the behavior by testing another stake that should fit exactly
     let user2 = Test.createAccount()
@@ -392,7 +398,7 @@ access(all) fun testMinimumCapacityCalculation() {
     // Should now have exactly filled the pool
     let allStakeEvents = Test.eventsOfType(Type<Staking.TokenStaked>())
     Test.expect(allStakeEvents.length, Test.equal(2))
-    
+
     let secondStakeEvent = allStakeEvents[1] as! Staking.TokenStaked
     Test.expect(secondStakeEvent.amount, Test.equal(expectedRemainingCapacity))
 }
