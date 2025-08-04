@@ -107,27 +107,47 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
         /// The estimated amount delivered out for a provided input balance
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            assert(!reverse, message: "TODO: reverse operation is not supported")
-
-            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
-
             let pairPublicRef = self.getPairPublicRef()
+            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
+            let token1Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token1Type.identifier)
+            if (!reverse) {
+                // Calculate how much to zap from token0 to token1
+                let zappedAmount = self.calculateZappedAmount(forProvided: forProvided, pairPublicRef: pairPublicRef)
 
-            // calculate how much to zap from token0 to token1
-            let zappedAmount = self.calculateZappedAmount(forProvided: forProvided, pairPublicRef: pairPublicRef)
+                // Calculate how much we get after swapping zappedAmount of token0 to token1
+                let swappedAmount = pairPublicRef.getAmountOut(amountIn: zappedAmount, tokenInKey: token0Key)
 
-            // calculate how much we get after swapping zappedAmount of token0 to token1
-            let swappedAmount = pairPublicRef.getAmountOut(amountIn: zappedAmount, tokenInKey: token0Key)
+                // Calculate lp tokens we're receiving
+                let lpAmount = self.calculateLpAmount(token0Amount: forProvided - zappedAmount, token1Amount: swappedAmount, pairPublicRef: pairPublicRef)
 
-            // calculate lp tokens we're receiving
-            let lpAmount = self.calculateLpAmount(token0Amount: forProvided - zappedAmount, token1Amount: swappedAmount, pairPublicRef: pairPublicRef)
+                return SwapStack.BasicQuote(
+                    inType: self.inType(),
+                    outType: self.outType(),
+                    inAmount: forProvided,
+                    outAmount: lpAmount
+                )
+            } else {
+                // Reverse operation: calculate how much token0Vault you get when providing LP tokens
 
-            return SwapStack.BasicQuote(
-                inType: self.inType(),
-                outType: self.outType(),
-                inAmount: forProvided,
-                outAmount: lpAmount
-            )
+                // Calculate how much token0 and token1 you get from removing liquidity
+                let tokenAmounts = self.calculateTokenAmountsFromLp(lpAmount: forProvided, pairPublicRef: pairPublicRef)
+                let token0Amount = tokenAmounts[0]
+                let token1Amount = tokenAmounts[1]
+
+                // Calculate how much token0 you get when swapping token1 back to token0
+                // Note: The impact of removed liquidity on the swap price is not considered here
+                let swappedToken0Amount = pairPublicRef.getAmountOut(amountIn: token1Amount, tokenInKey: token1Key)
+
+                // Total token0 amount = direct token0 + swapped token0
+                let totalToken0Amount = token0Amount + swappedToken0Amount
+
+                return SwapStack.BasicQuote(
+                    inType: self.outType(), // LP token type
+                    outType: self.inType(), // token0 type
+                    inAmount: forProvided,
+                    outAmount: totalToken0Amount
+                )
+            }
         }
 
         /// Converts inToken to LP token
@@ -326,6 +346,34 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 liquidity = SwapConfig.ScaledUInt256ToUFix64(mintLptokenAmountScaled)
             }
             return liquidity
+        }
+
+        /// Calculates the amount of token0 and token1 you get when removing liquidity with a given LP amount
+        /// Returns an array where [0] = token0Amount, [1] = token1Amount
+        access(self) view fun calculateTokenAmountsFromLp(
+            lpAmount: UFix64,
+            pairPublicRef: &{SwapInterfaces.PairPublic}
+        ): [UFix64] {
+            let pairInfo = pairPublicRef.getPairInfo()
+            var token0Reserve = 0.0
+            var token1Reserve = 0.0
+
+            if self.token0Type.identifier == (pairInfo[0] as! String) {
+                token0Reserve = (pairInfo[2] as! UFix64)
+                token1Reserve = (pairInfo[3] as! UFix64)
+            } else {
+                token0Reserve = (pairInfo[3] as! UFix64)
+                token1Reserve = (pairInfo[2] as! UFix64)
+            }
+
+            let lpTokenSupply = pairInfo[5] as! UFix64
+
+            // Calculate proportional amounts based on LP share
+            let share = lpAmount / lpTokenSupply
+            let token0Amount = token0Reserve * share
+            let token1Amount = token1Reserve * share
+
+            return [token0Amount, token1Amount]
         }
     }
 
