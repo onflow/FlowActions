@@ -29,6 +29,10 @@ access(all) contract DeFiActions {
     /// The current ID assigned to UniqueIdentifiers as they are initialized
     /// It is incremented by 1 every time a UniqueIdentifier is created so each ID is only ever used once
     access(all) var currentID: UInt64
+    /// The AuthenticationToken Capability required to create a UniqueIdentifier
+    access(self) let authTokenCap: Capability<auth(Identify) &AuthenticationToken>
+    /// The StoragePath for the AuthenticationToken resource
+    access(self) let AuthTokenStoragePath: StoragePath
 
     /* --- INTERFACE-LEVEL EVENTS --- */
 
@@ -59,13 +63,27 @@ access(all) contract DeFiActions {
         uniqueID: UInt64?,
         swapperType: String
     )
+    /// Emitted when a Flasher executes a flash loan
+    access(all) event Flashed(
+        requestedAmount: UFix64,
+        borrowType: String,
+        uniqueID: UInt64?,
+        flasherType: String
+    )
+    /// Emitted when an IdentifiableResource's UniqueIdentifier is aligned with another DFA component
+    access(all) event UpdatedID(
+        oldID: UInt64?,
+        newID: UInt64?,
+        component: String,
+        uuid: UInt64?
+    )
     /// Emitted when an AutoBalancer is created
     access(all) event CreatedAutoBalancer(
         lowerThreshold: UFix64,
         upperThreshold: UFix64,
-        balancerUUID: UInt64,
         vaultType: String,
         vaultUUID: UInt64,
+        uuid: UInt64,
         uniqueID: UInt64?
     )
     /// Emitted when AutoBalancer.rebalance() is called
@@ -78,38 +96,154 @@ access(all) contract DeFiActions {
         vaultUUID: UInt64,
         balancerUUID: UInt64,
         address: Address?,
+        uuid: UInt64,
         uniqueID: UInt64?
     )
 
     /* --- CONSTRUCTS --- */
 
+    access(all) entitlement Identify
+
+    /// AuthenticationToken
+    ///
+    /// A resource intended to ensure UniqueIdentifiers are only created by the DeFiActions contract
+    ///
+    access(all) resource AuthenticationToken {}
+
+    /// UniqueIdentifier
+    ///
     /// This construct enables protocols to trace stack operations via DeFiActions interface-level events, identifying
-    /// them by UniqueIdentifier IDs. Implementations should ensure that access to them is encapsulated by the
-    /// structures they are used to identify.
+    /// them by UniqueIdentifier IDs. IdentifiableResource Implementations should ensure that access to them is
+    /// encapsulated by the structures they are used to identify.
     ///
     access(all) struct UniqueIdentifier {
+        /// The ID value of this UniqueIdentifier
         access(all) let id: UInt64
+        /// The AuthenticationToken Capability required to create this UniqueIdentifier. Since this is a struct which
+        /// can be created in any context, this authorized Capability ensures that the UniqueIdentifier can only be
+        /// created by the DeFiActions contract, thus preventing forged UniqueIdentifiers from being created.
+        access(self) let authCap: Capability<auth(Identify) &AuthenticationToken>
 
-        init() {
-            self.id = DeFiActions.currentID
-            DeFiActions.currentID = DeFiActions.currentID + 1
+        access(contract) view init(_ id: UInt64, _ authCap: Capability<auth(Identify) &AuthenticationToken>) {
+            pre {
+                authCap.check(): "Invalid AuthenticationToken Capability provided"
+            }
+            self.id = id
+            self.authCap = authCap
         }
     }
 
-    /// A struct interface containing a UniqueIdentifier and convenience getter on the underlying ID value
+    /// ComponentInfo
+    ///
+    /// A struct containing minimal information about a DeFiActions component and its inner components
+    ///
+    access(all) struct ComponentInfo {
+        /// The type of the component
+        access(all) let type: Type
+        /// The UniqueIdentifier.id of the component
+        access(all) let id: UInt64?
+        /// The inner component types of the serving component
+        access(all) let innerComponents: [ComponentInfo]
+        init(
+            type: Type,
+            id: UInt64?,
+            innerComponents: [ComponentInfo]
+        ) {
+            self.type = type
+            self.id = id
+            self.innerComponents = innerComponents
+        }
+    }
+
+    /// Extend entitlement allowing for the authorized copying of UniqueIdentifiers from existing components
+    access(all) entitlement Extend
+
+    /// IdentifiableResource
+    ///
+    /// A resource interface containing a UniqueIdentifier and convenience getters about it
     ///
     access(all) struct interface IdentifiableStruct {
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: UniqueIdentifier?
         /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
+        ///
         /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
+        /// for critical identification unless the implementation itself is known and trusted
         access(all) view fun id(): UInt64? {
             return self.uniqueID?.id
         }
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
+        access(all) fun getComponentInfo(): ComponentInfo
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            post {
+                result?.id == self.uniqueID?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully copied"
+            }
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            post {
+                self.uniqueID?.id == id?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully set"
+                DeFiActions.emitUpdatedID(
+                    oldID: before(self.uniqueID?.id),
+                    newID: self.uniqueID?.id,
+                    component: self.getType().identifier,
+                    uuid: nil // no UUID for structs
+                ): "Unknown error emitting DeFiActions.UpdatedID from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+            }
+        }
     }
 
+    /// IdentifiableResource
+    ///
+    /// A resource interface containing a UniqueIdentifier and convenience getters about it
+    ///
+    access(all) resource interface IdentifiableResource {
+        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
+        /// specific Identifier to associated connectors on construction
+        access(contract) var uniqueID: UniqueIdentifier?
+        /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
+        ///
+        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
+        /// for critical identification unless the implementation itself is known and trusted
+        access(all) view fun id(): UInt64? {
+            return self.uniqueID?.id
+        }
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
+        access(all) fun getComponentInfo(): ComponentInfo
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            post {
+                result?.id == self.uniqueID?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully copied"
+            }
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            post {
+                self.uniqueID?.id == id?.id:
+                "UniqueIdentifier of \(self.getType().identifier) was not successfully set"
+                DeFiActions.emitUpdatedID(
+                    oldID: before(self.uniqueID?.id),
+                    newID: self.uniqueID?.id,
+                    component: self.getType().identifier,
+                    uuid: self.uuid
+                ): "Unknown error emitting DeFiActions.UpdatedID from IdentifiableStruct \(self.getType().identifier) with ID ".concat(self.id()?.toString() ?? "UNASSIGNED")
+            }
+        }
+    }
+
+    /// Sink
+    ///
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
@@ -123,6 +257,10 @@ access(all) contract DeFiActions {
         access(all) fun minimumCapacity(): UFix64
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            pre {
+                from.getType() == self.getSinkType():
+                "Invalid vault provided for deposit - \(from.getType().identifier) is not \(self.getSinkType().identifier)"
+            }
             post {
                 DeFiActions.emitDeposited(
                     type: from.getType().identifier,
@@ -136,6 +274,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Source
+    ///
     /// A Source Connector (or just “Source”) is analogous to the Fungible Token Provider interface that provides funds
     /// on demand. It differs from the standard Provider interface in that it is a struct interface (instead of resource
     /// interface) and allows for graceful handling of the case that the Source might not know exactly the total amount
@@ -151,6 +291,8 @@ access(all) contract DeFiActions {
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
+                result.getType() == self.getSourceType():
+                "Invalid vault provided for withdraw - \(result.getType().identifier) is not \(self.getSourceType().identifier)"
                 DeFiActions.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
@@ -162,6 +304,8 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Quote
+    ///
     /// An interface for an estimate to be returned by a Swapper when asking for a swap estimate. This may be helpful
     /// for passing additional parameters to a Swapper relevant to the use case. Implementations may choose to add
     /// fields relevant to their Swapper implementation and downcast in swap() and/or swapBack() scope.
@@ -177,8 +321,11 @@ access(all) contract DeFiActions {
         access(all) let outAmount: UFix64
     }
 
+    /// Swapper
+    ///
     /// A basic interface for a struct that swaps between tokens. Implementations may choose to adapt this interface
     /// to fit any given swap protocol or set of protocols.
+    ///
     access(all) struct interface Swapper : IdentifiableStruct {
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type
@@ -235,9 +382,12 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// PriceOracle
+    ///
     /// An interface for a price oracle adapter. Implementations should adapt this interface to various price feed
     /// oracles deployed on Flow
-    access(all) struct interface PriceOracle {
+    ///
+    access(all) struct interface PriceOracle : IdentifiableStruct {
         /// Returns the asset type serving as the price basis - e.g. USD in FLOW/USD
         access(all) view fun unitOfAccount(): Type
         /// Returns the latest price data for a given asset denominated in unitOfAccount() if available, otherwise `nil`
@@ -246,17 +396,31 @@ access(all) contract DeFiActions {
         access(all) fun price(ofToken: Type): UFix64?
     }
 
-    /// A resource interface containing a UniqueIdentifier and convenience getters about it
+    /// Flasher
     ///
-    access(all) resource interface IdentifiableResource {
-        /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
-        /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
-        /// Convenience method returning the inner UniqueIdentifier's id or `nil` if none is set.
-        /// NOTE: This interface method may be spoofed if the function is overridden, so callers should not rely on it
-        /// for critical identification
-        access(all) view fun id(): UInt64? {
-            return self.uniqueID?.id
+    /// An interface for a flash loan adapter. Implementations should adapt this interface to various flash loan
+    /// protocols deployed on Flow
+    ///
+    access(all) struct interface Flasher : IdentifiableStruct {
+        /// Returns the asset type this Flasher can issue as a flash loan
+        access(all) view fun borrowType(): Type
+        /// Returns the estimated fee for a flash loan of the specified amount
+        access(all) fun calculateFee(loanAmount: UFix64): UFix64
+        /// Performs a flash loan of the specified amount. The callback function is passed the fee amount, a Vault
+        /// containing the loan, and the data. The callback function should return a Vault containing the loan + fee.
+        access(all) fun flashLoan(
+            amount: UFix64,
+            data: AnyStruct?,
+            callback: fun(UFix64, @{FungibleToken.Vault}, AnyStruct?): @{FungibleToken.Vault} // fee, loan, data
+        ) {
+            post {
+                emit Flashed(
+                    requestedAmount: amount,
+                    borrowType: self.borrowType().identifier,
+                    uniqueID: self.uniqueID?.id ?? nil,
+                    flasherType: self.getType().identifier
+                )
+            }
         }
     }
 
@@ -272,7 +436,7 @@ access(all) contract DeFiActions {
         access(self) let autoBalancer: Capability<&AutoBalancer>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: UniqueIdentifier?
 
         init(autoBalancer: Capability<&AutoBalancer>, uniqueID: UniqueIdentifier?) {
             pre {
@@ -296,9 +460,28 @@ access(all) contract DeFiActions {
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             if let ab = self.autoBalancer.borrow() {
-                ab.deposit(from: <- from.withdraw(amount: from.balance))
+                ab.deposit(from: <-from.withdraw(amount: from.balance))
             }
             return
+        }
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
+        access(all) fun getComponentInfo(): ComponentInfo {
+            return ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
         }
     }
 
@@ -314,7 +497,7 @@ access(all) contract DeFiActions {
         access(self) let autoBalancer: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: UniqueIdentifier?
 
         init(autoBalancer: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>, uniqueID: UniqueIdentifier?) {
             pre {
@@ -347,6 +530,25 @@ access(all) contract DeFiActions {
             }
             return <- DeFiActionsUtils.getEmptyVault(self.type)
         }
+        /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        /// each inner component in the stack.
+        access(all) fun getComponentInfo(): ComponentInfo {
+            return ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
+        }
     }
 
     /// Entitlement used by the AutoBalancer to set inner Sink and Source
@@ -354,6 +556,8 @@ access(all) contract DeFiActions {
     access(all) entitlement Set
     access(all) entitlement Get
 
+    /// AutoBalancer
+    ///
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
     /// AutoBalancer can be a critical component of DeFiActions stacks by allowing for strategies to compound, repay
     /// loans or direct accumulated value to other sub-systems and/or user Vaults.
@@ -381,7 +585,7 @@ access(all) contract DeFiActions {
         /// Capability on this AutoBalancer instance
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw) &AutoBalancer>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
-        access(contract) let uniqueID: UniqueIdentifier?
+        access(contract) var uniqueID: UniqueIdentifier?
 
         /// Emitted when the AutoBalancer is destroyed
         access(all) event ResourceDestroyed(
@@ -421,9 +625,9 @@ access(all) contract DeFiActions {
             emit CreatedAutoBalancer(
                 lowerThreshold: lower,
                 upperThreshold: upper,
-                balancerUUID: self.uuid,
                 vaultType: vaultType.identifier,
                 vaultUUID: self._borrowVault().uuid,
+                uuid: self.uuid,
                 uniqueID: self.id()
             )
         }
@@ -437,7 +641,6 @@ access(all) contract DeFiActions {
         access(all) view fun vaultBalance(): UFix64 {
             return self._borrowVault().balance
         }
-
         /// Returns the Type of the inner Vault
         ///
         /// @return the Type of the inner Vault
@@ -445,7 +648,6 @@ access(all) contract DeFiActions {
         access(all) view fun vaultType(): Type {
             return self._borrowVault().getType()
         }
-
         /// Returns the low and high rebalance thresholds as a fixed length UFix64 containing [low, high]
         ///
         /// @return a sorted fixed-length array containing the relative lower and upper thresholds conditioning
@@ -454,7 +656,6 @@ access(all) contract DeFiActions {
         access(all) view fun rebalanceThresholds(): [UFix64; 2] {
             return self._rebalanceRange
         }
-
         /// Returns the value of all accounted deposits/withdraws as they have occurred denominated in unitOfAccount.
         /// The returned value is the value as tracked historically, not necessarily the current value of the inner
         /// Vault's balance.
@@ -464,7 +665,6 @@ access(all) contract DeFiActions {
         access(all) view fun valueOfDeposits(): UFix64 {
             return self._valueOfDeposits
         }
-
         /// Returns the token Type serving as the price basis of this AutoBalancer
         ///
         /// @return the price denomination of value of the underlying vault as returned from the inner PriceOracle
@@ -472,7 +672,6 @@ access(all) contract DeFiActions {
         access(all) view fun unitOfAccount(): Type {
             return self._oracle.unitOfAccount()
         }
-
         /// Returns the current value of the inner Vault's balance. If a price is not available from the AutoBalancer's
         /// PriceOracle, `nil` is returned
         ///
@@ -485,7 +684,33 @@ access(all) contract DeFiActions {
             }
             return nil
         }
+        /// Returns a ComponentInfo struct containing information about this AutoBalancer and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): ComponentInfo {
+            // get the inner components
+            let oracle = self._borrowOracle()
+            let inner: [ComponentInfo] = [oracle.getComponentInfo()]
 
+            // get the info for the optional inner components if they exist
+            let maybeSink = self._borrowSink()
+            let maybeSource = self._borrowSource()
+            if let sink = maybeSink {
+                inner.append(sink.getComponentInfo())
+            }
+            if let source = maybeSource {
+                inner.append(source.getComponentInfo())
+            }
+
+            // create the ComponentInfo for the AutoBalancer and insert it at the beginning of the list
+            return ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: inner
+            )
+        }
         /// Convenience method issuing a Sink allowing for deposits to this AutoBalancer. If the AutoBalancer's
         /// Capability on itself is not set or is invalid, `nil` is returned.
         ///
@@ -497,7 +722,6 @@ access(all) contract DeFiActions {
             }
             return AutoBalancerSink(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
-
         /// Convenience method issuing a Source enabling withdrawals from this AutoBalancer. If the AutoBalancer's
         /// Capability on itself is not set or is invalid, `nil` is returned.
         ///
@@ -509,27 +733,34 @@ access(all) contract DeFiActions {
             }
             return AutoBalancerSource(autoBalancer: self._selfCap!, uniqueID: self.uniqueID)
         }
-
         /// A setter enabling an AutoBalancer to set a Sink to which overflow value should be deposited
         ///
         /// @param sink: The optional Sink DeFiActions connector from which funds are sourced when this AutoBalancer
         ///     current value rises above the upper threshold relative to its valueOfDeposits(). If `nil`, overflown
         ///     value will not rebalance
         ///
-        access(Set) fun setSink(_ sink: {Sink}?) {
+        access(Set) fun setSink(_ sink: {Sink}?, updateSinkID: Bool) {
+            if sink != nil && updateSinkID {
+                let toUpdate = &sink! as auth(Extend) &{IdentifiableStruct}
+                let toAlign = &self as auth(Identify) &{IdentifiableResource}
+                DeFiActions.alignID(toUpdate: toUpdate, with: toAlign)
+            }
             self._rebalanceSink = sink
         }
-
         /// A setter enabling an AutoBalancer to set a Source from which underflow value should be withdrawn
         ///
         /// @param source: The optional Source DeFiActions connector from which funds are sourced when this AutoBalancer
         ///     current value falls below the lower threshold relative to its valueOfDeposits(). If `nil`, underflown
         ///     value will not rebalance
         ///
-        access(Set) fun setSource(_ source: {Source}?) {
+        access(Set) fun setSource(_ source: {Source}?, updateSourceID: Bool) {
+            if source != nil && updateSourceID {
+                let toUpdate = &source! as auth(Extend) &{IdentifiableStruct}
+                let toAlign = &self as auth(Identify) &{IdentifiableResource}
+                DeFiActions.alignID(toUpdate: toUpdate, with: toAlign)
+            }
             self._rebalanceSource = source
         }
-
         /// Enables the setting of a Capability on the AutoBalancer for the distribution of Sinks & Sources targeting
         /// the AutoBalancer instance. Due to the mechanisms of Capabilities, this must be done after the AutoBalancer
         /// has been saved to account storage and an authorized Capability has been issued.
@@ -544,7 +775,6 @@ access(all) contract DeFiActions {
             }
             self._selfCap = cap
         }
-
         /// Sets the rebalance range of this AutoBalancer
         ///
         /// @param range: a sorted array containing lower and upper thresholds that condition rebalance execution. The
@@ -557,7 +787,16 @@ access(all) contract DeFiActions {
             }
             self._rebalanceRange = range
         }
-
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) view fun copyID(): UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        access(contract) fun setID(_ id: UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// Allows for external parties to call on the AutoBalancer and execute a rebalance according to it's rebalance
         /// parameters. This method must be called by external party regularly in order for rebalancing to occur.
         ///
@@ -585,17 +824,19 @@ access(all) contract DeFiActions {
             //var amount = valueDiff / currentPrice!
             var amount = DeFiActionsMathUtils.divUFix64WithRounding(valueDiff, currentPrice!)
             var executed = false
-            if isDeficit && self._rebalanceSource != nil {
+            let maybeRebalanceSource = &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
+            let maybeRebalanceSink = &self._rebalanceSink as &{Sink}?
+            if isDeficit && maybeRebalanceSource != nil {
                 // rebalance back up to baseline sourcing funds from _rebalanceSource
-                vault.deposit(from:  <- self._rebalanceSource!.withdrawAvailable(maxAmount: amount))
+                vault.deposit(from:  <- maybeRebalanceSource!.withdrawAvailable(maxAmount: amount))
                 executed = true
-            } else if !isDeficit && self._rebalanceSink != nil {
+            } else if !isDeficit && maybeRebalanceSink != nil {
                 // rebalance back down to baseline depositing excess to _rebalanceSink
                 if amount > vault.balance {
                     amount = vault.balance // protect underflow
                 }
                 let surplus <- vault.withdraw(amount: amount)
-                self._rebalanceSink!.depositCapacity(from: &surplus as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                maybeRebalanceSink!.depositCapacity(from: &surplus as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 executed = true
                 if surplus.balance == 0.0 {
                     Burner.burn(<-surplus) // could destroy
@@ -616,6 +857,7 @@ access(all) contract DeFiActions {
                     vaultUUID: self._borrowVault().uuid,
                     balancerUUID: self.uuid,
                     address: self.owner?.address,
+                    uuid: self.uuid,
                     uniqueID: self.id()
                 )
             }
@@ -627,7 +869,6 @@ access(all) contract DeFiActions {
         access(all) view fun getViews(): [Type] {
             return self._borrowVault().getViews()
         }
-
         /// Passthrough to inner Vault's view resolution
         access(all) fun resolveView(_ view: Type): AnyStruct? {
             return self._borrowVault().resolveView(view)
@@ -640,17 +881,14 @@ access(all) contract DeFiActions {
         access(all) view fun getSupportedVaultTypes(): {Type: Bool} {
             return { self.vaultType(): true }
         }
-
         /// True if the provided Type is the nested Vault Type, false otherwise
         access(all) view fun isSupportedVaultType(type: Type): Bool {
             return self.getSupportedVaultTypes()[type] == true
         }
-
         /// Passthrough to the inner Vault's isAvailableToWithdraw() method
         access(all) view fun isAvailableToWithdraw(amount: UFix64): Bool {
             return self._borrowVault().isAvailableToWithdraw(amount: amount)
         }
-
         /// Deposits the provided Vault to the nested Vault if it is of the same Type, reverting otherwise. In the
         /// process, the current value of the deposited amount (denominated in unitOfAccount) increments the
         /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, an average price is
@@ -666,7 +904,6 @@ access(all) contract DeFiActions {
             self._valueOfDeposits = self._valueOfDeposits + (from.balance * price)
             self._borrowVault().deposit(from: <-from)
         }
-
         /// Returns the requested amount of the nested Vault type, reducing the baseValue by the current value
         /// (denominated in unitOfAccount) of the token amount. The AutoBalancer's valueOfDeposits is decremented
         /// in proportion to the amount withdrawn relative to the inner Vault's balance
@@ -696,8 +933,21 @@ access(all) contract DeFiActions {
 
         /* Internal */
 
+        /// Returns a reference to the inner Vault
         access(self) view fun _borrowVault(): auth(FungibleToken.Withdraw) &{FungibleToken.Vault} {
             return (&self._vault)!
+        }
+        /// Returns a reference to the inner Vault
+        access(self) view fun _borrowOracle(): &{PriceOracle} {
+            return &self._oracle
+        }
+        /// Returns a reference to the inner Vault
+        access(self) view fun _borrowSink(): &{Sink}? {
+            return &self._rebalanceSink
+        }
+        /// Returns a reference to the inner Source
+        access(self) view fun _borrowSource(): auth(FungibleToken.Withdraw) &{Source}? {
+            return &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
         }
     }
 
@@ -731,6 +981,44 @@ access(all) contract DeFiActions {
             uniqueID: uniqueID
         )
         return <- ab
+    }
+
+    /// Creates a new UniqueIdentifier used for identifying action stacks
+    ///
+    /// @return a new UniqueIdentifier
+    ///
+    access(all) fun createUniqueIdentifier(): UniqueIdentifier {
+        let id = UniqueIdentifier(self.currentID, self.authTokenCap)
+        self.currentID = self.currentID + 1
+        return id
+    }
+
+    /// Aligns the UniqueIdentifier of the provided component with the provided component, setting the UniqueIdentifier of
+    /// the provided component to the UniqueIdentifier of the provided component. Parameters are AnyStruct to allow for
+    /// alignment of both IdentifiableStruct and IdentifiableResource. However, note that the provided component must
+    /// be an auth(Extend) &{IdentifiableStruct} or auth(Extend) &{IdentifiableResource} to be aligned.
+    ///
+    /// @param toUpdate: The component to update the UniqueIdentifier of. Must be an auth(Extend) &{IdentifiableStruct}
+    ///     or auth(Extend) &{IdentifiableResource}
+    /// @param with: The component to align the UniqueIdentifier of the provided component with. Must be an
+    ///     auth(Identify) &{IdentifiableStruct} or auth(Identify) &{IdentifiableResource}
+    ///
+    access(all) fun alignID(toUpdate: AnyStruct, with: AnyStruct) {
+        let maybeISToUpdate = toUpdate as? auth(Extend) &{IdentifiableStruct}
+        let maybeIRToUpdate = toUpdate as? auth(Extend) &{IdentifiableResource}
+        let maybeISWith = with as? auth(Identify) &{IdentifiableStruct}
+        let maybeIRWith = with as? auth(Identify) &{IdentifiableResource}
+
+        if maybeISToUpdate != nil && maybeISWith != nil {
+            maybeISToUpdate!.setID(maybeISWith!.copyID())
+        } else if maybeISToUpdate != nil && maybeIRWith != nil {
+            maybeISToUpdate!.setID(maybeIRWith!.copyID())
+        } else if maybeIRToUpdate != nil && maybeISWith != nil {
+            maybeIRToUpdate!.setID(maybeISWith!.copyID())
+        } else if maybeIRToUpdate != nil && maybeIRWith != nil {
+            maybeIRToUpdate!.setID(maybeIRWith!.copyID())
+        }
+        return
     }
 
     /* --- INTERNAL CONDITIONAL EVENT EMITTERS --- */
@@ -778,7 +1066,32 @@ access(all) contract DeFiActions {
         return true
     }
 
+    /// Emits Aligned event if a change in UniqueIdentifier is detected
+    access(self) view fun emitUpdatedID(
+        oldID: UInt64?,
+        newID: UInt64?,
+        component: String,
+        uuid: UInt64?
+    ): Bool {
+        if oldID == newID {
+            return true
+        }
+        emit UpdatedID(
+            oldID: oldID,
+            newID: newID,
+            component: component,
+            uuid: uuid
+        )
+        return true
+    }
+
     init() {
         self.currentID = 0
+        self.AuthTokenStoragePath = /storage/authToken
+
+        self.account.storage.save(<-create AuthenticationToken(), to: self.AuthTokenStoragePath)
+        self.authTokenCap = self.account.capabilities.storage.issue<auth(Identify) &AuthenticationToken>(self.AuthTokenStoragePath)
+
+        assert(self.authTokenCap.check(), message: "Failed to issue AuthenticationToken Capability")
     }
 }

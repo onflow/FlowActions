@@ -14,7 +14,7 @@ import "FungibleTokenStack"
 transaction(vaultIdentifier: String?, sinkMax: UFix64?, autoBalancerStoragePath: StoragePath) {
 
     let autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
-    let vaultSink: FungibleTokenStack.VaultSink?
+    let vaultSink: {DeFiActions.Sink}?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         if vaultIdentifier != nil {
@@ -54,6 +54,6 @@ transaction(vaultIdentifier: String?, sinkMax: UFix64?, autoBalancerStoragePath:
 
     execute {
         // Set the VaultSink as the AutoBalancer's rebalanceSink
-        self.autoBalancer.setSink(self.vaultSink)
+        self.autoBalancer.setSink(self.vaultSink, updateSinkID: true)
     }
 }

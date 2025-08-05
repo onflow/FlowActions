@@ -13,14 +13,16 @@ import "SwapStack"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// DeFiActionsEVMAdapters
+/// DeFiActionsEVMConnectors
 ///
-/// DeFi adapter implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiActions. These
-/// adapters are originally intended for use in DeFiActions components, but may have broader use cases.
+/// DeFi connector implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiActions. These
+/// connectors are originally intended for use in DeFiActions components, but may have broader use cases.
 ///
-access(all) contract DeFiActionsEVMAdapters {
+access(all) contract DeFiActionsEVMConnectors {
 
-    /// Adapts an EVM-based UniswapV2Router contract's primary functionality to DeFiActions.Swapper adapter interface
+    /// UniswapV2EVMSwapper
+    ///
+    /// A DeFiActions connector that swaps between tokens using an EVM-based UniswapV2Router contract
     ///
     access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
@@ -30,7 +32,7 @@ access(all) contract DeFiActionsEVMAdapters {
         access(all) let addressPath: [EVM.EVMAddress]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DeFiActions.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -65,6 +67,34 @@ access(all) contract DeFiActionsEVMAdapters {
             self.coaCapability = coaCapability
         }
 
+        /// Returns a ComponentInfo struct containing information about this Swapper and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.uniqueID?.id,
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type {
             return self.inVault
@@ -197,7 +227,7 @@ access(all) contract DeFiActionsEVMAdapters {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                DeFiActionsEVMAdapters.callError("approve(address,uint256)",
+                DeFiActionsEVMConnectors._callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
@@ -210,7 +240,7 @@ access(all) contract DeFiActionsEVMAdapters {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                DeFiActionsEVMAdapters.callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                DeFiActionsEVMConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
@@ -304,7 +334,7 @@ access(all) contract DeFiActionsEVMAdapters {
     /// Converts the given amounts from their ERC20 UInt256 to UFix64 amounts according to the ERC20 defined decimals.
     /// Assumes each EVM address in path is an ERC20 contract
     access(self)
-    fun convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
+    fun _convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
         let convertedAmounts: [UFix64]= []
         for i, amount in amounts {
             convertedAmounts.append(FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(amount, erc20Address: path[i]))
@@ -314,7 +344,7 @@ access(all) contract DeFiActionsEVMAdapters {
 
     /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
     access(self)
-    fun callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
+    fun _callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
         panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) "
             .concat("with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\t"
             .concat("Status value: \(res.status.rawValue)\n\t"))

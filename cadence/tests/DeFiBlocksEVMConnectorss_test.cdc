@@ -52,8 +52,8 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DeFiActionsEVMAdapters",
-        path: "../contracts/adapters/DeFiActionsEVMAdapters.cdc",
+        name: "DeFiActionsEVMConnectors",
+        path: "../contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -61,5 +61,5 @@ fun setup() {
 
 access(all)
 fun testSetupSucceeds() {
-    log("DeFiActionsEVMAdapters deployment success")
+    log("DeFiActionsEVMConnectors deployment success")
 }

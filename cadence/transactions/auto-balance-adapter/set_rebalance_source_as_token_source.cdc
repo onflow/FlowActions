@@ -14,7 +14,7 @@ import "FungibleTokenStack"
 transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePath: StoragePath) {
 
     let autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
-    let vaultSource: FungibleTokenStack.VaultSource?
+    let vaultSource: {DeFiActions.Source}?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         if vaultIdentifier != nil {
@@ -47,6 +47,6 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
 
     execute {
         // Set the VaultSource as the AutoBalancer's rebalanceSource
-        self.autoBalancer.setSource(self.vaultSource)
+        self.autoBalancer.setSource(self.vaultSource, updateSourceID: true)
     }
 }
