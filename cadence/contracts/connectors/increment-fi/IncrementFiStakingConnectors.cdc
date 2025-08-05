@@ -25,20 +25,20 @@ access(all) contract IncrementFiStakingConnectors {
         access(all) let vaultType: Type
         /// The unique identifier of the staking pool to deposit into
         access(self) let poolID: UInt64
-        /// Capability to access the user's staking certificate
-        access(self) let userCertificate: Capability<&Staking.UserCertificate>
+        /// Address of the user staking in the pool
+        access(self) let staker: Address
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new PoolSink
         ///
-        /// @param userCertificate: Capability to access the user's staking certificate
+        /// @param staker: Address of the user staking in the pool
         /// @param poolID: The unique identifier of the staking pool to deposit into
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
-            userCertificate: Capability<&Staking.UserCertificate>,
+            staker: Address,
             poolID: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
@@ -48,7 +48,7 @@ access(all) contract IncrementFiStakingConnectors {
 
             self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
             self.poolID = poolID
-            self.userCertificate = userCertificate
+            self.staker = staker
             self.uniqueID = uniqueID
         }
 
@@ -94,12 +94,10 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return the minimum capacity available for deposits to this Sink
         ///
         access(all) fun minimumCapacity(): UFix64 {
-            if let address = self.userCertificate.borrow()?.owner?.address {
-                if let pool = self.borrowPool() {
-                    // Get the staking amount for the user in the pool
-                    let stakingAmount = pool.getUserInfo(address: address)?.stakingAmount ?? 0.0
-                    return pool.getPoolInfo().limitAmount - stakingAmount
-                }
+            if let pool = self.borrowPool() {
+                // Get the staking amount for the user in the pool
+                let stakingAmount = pool.getUserInfo(address: self.staker)?.stakingAmount ?? 0.0
+                return pool.getPoolInfo().limitAmount - stakingAmount
             }
 
             return 0.0 // no capacity if the staking pool is not available
@@ -116,13 +114,11 @@ access(all) contract IncrementFiStakingConnectors {
             }
 
             if let pool = self.borrowPool() {
-                if let address = self.userCertificate.borrow()?.owner?.address {
-                    let depositAmount = from.balance < minimumCapacity
-                        ? from.balance
-                        : minimumCapacity
-                    
-                    pool.stake(staker: address, stakingToken: <- from.withdraw(amount: depositAmount))
-                }
+                let depositAmount = from.balance < minimumCapacity
+                    ? from.balance
+                    : minimumCapacity
+
+                pool.stake(staker: self.staker, stakingToken: <- from.withdraw(amount: depositAmount))
             }
         }
 
