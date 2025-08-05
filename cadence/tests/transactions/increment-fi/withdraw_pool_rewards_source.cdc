@@ -18,6 +18,7 @@ transaction(pid: UInt64, vaultType: Type) {
             userCertificate: self.userCertificateCap,
             poolID: pid,
             vaultType: vaultType,
+            overflowSinks: {},
             uniqueID: nil
         )
 

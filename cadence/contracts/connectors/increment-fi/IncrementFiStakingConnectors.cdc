@@ -144,6 +144,8 @@ access(all) contract IncrementFiStakingConnectors {
         access(self) let poolID: UInt64
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
+        /// The set of overflow sinks to handle any excess rewards that cannot be handled by this Source
+        access(self) let overflowSinks: {Type: {DeFiActions.Sink}}
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
@@ -153,18 +155,21 @@ access(all) contract IncrementFiStakingConnectors {
         /// @param userCertificate: Capability to access the user's staking certificate
         /// @param poolID: The unique identifier of the staking pool to claim rewards from
         /// @param vaultType: The type of Vault this Source provides when claiming rewards
+        /// @param overflowSinks: A set of DeFiActions.Sink to handle any overflow from the rewards claim
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
             poolID: UInt64,
             vaultType: Type,
+            overflowSinks: {Type: {DeFiActions.Sink}},
             uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
             self.poolID = poolID
             self.userCertificate = userCertificate
-            self.uniqueID = uniqueID
             self.vaultType = vaultType
+            self.overflowSinks = overflowSinks
+            self.uniqueID = uniqueID
         }
 
         /// Returns a list of ComponentInfo for each component in the stack
@@ -222,6 +227,7 @@ access(all) contract IncrementFiStakingConnectors {
         }
 
         /// Withdraws rewards from the staking pool up to the specified maximum amount
+        /// Overflow rewards are sent to the appropriate overflow sinks if provided
         ///
         /// @param maxAmount: The maximum amount of rewards to claim
         /// @return a Vault containing the claimed rewards
@@ -239,17 +245,39 @@ access(all) contract IncrementFiStakingConnectors {
                         : minimumAvailable
 
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
-                    let vaultRewards <- rewards.remove(key: SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier))
-                    if rewards.keys.length == 0 {
-                        destroy rewards
-                    } else {
-                        panic("Staking pool rewards contain multiple token types, which is not supported by this connector")
+                    var targetRewards: @{FungibleToken.Vault}? <- nil
+                    let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
+                    for sliceType in rewards.keys {
+                        if let reward <- rewards.remove(key: sliceType) {
+                            if sliceType == targetSliceType {
+                                if reward.balance > withdrawAmount {
+                                    targetRewards <-! reward.withdraw(amount: withdrawAmount)
+                                    if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
+                                        overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                                        assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
+                                        destroy reward
+                                    } else {
+                                        panic("No overflow sink found for slice type \(sliceType)")
+                                    }
+                                } else {
+                                    targetRewards <-! reward
+                                }
+                            } else if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
+                                overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                                assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
+                                destroy reward
+                            } else {
+                                panic("No overflow sink found for slice type \(sliceType)")
+                            }
+                        }
                     }
                     
-                    if vaultRewards != nil {
-                        return <- vaultRewards!
+                    if targetRewards != nil {
+                        destroy rewards
+                        return <- targetRewards!
                     } else {
-                        destroy vaultRewards
+                        destroy rewards
+                        destroy targetRewards
                         return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
                     }
                 }
