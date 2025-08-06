@@ -15,14 +15,12 @@ import "SwapConfig"
 /// @param pid: The pool ID of the staking pool to harvest rewards from and restake into
 /// @param rewardTokenType: The type of the reward token that will be harvested from the staking pool
 /// @param pairTokenType: The type of the other token component needed to form the LP pair with the reward token
-/// @param stakingCollectionAddress: The address of the account holding the staking pool collection
 /// @param minimumRestakedAmount: The minimum increase in staked amount expected (protects against excessive slippage)
 ///
 transaction(
     pid: UInt64,
     rewardTokenType: Type,
     pairTokenType: Type,
-    stakingCollectionAddress: Address,
     minimumRestakedAmount: UFix64,
 ) {
     // Capability to the user's staking identity certificate
@@ -33,8 +31,8 @@ transaction(
     let startingStake: UFix64
 
     prepare(acct: auth(BorrowValue, SaveValue) &Account) {
-        // Get a reference to the staking pool collection and retrieve the specific pool
-        self.pool = getAccount(stakingCollectionAddress).capabilities.borrow<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)?.getPool(pid: pid)
+        // Get a reference to the global staking pool collection and retrieve the specific pool
+        self.pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
             ?? panic("Pool with ID \(pid) not found or not accessible")
         
         // Record the user's current staked amount for validation purposes
@@ -76,8 +74,8 @@ transaction(
         // Create the sink where the converted LP tokens will be deposited back into the staking pool
         // This completes the restaking loop by depositing the new LP tokens for the same user
         let poolSink = IncrementFiStakingConnectors.PoolSink(
-            staker: self.userCertificateCap.address,
             poolID: pid,
+            staker: self.userCertificateCap.address,
             uniqueID: nil
         )
 
