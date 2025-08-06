@@ -79,14 +79,14 @@ fun setup() {
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 100.0,
+        amount: 200.0,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 200.0,
+        amount: 100.0,
         minterStoragePath: TokenB.AdminStoragePath,
         receiverPublicPath: TokenB.ReceiverPublicPath
     )
@@ -96,7 +96,7 @@ fun setup() {
         token0Key: tokenAKey,
         token1Key: tokenBKey,
         token0InDesired: 100.0,
-        token1InDesired: 200.0,
+        token1InDesired: 100.0,
         token0InMin: 0.0,
         token1InMin: 0.0,
         deadline: getCurrentBlockTimestamp(),
@@ -107,13 +107,33 @@ fun setup() {
 }
 
 access(all)
-fun testAdapterGetAmountsOutSucceeds() {
-    let inAmount = 1.0
+fun testEstimateAndSwap() {
+    // Estimate swap amount
+    let inAmount = 100.0
     let amountsOutRes = executeScript(
-            "../scripts/increment-fi-adapters/zapper_get_amounts_out.cdc",
-            [inAmount, tokenAIdentifier, tokenBIdentifier]
+            "../scripts/increment-fi-adapters/zapper/get_amounts_out.cdc",
+            [inAmount, tokenAIdentifier, tokenBIdentifier, true, false]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
     let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(inAmount, quote.inAmount)
+
+    // Zap should match this amount
+    let expectedOutAmount = quote.outAmount
+
+    // Execute swap
+    let result = executeTransaction(
+        "./transactions/increment-fi/zapper/swap.cdc",
+        [inAmount, tokenAIdentifier, tokenBIdentifier, true],
+        pairCreatorAccount
+    )
+    Test.expect(result.error, Test.beNil())
+
+    // Verify swap event was emitted with correct values and matches expected amount
+    let swappedEvents = Test.eventsOfType(Type<DeFiActions.Swapped>())
+    Test.expect(swappedEvents.length, Test.equal(1))
+    let swappedEvent: DeFiActions.Swapped = swappedEvents[0] as! DeFiActions.Swapped
+    Test.expect(swappedEvent.inAmount, Test.equal(inAmount))
+    Test.expect(swappedEvent.outAmount, Test.equal(expectedOutAmount))
+
 }

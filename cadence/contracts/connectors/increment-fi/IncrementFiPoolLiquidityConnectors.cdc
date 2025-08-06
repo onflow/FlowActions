@@ -32,7 +32,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         /// Stable pool mode flag
         access(self) let stableMode: Bool
         /// The address to access pair capabilities
-        access(self) let pairAddress: Address
+        access(all) let pairAddress: Address
 
         init(
             token0Type: Type,
@@ -118,7 +118,13 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 let swappedAmount = pairPublicRef.getAmountOut(amountIn: zappedAmount, tokenInKey: token0Key)
 
                 // Calculate lp tokens we're receiving
-                let lpAmount = self.calculateLpAmount(token0Amount: forProvided - zappedAmount, token1Amount: swappedAmount, pairPublicRef: pairPublicRef)
+                let lpAmount = self.calculateLpAmount(
+                    token0Amount: forProvided - zappedAmount,
+                    token1Amount: swappedAmount,
+                    token0Offset: Fix64(zappedAmount),
+                    token1Offset: -Fix64(swappedAmount),
+                    pairPublicRef: pairPublicRef
+                )
 
                 return SwapStack.BasicQuote(
                     inType: self.inType(),
@@ -157,17 +163,13 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
             // Swap
             let swapVaultIn <- inVault.withdraw(amount: zappedAmount)
-            let token0Vault <- inVault.withdraw(amount: inVault.balance - zappedAmount)
             let token1Vault <- pairPublicRef.swap(vaultIn: <-swapVaultIn, exactAmountOut: nil)
 
             // Add liquidity
             let lpTokenVault <- pairPublicRef.addLiquidity(
-                tokenAVault: <- token0Vault,
+                tokenAVault: <- inVault,
                 tokenBVault: <- token1Vault
             )
-
-            assert(inVault.balance == 0.0, message: "Failed to swap inToken to LP token")
-            destroy(inVault)
 
             // Return the LP token vault
             return <-lpTokenVault
@@ -284,6 +286,8 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         calculateLpAmount(
             token0Amount: UFix64,
             token1Amount: UFix64,
+            token0Offset: Fix64,
+            token1Offset: Fix64,
             pairPublicRef: &{SwapInterfaces.PairPublic},
         ): UFix64 {
             let pairInfo = pairPublicRef.getPairInfo()
@@ -296,6 +300,11 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 token0Reserve = (pairInfo[3] as! UFix64)
                 token1Reserve = (pairInfo[2] as! UFix64)
             }
+
+            // Note: simulate zap swap impact on reserves
+            token0Reserve = UFix64(Fix64(token0Reserve) + token0Offset)
+            token1Reserve = UFix64(Fix64(token1Reserve) + token1Offset)
+
             let reserve0LastScaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
             let reserve1LastScaled = SwapConfig.UFix64ToScaledUInt256(token1Reserve)
 
