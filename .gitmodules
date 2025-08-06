@@ -13,3 +13,9 @@
 [submodule "solidity/lib/openzeppelin-contracts"]
 	path = solidity/lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
+[submodule "solidity/lib/v3-core"]
+	path = solidity/lib/v3-core
+	url = git@github.com:Uniswap/v3-core.git
+[submodule "solidity/lib/v3-periphery"]
+	path = solidity/lib/v3-periphery
+	url = git@github.com:Uniswap/v3-periphery.git
