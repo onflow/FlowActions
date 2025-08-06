@@ -406,12 +406,12 @@ access(all) contract DeFiActions {
         access(all) view fun borrowType(): Type
         /// Returns the estimated fee for a flash loan of the specified amount
         access(all) fun calculateFee(loanAmount: UFix64): UFix64
-        /// Performs a flash loan of the specified amount. The executor function is passed the fee amount and a Vault
-        /// containing the loan. The executor function should return a Vault containing the loan and fee.
+        /// Performs a flash loan of the specified amount. The callback function is passed the fee amount, a Vault
+        /// containing the loan, and the data. The callback function should return a Vault containing the loan + fee.
         access(all) fun flashLoan(
             amount: UFix64,
-            data: {String: AnyStruct},
-            callback: fun(UFix64, @{FungibleToken.Vault}, {String: AnyStruct}): @{FungibleToken.Vault} // fee, loan, data
+            data: AnyStruct?,
+            callback: fun(UFix64, @{FungibleToken.Vault}, AnyStruct?): @{FungibleToken.Vault} // fee, loan, data
         ) {
             post {
                 emit Flashed(
