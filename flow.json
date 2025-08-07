@@ -492,6 +492,38 @@
 				"type": "file",
 				"location": "emulator-account.pkey"
 			}
+		},
+		"testnet-defi-actions": {
+			"address": "4c2ff9dd03ab442f",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-fungible-token-stack": {
+			"address": "5a7b9cee9aaf4e4e",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-swap-stack": {
+			"address": "addd594cf410166a",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-increment-fi-connectors": {
+			"address": "0x49bae091e5ea16b5",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
 		}
 	},
 	"deployments": {
@@ -538,6 +570,13 @@
 				"BandOracle",
 				"FlowEVMBridgeCustomAssociations",
 				"FlowEVMBridgeCustomAssociationTypes"
+			]
+		},
+		"testnet": {
+			"testnet-defi-actions": [
+				"DeFiActionsUtils",
+				"DeFiActionsMathUtils",
+				"DeFiActions"
 			]
 		}
 	}
