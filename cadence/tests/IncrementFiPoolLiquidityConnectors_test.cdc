@@ -107,7 +107,7 @@ fun setup() {
         token1InDesired: 345.0,
         token0InMin: 0.0,
         token1InMin: 0.0,
-        deadline: getCurrentBlockTimestamp() + 10.0,
+        deadline: getCurrentBlockTimestamp() + 1000.0,
         token0VaultPath: TokenA.VaultStoragePath,
         token1VaultPath: TokenB.VaultStoragePath,
         stableMode: true,
