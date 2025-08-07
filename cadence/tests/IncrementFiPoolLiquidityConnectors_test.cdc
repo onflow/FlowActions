@@ -74,23 +74,31 @@ fun setup() {
         stableMode: true,
     )
 
+    createSwapPair(
+        signer: pairCreatorAccount,
+        token0Identifier: tokenAIdentifier,
+        token1Identifier: tokenBIdentifier,
+        stableMode: false,
+    )
+
     setupGenericVault(signer: pairCreatorAccount, vaultIdentifier: tokenAIdentifier)
     setupGenericVault(signer: pairCreatorAccount, vaultIdentifier: tokenBIdentifier)
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 1000.0,
+        amount: 10000.0,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 1000.0,
+        amount: 10000.0,
         minterStoragePath: TokenB.AdminStoragePath,
         receiverPublicPath: TokenB.ReceiverPublicPath
     )
 
+    // Stable mode pool
     addLiquidity(
         signer: pairCreatorAccount,
         token0Key: tokenAKey,
@@ -99,73 +107,173 @@ fun setup() {
         token1InDesired: 345.0,
         token0InMin: 0.0,
         token1InMin: 0.0,
-        deadline: getCurrentBlockTimestamp(),
+        deadline: getCurrentBlockTimestamp() + 10.0,
         token0VaultPath: TokenA.VaultStoragePath,
         token1VaultPath: TokenB.VaultStoragePath,
         stableMode: true,
     )
+
+    // Volatile mode pool
+    addLiquidity(
+        signer: pairCreatorAccount,
+        token0Key: tokenAKey,
+        token1Key: tokenBKey,
+        token0InDesired: 901.0,
+        token1InDesired: 678.0,
+        token0InMin: 0.0,
+        token1InMin: 0.0,
+        deadline: getCurrentBlockTimestamp() + 10.0,
+        token0VaultPath: TokenA.VaultStoragePath,
+        token1VaultPath: TokenB.VaultStoragePath,
+        stableMode: false,
+    )
 }
 
 access(all)
-fun testEstimateAndSwap() {
-    // Estimate swap amount
+fun testEstimateAndSwapStable() {
     let inAmount = 4.2
+
+    // Estimate swap amount
+    let expectedOutAmount = quoteOut(
+        inAmount: inAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: inAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+    Test.expect(outAmount, Test.equal(expectedOutAmount))
+}
+
+access(all)
+fun testEstimateAndSwapBackStable() {
+    let lpTokenInAmount = 0.2
+
+    // Estimate swapBack amount
+    let expectedOutAmount = quoteOut(
+        inAmount: lpTokenInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: true // LP -> TokenA
+    )
+
+    // Execute swapBack
+    let outAmount = swapBack(
+        inAmount: lpTokenInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+    Test.expect(outAmount, Test.equal(expectedOutAmount))
+}
+
+access(all)
+fun testEstimateAndSwapVolatile() {
+    let inAmount = 3.14159
+
+    // Estimate swap amount
+    let expectedOutAmount = quoteOut(
+        inAmount: inAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: false
+    )
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: inAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+    )
+    Test.expect(outAmount, Test.equal(expectedOutAmount))
+}
+
+access(all)
+fun testEstimateAndSwapBackVolatile() {
+    let lpTokenInAmount = 69.069
+
+    // Estimate swapBack amount
+    let expectedOutAmount = quoteOut(
+        inAmount: lpTokenInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: true // LP -> TokenA
+    )
+
+    // Execute swapBack
+    let outAmount = swapBack(
+        inAmount: lpTokenInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+    )
+    Test.expect(outAmount, Test.equal(expectedOutAmount))
+}
+
+access(self) fun quoteOut(
+    inAmount: UFix64,
+    tokenAIdentifier: String,
+    tokenBIdentifier: String,
+    stableMode: Bool,
+    reverse: Bool,
+): UFix64 {
     let amountsOutRes = executeScript(
             "../scripts/increment-fi-adapters/zapper/get_amounts_out.cdc",
-            [inAmount, tokenAIdentifier, tokenBIdentifier, true, false]
+            [inAmount, tokenAIdentifier, tokenBIdentifier, stableMode, reverse]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
     let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(inAmount, quote.inAmount)
-
-    // Zap should match this amount
-    let expectedOutAmount = quote.outAmount
-
-    // Execute swap
-    let result = executeTransaction(
-        "./transactions/increment-fi/zapper/swap.cdc",
-        [inAmount, tokenAIdentifier, tokenBIdentifier, true],
-        pairCreatorAccount
-    )
-    Test.expect(result.error, Test.beNil())
-
-    // Verify swap event was emitted with correct values and matches expected amount
-    let swappedEvents = Test.eventsOfType(Type<DeFiActions.Swapped>())
-    Test.expect(swappedEvents.length, Test.equal(1))
-    let swappedEvent: DeFiActions.Swapped = swappedEvents[0] as! DeFiActions.Swapped
-    Test.expect(swappedEvent.inAmount, Test.equal(inAmount))
-    Test.expect(swappedEvent.outAmount, Test.equal(expectedOutAmount))
-
+    return quote.outAmount
 }
 
-access(all)
-fun testEstimateAndSwapReverse() {
-    // Estimate swapBack amount
-    let lpTokenInAmount = 4.2
-    let amountsOutRes = executeScript(
-            "../scripts/increment-fi-adapters/zapper/get_amounts_out.cdc",
-            [lpTokenInAmount, tokenAIdentifier, tokenBIdentifier, true, true] // reverse = true
-        )
-    Test.expect(amountsOutRes, Test.beSucceeded())
-    let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
-    Test.assertEqual(lpTokenInAmount, quote.inAmount)
-
-    // Zap should match this amount
-    let expectedOutAmount = quote.outAmount
-
-    // Execute swapBack
+access(self) fun swap(
+    inAmount: UFix64,
+    tokenAIdentifier: String,
+    tokenBIdentifier: String,
+    stableMode: Bool,
+): UFix64 {
+    let numEvents = Test.eventsOfType(Type<DeFiActions.Swapped>()).length
     let result = executeTransaction(
-        "./transactions/increment-fi/zapper/swapBack.cdc",
-        [lpTokenInAmount, tokenAIdentifier, tokenBIdentifier, true],
+        "./transactions/increment-fi/zapper/swap.cdc",
+        [inAmount, tokenAIdentifier, tokenBIdentifier, stableMode],
         pairCreatorAccount
     )
     Test.expect(result.error, Test.beNil())
-
-    // Verify swap event was emitted with correct values and matches expected amount
     let swappedEvents = Test.eventsOfType(Type<DeFiActions.Swapped>())
-    Test.expect(swappedEvents.length, Test.equal(2)) // including above test
-    let swappedEvent: DeFiActions.Swapped = swappedEvents[1] as! DeFiActions.Swapped
-    Test.expect(swappedEvent.inAmount, Test.equal(lpTokenInAmount))
-    Test.expect(swappedEvent.outAmount, Test.equal(expectedOutAmount))
+    Test.expect(swappedEvents.length - numEvents, Test.equal(1))
+    let swappedEvent: DeFiActions.Swapped = swappedEvents[swappedEvents.length - 1] as! DeFiActions.Swapped
+    Test.expect(swappedEvent.inAmount, Test.equal(inAmount))
+    return swappedEvent.outAmount
+}
 
+access(self) fun swapBack(
+    inAmount: UFix64,
+    tokenAIdentifier: String,
+    tokenBIdentifier: String,
+    stableMode: Bool,
+): UFix64 {
+    let numEvents = Test.eventsOfType(Type<DeFiActions.Swapped>()).length
+    let result = executeTransaction(
+        "./transactions/increment-fi/zapper/swapBack.cdc",
+        [inAmount, tokenAIdentifier, tokenBIdentifier, stableMode],
+        pairCreatorAccount
+    )
+    Test.expect(result.error, Test.beNil())
+    let swappedEvents = Test.eventsOfType(Type<DeFiActions.Swapped>())
+    Test.expect(swappedEvents.length - numEvents, Test.equal(1))
+    let swappedEvent: DeFiActions.Swapped = swappedEvents[swappedEvents.length - 1] as! DeFiActions.Swapped
+    Test.expect(swappedEvent.inAmount, Test.equal(inAmount))
+    return swappedEvent.outAmount
 }
