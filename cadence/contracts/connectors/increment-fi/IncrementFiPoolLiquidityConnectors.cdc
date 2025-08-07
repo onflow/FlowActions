@@ -110,6 +110,12 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// The estimated amount delivered out for a provided input balance
+        ///
+        /// @param forProvided: the amount of the input token to provide
+        /// @param reverse: if reverse is false, will estimate the amount of LP tokens received for a provided input balance
+        ///                 if reverse is true, will estimate the amount of token0 received for a provided LP token balance
+        /// @return a DeFiActions.Quote struct containing the estimated amount delivered out for a provided input balance
+        ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let pairPublicRef = self.getPairPublicRef()
             let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
@@ -211,6 +217,11 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
         /// Calculates the zapped amount for a given provided amount
         /// This amount is swapped from token A to token B in order to add liquidity to the pool
+        ///
+        /// @param forProvided: the total amount of the input token0
+        /// @param pairPublicRef: a reference to the pair public interface
+        /// @return the amount of token0 to convert to token1 before adding liquidity
+        ///
         // access(self) view fun calculateZappedAmount(
         access(self) view fun calculateZappedAmount(
             forProvided: UFix64,
@@ -296,6 +307,14 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Calculates the amount of LP tokens received for a given token0Amount and token1Amount
+        ///
+        /// @param token0Amount: the amount of token0 to add to the pool
+        /// @param token1Amount: the amount of token1 to add to the pool
+        /// @param token0Offset: the offset of token0 reserves, used to simulate the impact of a swap on the reserves
+        /// @param token1Offset: the offset of token1 reserves, used to simulate the impact of a swap on the reserves
+        /// @param pairPublicRef: a reference to the pair public interface
+        /// @return the amount of LP tokens received
+        ///
         access(self) view fun calculateLpAmount(
             token0Amount: UFix64,
             token1Amount: UFix64,
@@ -365,7 +384,11 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Calculates the amount of token0 and token1 you get when removing liquidity with a given LP amount
-        /// Returns an array where [0] = token0Amount, [1] = token1Amount
+        ///
+        /// @param lpAmount: the amount of LP tokens to remove
+        /// @param pairPublicRef: a reference to the pair public interface
+        /// @return an array where [0] = token0Amount, [1] = token1Amount
+        ///
         access(self) view fun calculateTokenAmountsFromLp(
             lpAmount: UFix64,
             pairPublicRef: &{SwapInterfaces.PairPublic}
@@ -387,7 +410,10 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Returns the reserves of the token0 and token1 in the pair
-        /// Returns an array where [0] = token0Reserve, [1] = token1Reserve
+        ///
+        /// @param pairPublicRef: a reference to the pair public interface
+        /// @return an array where [0] = token0Reserve, [1] = token1Reserve
+        ///
         access(self) view fun getTokenReserves(
             pairPublicRef: &{SwapInterfaces.PairPublic}
         ): [UFix64] {
@@ -408,6 +434,14 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         /// Calculates the amount of token0 received when swapping token1 to token0 with custom reserve values
         /// If reverse is true, the amountIn is token1Amount
         /// If reverse is false, the amountIn is token0Amount
+        ///
+        /// @param amountIn: the amount of the input token
+        /// @param token0Offset: the offset of token0 reserves, used to simulate the impact of a swap on the reserves
+        /// @param token1Offset: the offset of token1 reserves, used to simulate the impact of a swap on the reserves
+        /// @param pairPublicRef: a reference to the pair public interface
+        /// @param reverse: if reverse is true, the amountIn is token1Amount
+        ///                 if reverse is false, the amountIn is token0Amount
+        /// @return the amount out of the swap operation
         access(self) view fun calculateSwapAmount(
             amountIn: UFix64,
             token0Offset: Fix64,
