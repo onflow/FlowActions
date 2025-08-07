@@ -7,12 +7,12 @@ import "IncrementFiPoolLiquidityConnectors"
 
 transaction(
     amountIn: UFix64,
-    inVaultIdentifier: String,
-    outVaultIdentifier: String,
+    token0Identifier: String,
+    token1Identifier: String,
     stableMode: Bool,
 ) {
     prepare(acct: auth(Capabilities, Storage) &Account) {
-        let inVaultData = getFTVaultData(vaultIdentifier: inVaultIdentifier)
+            let inVaultData = getFTVaultData(vaultIdentifier: token0Identifier)
 
         let inVault = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Provider}>(from: inVaultData.storagePath)
             ?? panic("Could not borrow reference to inVault \(inVaultData.storagePath)")
@@ -20,8 +20,8 @@ transaction(
         let inTokens <- inVault.withdraw(amount: amountIn)
 
         let swapper = IncrementFiPoolLiquidityConnectors.Zapper(
-            token0Type: CompositeType(inVaultIdentifier) ?? panic("Invalid inVault \(inVaultIdentifier)"),
-            token1Type: CompositeType(outVaultIdentifier) ?? panic("Invalid outVault \(outVaultIdentifier)"),
+            token0Type: CompositeType(token0Identifier) ?? panic("Invalid token0 \(token0Identifier)"),
+            token1Type: CompositeType(token1Identifier) ?? panic("Invalid token1 \(token1Identifier)"),
             stableMode: stableMode,
             uniqueID: nil
         )
