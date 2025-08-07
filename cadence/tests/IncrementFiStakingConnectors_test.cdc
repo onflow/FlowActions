@@ -25,9 +25,6 @@ access(all) let testSessionInterval: UFix64 = 1.0
 access(all) let testAdminSeedAmount: UFix64 = 1000.0
 access(all) let testLimitAmount: UFix64 = 1000000.0
 
-// Test state
-access(all) var poolStartTimestamp: UFix64 = 0.0
-
 access(all) fun beforeEach() {
     // Reset the blockchain state before each test
     // We cannot reset to the same block height, so we need to
@@ -65,9 +62,7 @@ access(all) fun beforeEach() {
         [rewardInfo],
         testAdminSeedAmount
     )
-
-    poolStartTimestamp = getCurrentBlockTimestamp()
-
+    
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",
@@ -156,6 +151,7 @@ access(all) fun testSource() {
         user
     )
     Test.expect(result.error, Test.beNil())
+    let depositTimestamp = getCurrentBlockTimestamp()
 
     // Simulate time passing to allow rewards to accumulate
     Test.moveTime(by: testTimeAdvanceSeconds)
@@ -176,7 +172,7 @@ access(all) fun testSource() {
     let rewardClaimedEvent = rewardClaimedEvents[0] as! Staking.RewardClaimed
     let expectedTokenKey = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: Type<@TokenA.Vault>().identifier)
 
-    let elapsed = getCurrentBlockTimestamp() - poolStartTimestamp
+    let elapsed = getCurrentBlockTimestamp() - depositTimestamp
     // We are the only staker, so we should receive all rewards
     let expectedRewardAmount = testRps * elapsed
     let expectedRPS = expectedRewardAmount / testDepositAmount
