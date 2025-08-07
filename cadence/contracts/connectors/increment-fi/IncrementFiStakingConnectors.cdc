@@ -4,6 +4,10 @@ import "FungibleToken"
 import "Staking"
 import "SwapConfig"
 
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+///
 /// IncrementFiStakingConnectors
 ///
 /// DeFiActions adapter implementations for IncrementFi staking protocols. This contract provides connectors that
@@ -262,7 +266,7 @@ access(all) contract IncrementFiStakingConnectors {
                             }
                         }
                     }
-                    
+
                     if targetRewards != nil {
                         destroy rewards
                         return <- targetRewards!
