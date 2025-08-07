@@ -23,32 +23,32 @@ access(all) contract IncrementFiStakingConnectors {
     access(all) struct PoolSink: DeFiActions.Sink {
         /// The type of Vault this Sink accepts when performing a deposit
         access(all) let vaultType: Type
-        /// The unique identifier of the staking pool to deposit into
-        access(self) let poolID: UInt64
         /// Address of the user staking in the pool
         access(self) let staker: Address
+        /// The unique identifier of the staking pool to deposit into
+        access(self) let poolID: UInt64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new PoolSink
         ///
-        /// @param staker: Address of the user staking in the pool
         /// @param poolID: The unique identifier of the staking pool to deposit into
+        /// @param staker: Address of the user staking in the pool
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
-            staker: Address,
             poolID: UInt64,
+            staker: Address,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-            let poolCollectionCollection = poolCollectionCap.borrow() ?? panic("Could not borrow reference to Staking Pool")
-            let pool = poolCollectionCollection.getPool(pid: poolID)
+            let poolCollectionRef = poolCollectionCap.borrow() ?? panic("Could not borrow reference to Staking Pool")
+            let pool = poolCollectionRef.getPool(pid: poolID)
 
             self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
-            self.poolID = poolID
             self.staker = staker
+            self.poolID = poolID
             self.uniqueID = uniqueID
         }
 
@@ -94,7 +94,7 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return the minimum capacity available for deposits to this Sink
         ///
         access(all) fun minimumCapacity(): UFix64 {
-            if let pool = self.borrowPool() {
+            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
                 // Get the staking amount for the user in the pool
                 let stakingAmount = pool.getUserInfo(address: self.staker)?.stakingAmount ?? 0.0
                 return pool.getPoolInfo().limitAmount - stakingAmount
@@ -113,22 +113,13 @@ access(all) contract IncrementFiStakingConnectors {
                 return
             }
 
-            if let pool = self.borrowPool() {
+            if let pool: &{Staking.PoolPublic} = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
                 let depositAmount = from.balance < minimumCapacity
                     ? from.balance
                     : minimumCapacity
 
                 pool.stake(staker: self.staker, stakingToken: <- from.withdraw(amount: depositAmount))
             }
-        }
-
-        /// Helper function to borrow a reference to the staking pool
-        ///
-        /// @return a reference to the staking pool, or nil if not available
-        ///
-        access(self) fun borrowPool(): &{Staking.PoolPublic}? {
-            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-            return poolCollectionCap.borrow()?.getPool(pid: self.poolID)
         }
     }
 
@@ -216,7 +207,7 @@ access(all) contract IncrementFiStakingConnectors {
         ///
         access(all) fun minimumAvailable(): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
-                if let pool = self.borrowPool() {
+                if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
                     // Get the remaining staking capacity for the user in the pool
                     let stakingAmount = (pool.getUserInfo(address: address)?.stakingAmount) ?? 0.0
                     return pool.getPoolInfo().limitAmount - stakingAmount
@@ -238,7 +229,7 @@ access(all) contract IncrementFiStakingConnectors {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
-            if let pool = self.borrowPool() {
+            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
                 if let userCertificate = self.userCertificate.borrow() {
                     let withdrawAmount = maxAmount < minimumAvailable
                         ? maxAmount
@@ -285,14 +276,14 @@ access(all) contract IncrementFiStakingConnectors {
 
             return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
         }
+    }
 
-        /// Helper function to borrow a reference to the staking pool
-        ///
-        /// @return a reference to the staking pool, or nil if not available
-        ///
-        access(self) fun borrowPool(): &{Staking.PoolPublic}? {
-            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-            return poolCollectionCap.borrow()?.getPool(pid: self.poolID)
-        }
+    /// Helper function to borrow a reference to the staking pool
+    ///
+    /// @return a reference to the staking pool, or nil if not available
+    ///
+    access(all) fun borrowPool(poolID: UInt64): &{Staking.PoolPublic}? {
+        let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
+        return poolCollectionCap.borrow()?.getPool(pid: poolID)
     }
 }

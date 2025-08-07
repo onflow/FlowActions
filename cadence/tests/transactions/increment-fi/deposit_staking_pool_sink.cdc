@@ -9,8 +9,8 @@ transaction(pid: UInt64) {
 
     prepare(acct: auth(BorrowValue) &Account) {
         self.incrementFiSink = IncrementFiStakingConnectors.PoolSink(
-            staker: acct.address,
             poolID: pid,
+            staker: acct.address,
             uniqueID: nil
         )
         self.tokenAVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &TokenA.Vault>(from: TokenA.VaultStoragePath)
