@@ -424,6 +424,13 @@ access(all) contract DeFiActions {
         }
     }
 
+    /*******************************************************************************************************************
+        NOTICE: The AutoBalancer will extend the FlowCallbackScheduler.CallbackHandler interface which is not yet
+        finalized. To avoid the need for re-deploying with that interface and related fields managing ScheduleCallback
+        structs, the AutoBalancer and its connectors are omitted from the DeFiActions contract on Testnet & Mainnet
+        until the FlowCallbackScheduler contract is available.
+     *******************************************************************************************************************/
+
     /// AutoBalancerSink
     ///
     /// A DeFiActions Sink enabling the deposit of funds to an underlying AutoBalancer resource. As written, this Source
