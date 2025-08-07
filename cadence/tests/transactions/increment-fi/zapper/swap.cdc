@@ -11,7 +11,7 @@ transaction(
     token1Identifier: String,
     stableMode: Bool,
 ) {
-    prepare(acct: auth(Capabilities, Storage) &Account) {
+    prepare(acct: auth(BorrowValue) &Account) {
             let inVaultData = getFTVaultData(vaultIdentifier: token0Identifier)
 
         let inVault = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Provider}>(from: inVaultData.storagePath)

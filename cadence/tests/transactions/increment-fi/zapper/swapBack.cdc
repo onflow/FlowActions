@@ -11,7 +11,7 @@ transaction(
     token1Identifier: String,
     stableMode: Bool,
 ) {
-    prepare(acct: auth(Capabilities, Storage) &Account) {
+    prepare(acct: auth(BorrowValue) &Account) {
 
         let swapper = IncrementFiPoolLiquidityConnectors.Zapper(
             token0Type: CompositeType(token0Identifier) ?? panic("Invalid token0 \(token0Identifier)"),
