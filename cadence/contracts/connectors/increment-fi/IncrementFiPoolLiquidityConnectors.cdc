@@ -142,7 +142,14 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
                 // Calculate how much token0 you get when swapping token1 back to token0
                 // Note: The impact of removed liquidity on the swap price is not considered here
-                let swappedToken0Amount = pairPublicRef.getAmountOut(amountIn: token1Amount, tokenInKey: token1Key)
+                // let swappedToken0Amount = pairPublicRef.getAmountOut(amountIn: token1Amount, tokenInKey: token1Key)
+                let swappedToken0Amount = self.calculateSwapAmount(
+                    amountIn: token1Amount,
+                    token0Offset: -Fix64(token0Amount),
+                    token1Offset: -Fix64(token1Amount),
+                    pairPublicRef: pairPublicRef,
+                    reverse: true
+                )
 
                 // Total token0 amount = direct token0 + swapped token0
                 let totalToken0Amount = token0Amount + swappedToken0Amount
@@ -193,24 +200,22 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Returns a reference to the pair public interface
-        access(self) fun getPairPublicRef(): &{SwapInterfaces.PairPublic} {
+        access(self) view fun getPairPublicRef(): &{SwapInterfaces.PairPublic} {
             return getAccount(self.pairAddress)
                 .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
         }
 
         /// Calculates the zapped amount for a given provided amount
         /// This amount is swapped from token A to token B in order to add liquidity to the pool
-        access(self) view fun calculateZappedAmount(forProvided: UFix64, pairPublicRef: &{SwapInterfaces.PairPublic}): UFix64 {
+        // access(self) view fun calculateZappedAmount(
+        access(self) view fun calculateZappedAmount(
+            forProvided: UFix64,
+            pairPublicRef: &{SwapInterfaces.PairPublic},
+        ): UFix64 {
             let pairInfo = pairPublicRef.getPairInfo()
-            var token0Reserve = 0.0
-            var token1Reserve = 0.0
-            if self.token0Type.identifier == (pairInfo[0] as! String) {
-                token0Reserve = (pairInfo[2] as! UFix64)
-                token1Reserve = (pairInfo[3] as! UFix64)
-            } else {
-                token0Reserve = (pairInfo[3] as! UFix64)
-                token1Reserve = (pairInfo[2] as! UFix64)
-            }
+            let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
+            var token0Reserve = tokenReserves[0]
+            var token1Reserve = tokenReserves[1]
             assert(token0Reserve != 0.0, message: "Cannot add liquidity zapped in a new pool.")
             var zappedAmount = 0.0
             if (self.stableMode == false) {
@@ -229,7 +234,12 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                     (qScaled - r0Scaled*kplus1Scaled/SwapConfig.scaleFactor)*SwapConfig.scaleFactor/(kScaled*2)
                 )
             } else {
-                let desiredZappedAmount = forProvided * token1Reserve / token0Reserve
+                var desiredZappedAmount = 0.0
+                if (token0Reserve > token1Reserve) {
+                    desiredZappedAmount = forProvided * token1Reserve / token0Reserve
+                } else {
+                    desiredZappedAmount = forProvided * token0Reserve / token1Reserve
+                }
                 let token0Key = self.token0Type.identifier
                 let desiredAmountOut = pairPublicRef.getAmountOut(amountIn: desiredZappedAmount, tokenInKey: token0Key)
                 let propAmountOut = (forProvided - desiredZappedAmount) / (token0Reserve + desiredZappedAmount) * (token1Reserve - desiredAmountOut)
@@ -282,8 +292,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Calculates the amount of LP tokens received for a given token0Amount and token1Amount
-        access(self) view fun
-        calculateLpAmount(
+        access(self) view fun calculateLpAmount(
             token0Amount: UFix64,
             token1Amount: UFix64,
             token0Offset: Fix64,
@@ -291,15 +300,9 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             pairPublicRef: &{SwapInterfaces.PairPublic},
         ): UFix64 {
             let pairInfo = pairPublicRef.getPairInfo()
-            var token0Reserve = 0.0
-            var token1Reserve = 0.0
-            if self.token0Type.identifier == (pairInfo[0] as! String) {
-                token0Reserve = (pairInfo[2] as! UFix64)
-                token1Reserve = (pairInfo[3] as! UFix64)
-            } else {
-                token0Reserve = (pairInfo[3] as! UFix64)
-                token1Reserve = (pairInfo[2] as! UFix64)
-            }
+            let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
+            var token0Reserve = tokenReserves[0]
+            var token1Reserve = tokenReserves[1]
 
             // Note: simulate zap swap impact on reserves
             token0Reserve = UFix64(Fix64(token0Reserve) + token0Offset)
@@ -364,25 +367,78 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             pairPublicRef: &{SwapInterfaces.PairPublic}
         ): [UFix64] {
             let pairInfo = pairPublicRef.getPairInfo()
+            let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
+            let token0Reserve = SwapConfig.UFix64ToScaledUInt256(tokenReserves[0])
+            let token1Reserve = SwapConfig.UFix64ToScaledUInt256(tokenReserves[1])
+
+            let lpTokenSupply = pairInfo[5] as! UFix64
+
+            // Calculate proportional amounts based on LP share
+            let lpAmountScaled = SwapConfig.UFix64ToScaledUInt256(lpAmount)
+            let lpTokenSupplyScaled = SwapConfig.UFix64ToScaledUInt256(lpTokenSupply)
+            let token0Amount = SwapConfig.ScaledUInt256ToUFix64(token0Reserve * lpAmountScaled / lpTokenSupplyScaled)
+            let token1Amount = SwapConfig.ScaledUInt256ToUFix64(token1Reserve * lpAmountScaled / lpTokenSupplyScaled)
+
+            return [token0Amount, token1Amount]
+        }
+
+        /// Returns the reserves of the token0 and token1 in the pair
+        /// Returns an array where [0] = token0Reserve, [1] = token1Reserve
+        access(self) view fun getTokenReserves(
+            pairPublicRef: &{SwapInterfaces.PairPublic}
+        ): [UFix64] {
+            let pairInfo = pairPublicRef.getPairInfo()
             var token0Reserve = 0.0
             var token1Reserve = 0.0
-
-            if self.token0Type.identifier == (pairInfo[0] as! String) {
+            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
+            if token0Key == (pairInfo[0] as! String) {
                 token0Reserve = (pairInfo[2] as! UFix64)
                 token1Reserve = (pairInfo[3] as! UFix64)
             } else {
                 token0Reserve = (pairInfo[3] as! UFix64)
                 token1Reserve = (pairInfo[2] as! UFix64)
             }
+            return [token0Reserve, token1Reserve]
+        }
 
-            let lpTokenSupply = pairInfo[5] as! UFix64
+        /// Calculates the amount of token0 received when swapping token1 to token0 with custom reserve values
+        /// If reverse is true, the amountIn is token1Amount
+        /// If reverse is false, the amountIn is token0Amount
+        access(self) view fun calculateSwapAmount(
+            amountIn: UFix64,
+            token0Offset: Fix64,
+            token1Offset: Fix64,
+            pairPublicRef: &{SwapInterfaces.PairPublic},
+            reverse: Bool
+        ): UFix64 {
 
-            // Calculate proportional amounts based on LP share
-            let share = lpAmount / lpTokenSupply
-            let token0Amount = token0Reserve * share
-            let token1Amount = token1Reserve * share
+            let pairInfo = pairPublicRef.getPairInfo()
+            let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
+            var token0Reserve = tokenReserves[0]
+            var token1Reserve = tokenReserves[1]
 
-            return [token0Amount, token1Amount]
+            // Note: simulate zap swap impact on reserves
+            token0Reserve = UFix64(Fix64(token0Reserve) + token0Offset)
+            token1Reserve = UFix64(Fix64(token1Reserve) + token1Offset)
+
+            var swappedToken0Amount = 0.0
+            if (self.stableMode) {
+                swappedToken0Amount = SwapConfig.getAmountOutStable(
+                    amountIn: amountIn,
+                    reserveIn: reverse ? token1Reserve : token0Reserve,
+                    reserveOut: reverse ? token0Reserve : token1Reserve,
+                    p: pairInfo[8] as! UFix64,
+                    swapFeeRateBps: pairInfo[6] as! UInt64
+                )
+            } else {
+                swappedToken0Amount = SwapConfig.getAmountOutVolatile(
+                    amountIn: amountIn,
+                    reserveIn: reverse ? token1Reserve : token0Reserve,
+                    reserveOut: reverse ? token0Reserve : token1Reserve,
+                    swapFeeRateBps: pairInfo[6] as! UInt64
+                )
+            }
+            return swappedToken0Amount
         }
     }
 

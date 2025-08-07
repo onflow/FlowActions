@@ -79,14 +79,14 @@ fun setup() {
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 200.0,
+        amount: 1000.0,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 100.0,
+        amount: 1000.0,
         minterStoragePath: TokenB.AdminStoragePath,
         receiverPublicPath: TokenB.ReceiverPublicPath
     )
@@ -95,8 +95,8 @@ fun setup() {
         signer: pairCreatorAccount,
         token0Key: tokenAKey,
         token1Key: tokenBKey,
-        token0InDesired: 100.0,
-        token1InDesired: 100.0,
+        token0InDesired: 123.0,
+        token1InDesired: 345.0,
         token0InMin: 0.0,
         token1InMin: 0.0,
         deadline: getCurrentBlockTimestamp(),
@@ -109,7 +109,7 @@ fun setup() {
 access(all)
 fun testEstimateAndSwap() {
     // Estimate swap amount
-    let inAmount = 100.0
+    let inAmount = 4.2
     let amountsOutRes = executeScript(
             "../scripts/increment-fi-adapters/zapper/get_amounts_out.cdc",
             [inAmount, tokenAIdentifier, tokenBIdentifier, true, false]
@@ -134,6 +134,38 @@ fun testEstimateAndSwap() {
     Test.expect(swappedEvents.length, Test.equal(1))
     let swappedEvent: DeFiActions.Swapped = swappedEvents[0] as! DeFiActions.Swapped
     Test.expect(swappedEvent.inAmount, Test.equal(inAmount))
+    Test.expect(swappedEvent.outAmount, Test.equal(expectedOutAmount))
+
+}
+
+access(all)
+fun testEstimateAndSwapReverse() {
+    // Estimate swapBack amount
+    let lpTokenInAmount = 4.2
+    let amountsOutRes = executeScript(
+            "../scripts/increment-fi-adapters/zapper/get_amounts_out.cdc",
+            [lpTokenInAmount, tokenAIdentifier, tokenBIdentifier, true, true] // reverse = true
+        )
+    Test.expect(amountsOutRes, Test.beSucceeded())
+    let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
+    Test.assertEqual(lpTokenInAmount, quote.inAmount)
+
+    // Zap should match this amount
+    let expectedOutAmount = quote.outAmount
+
+    // Execute swapBack
+    let result = executeTransaction(
+        "./transactions/increment-fi/zapper/swapBack.cdc",
+        [lpTokenInAmount, tokenAIdentifier, tokenBIdentifier, true],
+        pairCreatorAccount
+    )
+    Test.expect(result.error, Test.beNil())
+
+    // Verify swap event was emitted with correct values and matches expected amount
+    let swappedEvents = Test.eventsOfType(Type<DeFiActions.Swapped>())
+    Test.expect(swappedEvents.length, Test.equal(2)) // including above test
+    let swappedEvent: DeFiActions.Swapped = swappedEvents[1] as! DeFiActions.Swapped
+    Test.expect(swappedEvent.inAmount, Test.equal(lpTokenInAmount))
     Test.expect(swappedEvent.outAmount, Test.equal(expectedOutAmount))
 
 }
