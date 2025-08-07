@@ -236,7 +236,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             var token1Reserve = tokenReserves[1]
             assert(token0Reserve != 0.0, message: "Cannot add liquidity zapped in a new pool.")
             var zappedAmount = 0.0
-            if (self.stableMode == false) {
+            if !self.stableMode {
                 // Cal optimized zapped amount through dex
                 let r0Scaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
                 let swapFeeRateBps = pairInfo[6] as! UInt64
