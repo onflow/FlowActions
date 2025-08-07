@@ -401,7 +401,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         access(self) view fun calculateTokenAmountsFromLp(
             lpAmount: UFix64,
             pairPublicRef: &{SwapInterfaces.PairPublic}
-        ): [UFix64] {
+        ): [UFix64; 2] {
             let pairInfo = pairPublicRef.getPairInfo()
             let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
             let token0Reserve = SwapConfig.UFix64ToScaledUInt256(tokenReserves[0])
@@ -426,7 +426,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         ///
         access(self) view fun getTokenReserves(
             pairPublicRef: &{SwapInterfaces.PairPublic}
-        ): [UFix64] {
+        ): [UFix64; 2] {
             let pairInfo = pairPublicRef.getPairInfo()
             var token0Reserve = 0.0
             var token1Reserve = 0.0
