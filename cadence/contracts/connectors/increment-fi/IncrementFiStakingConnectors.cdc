@@ -212,9 +212,10 @@ access(all) contract IncrementFiStakingConnectors {
         access(all) fun minimumAvailable(): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
                 if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
-                    // Get the remaining staking capacity for the user in the pool
-                    let stakingAmount = (pool.getUserInfo(address: address)?.stakingAmount) ?? 0.0
-                    return pool.getPoolInfo().limitAmount - stakingAmount
+                    if let unclaimedRewards = pool.getUserInfo(address: address)?.unclaimedRewards {
+                        // Return the unclaimed rewards for the specific vault type
+                        return unclaimedRewards[SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)] ?? 0.0
+                    }
                 }
             }
 
