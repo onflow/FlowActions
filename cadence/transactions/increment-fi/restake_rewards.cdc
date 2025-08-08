@@ -60,8 +60,8 @@ transaction(
         // The zapper takes the reward token and the pair token to create LP tokens
         // that can be staked back into the pool for compound returns
         let zapper = IncrementFiPoolLiquidityConnectors.Zapper(
-            token0Type: CompositeType(pair.getPairInfoStruct().token0Key.concat(".Vault"))!,
-            token1Type: CompositeType(pair.getPairInfoStruct().token1Key.concat(".Vault"))!,
+            token0Type: tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token0Key),
+            token1Type: tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token1Key),
             stableMode: false,
             uniqueID: self.uniqueID
         )
@@ -115,6 +115,10 @@ access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic}
 
     assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
 
-    return getAccount(CompositeType(rewardsInfo.keys[0].concat(".Vault"))!.address!)
+    return getAccount(tokenTypeIdentifierToVaultType(rewardsInfo.keys[0]).address!)
         .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+}
+
+access(all) fun tokenTypeIdentifierToVaultType(_ tokenType: String): Type {
+    return CompositeType(tokenType.concat(".Vault"))!
 }
