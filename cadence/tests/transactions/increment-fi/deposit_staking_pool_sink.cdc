@@ -1,11 +1,11 @@
 import "IncrementFiStakingConnectors"
 import "Staking"
 import "FungibleToken"
-import "TokenA"
+import "FungibleTokenMetadataViews"
 
-transaction(pid: UInt64) {
+transaction(pid: UInt64, vaultType: Type) {
     let incrementFiSink: IncrementFiStakingConnectors.PoolSink
-    let tokenAVaultRef: auth(FungibleToken.Withdraw) &TokenA.Vault
+    let tokenVaultRef: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
     prepare(acct: auth(BorrowValue) &Account) {
         self.incrementFiSink = IncrementFiStakingConnectors.PoolSink(
@@ -13,13 +13,22 @@ transaction(pid: UInt64) {
             staker: acct.address,
             uniqueID: nil
         )
-        self.tokenAVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &TokenA.Vault>(from: TokenA.VaultStoragePath)
+
+        let ftVaultData = getAccount(vaultType.address!)
+            .contracts
+            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
+            .resolveContractView(
+                resourceType: nil,
+                viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
+            )! as! FungibleTokenMetadataViews.FTVaultData
+
+        self.tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: ftVaultData.storagePath)
             ?? panic("Could not borrow reference to TokenA Vault")
     }
     
     execute {
         self.incrementFiSink.depositCapacity(
-            from: self.tokenAVaultRef
+            from: self.tokenVaultRef
         )
     }
 }

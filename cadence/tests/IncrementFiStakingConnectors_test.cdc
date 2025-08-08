@@ -108,7 +108,7 @@ access(all) fun testSink() {
     let poolId: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -147,7 +147,7 @@ access(all) fun testSource() {
     // First deposit tokens into the staking pool
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool.cdc",
-        [poolId, testDepositAmount],
+        [poolId, testDepositAmount, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -203,7 +203,7 @@ access(all) fun testSinkAtCapacityLimit() {
     let poolId: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -240,7 +240,7 @@ access(all) fun testSinkMultipleUsers() {
     let poolId: UInt64 = 0
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user1
     )
     Test.expect(result.error, Test.beNil())
@@ -260,7 +260,7 @@ access(all) fun testSinkMultipleUsers() {
 
     result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user2
     )
     Test.expect(result.error, Test.beNil())
@@ -298,7 +298,7 @@ access(all) fun testSinkWithUserAtCapacityLimit() {
     let poolId: UInt64 = 0
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -320,7 +320,7 @@ access(all) fun testSinkWithUserAtCapacityLimit() {
 
     result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -354,7 +354,7 @@ access(all) fun testMinimumCapacityCalculation() {
     let poolId: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -386,7 +386,7 @@ access(all) fun testMinimumCapacityCalculation() {
 
     let result2 = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId],
+        [poolId, Type<@TokenA.Vault>()],
         user2
     )
     Test.expect(result2.error, Test.beNil())
@@ -420,7 +420,7 @@ access(all) fun testSourceAvailableCalculation() {
     // Deposit tokens into the staking pool
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool.cdc",
-        [poolId, testDepositAmount],
+        [poolId, testDepositAmount, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())

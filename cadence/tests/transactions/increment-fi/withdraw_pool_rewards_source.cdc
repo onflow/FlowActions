@@ -1,10 +1,11 @@
 import "IncrementFiStakingConnectors"
 import "Staking"
 import "FungibleToken"
-import "TokenA"
+import "FungibleTokenMetadataViews"
 
 transaction(pid: UInt64, vaultType: Type) {
     let userCertificateCap: Capability<&Staking.UserCertificate>
+    let tokenVaultRef: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
     
     prepare(acct: auth(Storage, Capabilities) &Account) {
         if let userCertificate = acct.storage.borrow<&Staking.UserCertificate>(from: Staking.UserCertificateStoragePath) {
@@ -14,6 +15,19 @@ transaction(pid: UInt64, vaultType: Type) {
             self.userCertificateCap = acct.capabilities.storage.issue<&Staking.UserCertificate>(Staking.UserCertificateStoragePath)
         }
 
+        let ftVaultData = getAccount(vaultType.address!)
+            .contracts
+            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
+            .resolveContractView(
+                resourceType: nil,
+                viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
+            )! as! FungibleTokenMetadataViews.FTVaultData
+
+        self.tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: ftVaultData.storagePath)
+            ?? panic("Could not borrow reference to TokenA Vault")
+    }
+
+    execute {
         let incrementFiSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: self.userCertificateCap,
             poolID: pid,
@@ -21,10 +35,6 @@ transaction(pid: UInt64, vaultType: Type) {
             overflowSinks: {},
             uniqueID: nil
         )
-
-        let tokenAVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &TokenA.Vault>(from: TokenA.VaultStoragePath)
-            ?? panic("Could not borrow reference to TokenA Vault")
-        
-        tokenAVaultRef.deposit(from: <- incrementFiSource.withdrawAvailable(maxAmount: UFix64.max))
+        self.tokenVaultRef.deposit(from: <- incrementFiSource.withdrawAvailable(maxAmount: UFix64.max))
     }
 }

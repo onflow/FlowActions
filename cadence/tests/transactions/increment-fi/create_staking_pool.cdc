@@ -1,7 +1,7 @@
 import "Staking"
 import "SwapConfig"
-import "TokenA"
 import "FungibleToken"
+import "FungibleTokenMetadataViews"
 
 transaction(
     limitAmount: UFix64,
@@ -17,18 +17,28 @@ transaction(
             ?? panic("Could not borrow reference to Staking Admin")
         let poolAdminRef = acct.storage.borrow<&Staking.PoolAdmin>(from: Staking.PoolAdminStoragePath)
             ?? panic("Could not borrow reference to Staking Admin")
-        let tokenAVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &TokenA.Vault>(from: TokenA.VaultStoragePath)
-            ?? panic("Could not borrow reference to TokenA Vault")
+
+        let ftContract = getAccount(vaultType.address!)
+            .contracts
+            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
+        let ftVaultData = ftContract
+            .resolveContractView(
+                resourceType: nil,
+                viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
+            )! as! FungibleTokenMetadataViews.FTVaultData
+
+        let tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: ftVaultData.storagePath)
+            ?? panic("Could not borrow reference to Token Vault")
         
         let pid = Staking.poolCount
         poolCollection.createStakingPool(
             adminRef: adminRef,
             poolAdminAddr: poolAdminRef.owner!.address,
             limitAmount: limitAmount,
-            vault: <- TokenA.createEmptyVault(vaultType: vaultType),
+            vault: <- ftContract.createEmptyVault(vaultType: vaultType),
             rewards: rewardInfo
         )
 
-        poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenAVaultRef.withdraw(amount: depositAmount))
+        poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenVaultRef.withdraw(amount: depositAmount))
     }
 }
