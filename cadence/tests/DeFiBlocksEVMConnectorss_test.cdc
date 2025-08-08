@@ -46,8 +46,8 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "SwapStack",
-        path: "../contracts/connectors/SwapStack.cdc",
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

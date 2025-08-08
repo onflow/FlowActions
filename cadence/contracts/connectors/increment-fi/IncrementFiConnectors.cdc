@@ -5,7 +5,7 @@ import "SwapInterfaces"
 import "SwapConfig"
 import "SwapFactory"
 import "SwapRouter"
-import "SwapStack"
+import "SwapConnectors"
 import "DeFiActions"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -91,7 +91,7 @@ access(all) contract IncrementFiConnectors {
         /// The estimated amount required to provide a Vault with the desired output balance
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountsIn = SwapRouter.getAmountsIn(amountOut: forDesired, tokenKeyPath: reverse ? self.path.reverse() : self.path)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountsIn.length == 0 ? 0.0 : amountsIn[0],
@@ -101,7 +101,7 @@ access(all) contract IncrementFiConnectors {
         /// The estimated amount delivered out for a provided input balance
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountsOut = SwapRouter.getAmountsOut(amountIn: forProvided, tokenKeyPath: reverse ? self.path.reverse() : self.path)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: forProvided,

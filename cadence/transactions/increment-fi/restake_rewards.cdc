@@ -2,7 +2,7 @@ import "FungibleToken"
 import "Staking"
 import "IncrementFiStakingConnectors"
 import "IncrementFiPoolLiquidityConnectors"
-import "SwapStack"
+import "SwapConnectors"
 import "DeFiActions"
 import "SwapConfig"
 
@@ -65,7 +65,7 @@ transaction(
 
         // Create the SwapSource that uses the zapper to convert reward tokens to LP tokens
         // This combines the reward harvesting with the LP token conversion process
-        let lpTokenPoolRewardsSource = SwapStack.SwapSource(
+        let lpTokenPoolRewardsSource = SwapConnectors.SwapSource(
             swapper: zapper,
             source: poolRewardsSource,
             uniqueID: nil

@@ -7,7 +7,7 @@ import "FlowEVMBridgeConfig"
 import "FlowEVMBridge"
 
 import "DeFiActions"
-import "SwapStack"
+import "SwapConnectors"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -111,12 +111,12 @@ access(all) contract DeFiActionsEVMConnectors {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        /// @return a SwapConnectors.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountIn != nil ? amountIn! : 0.0,
@@ -131,12 +131,12 @@ access(all) contract DeFiActionsEVMConnectors {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        /// @return a SwapConnectors.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountOut != nil ? forProvided : 0.0,

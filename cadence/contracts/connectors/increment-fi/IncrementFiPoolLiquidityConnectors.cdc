@@ -1,6 +1,6 @@
 import "FungibleToken"
 
-import "SwapStack"
+import "SwapConnectors"
 import "DeFiActions"
 
 import "SwapRouter"
@@ -137,7 +137,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                     pairPublicRef: pairPublicRef
                 )
 
-                return SwapStack.BasicQuote(
+                return SwapConnectors.BasicQuote(
                     inType: self.inType(),
                     outType: self.outType(),
                     inAmount: forProvided,
@@ -165,7 +165,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 // Total token0 amount = direct token0 + swapped token0
                 let totalToken0Amount = token0Amount + swappedToken0Amount
 
-                return SwapStack.BasicQuote(
+                return SwapConnectors.BasicQuote(
                     inType: self.outType(), // LP token type
                     outType: self.inType(), // token0 type
                     inAmount: forProvided,

@@ -60,8 +60,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"SwapStack": {
-			"source": "cadence/contracts/connectors/SwapStack.cdc",
+		"SwapConnectors": {
+			"source": "cadence/contracts/connectors/SwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
@@ -580,7 +580,7 @@
 				"DeFiActionsMathUtils",
 				"DeFiActions",
 				"DeFiActionsUtils",
-				"SwapStack",
+				"SwapConnectors",
 				"FungibleTokenConnectors",
 				"IncrementFiConnectors",
 				"SwapPair",
