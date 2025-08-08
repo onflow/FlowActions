@@ -3,7 +3,7 @@ import "Staking"
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-transaction(pid: UInt64, vaultType: Type) {
+transaction(pid: UInt64) {
     let userCertificateCap: Capability<&Staking.UserCertificate>
     let tokenVaultRef: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
     
@@ -15,9 +15,13 @@ transaction(pid: UInt64, vaultType: Type) {
             self.userCertificateCap = acct.capabilities.storage.issue<&Staking.UserCertificate>(Staking.UserCertificateStoragePath)
         }
 
-        let ftVaultData = getAccount(vaultType.address!)
+        let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+            ?? panic("Pool with ID \(pid) not found or not accessible")
+
+        let rewardTokenType = CompositeType(pool.getPoolInfo().rewardsInfo.keys[0].concat(".Vault"))!
+        let ftVaultData = getAccount(rewardTokenType.address!)
             .contracts
-            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
+            .borrow<&{FungibleToken}>(name: rewardTokenType.contractName!)!
             .resolveContractView(
                 resourceType: nil,
                 viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
@@ -31,8 +35,6 @@ transaction(pid: UInt64, vaultType: Type) {
         let incrementFiSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: self.userCertificateCap,
             poolID: pid,
-            vaultType: vaultType,
-            overflowSinks: {},
             uniqueID: nil
         )
         self.tokenVaultRef.deposit(from: <- incrementFiSource.withdrawAvailable(maxAmount: UFix64.max))

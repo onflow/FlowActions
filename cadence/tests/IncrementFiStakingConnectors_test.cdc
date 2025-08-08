@@ -160,7 +160,7 @@ access(all) fun testSource() {
     // Create and test the rewards source
     result = executeTransaction(
         "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [poolId],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -430,7 +430,7 @@ access(all) fun testSourceAvailableCalculation() {
     // Immediately attempt to withdraw rewards; should be zero available and emit no events
     result = executeTransaction(
         "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [poolId],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -449,14 +449,14 @@ access(all) fun testSourceAvailableCalculation() {
             code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
             authorizers: [user.address],
             signers: [user],
-            arguments: [poolId, Type<@TokenA.Vault>()],
+            arguments: [poolId],
         ),
         // Try to withdraw more than available; should return empty vault
         Test.Transaction(
             code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
             authorizers: [user.address],
             signers: [user],
-            arguments: [poolId, Type<@TokenA.Vault>()],
+            arguments: [poolId],
         )
     ])
     Test.expect(results.length, Test.equal(2))
