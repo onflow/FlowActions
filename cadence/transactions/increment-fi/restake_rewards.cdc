@@ -4,6 +4,8 @@ import "IncrementFiStakingConnectors"
 import "IncrementFiPoolLiquidityConnectors"
 import "SwapStack"
 import "DeFiActions"
+import "SwapInterfaces"
+import "SwapConfig"
 
 /// Restakes earned staking rewards by converting them to LP tokens and staking them back into the same pool.
 /// This transaction automates the compound staking process by:
@@ -44,8 +46,7 @@ transaction(
                 Staking.UserCertificateStoragePath
             )
 
-        // Get the reward token type and the pair token type
-        let rewardsInfo = self.pool.getPoolInfo().rewardsInfo
+        let pair = borrowPairPublicByPid(pid: pid)
 
         // Create the PoolRewardsSource to harvest rewards from the staking pool
         // This source will withdraw available rewards from the specified pool using the user's certificate
@@ -59,8 +60,8 @@ transaction(
         // The zapper takes the reward token and the pair token to create LP tokens
         // that can be staked back into the pool for compound returns
         let zapper = IncrementFiPoolLiquidityConnectors.Zapper(
-            token0Type: CompositeType(rewardsInfo.keys[0].concat(".Vault"))!,
-            token1Type: CompositeType(self.pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!,
+            token0Type: CompositeType(pair.getPairInfoStruct().token0Key.concat(".Vault"))!,
+            token1Type: CompositeType(pair.getPairInfoStruct().token1Key.concat(".Vault"))!,
             stableMode: false,
             uniqueID: self.uniqueID
         )
@@ -105,4 +106,15 @@ transaction(
         assert(vault.balance == 0.0, message: "Vault should be empty after withdrawal - restaking may have failed")
         destroy vault
     }
+}
+
+access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic} {
+    let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+        ?? panic("Pool with ID \(pid) not found or not accessible")
+    let rewardsInfo = pool.getPoolInfo().rewardsInfo
+
+    assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
+
+    return getAccount(CompositeType(rewardsInfo.keys[0].concat(".Vault"))!.address!)
+        .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
 }
