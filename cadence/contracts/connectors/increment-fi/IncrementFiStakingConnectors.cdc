@@ -3,6 +3,7 @@ import "DeFiActionsUtils"
 import "FungibleToken"
 import "Staking"
 import "SwapConfig"
+import "SwapInterfaces"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -273,5 +274,20 @@ access(all) contract IncrementFiStakingConnectors {
     access(all) fun borrowPool(poolID: UInt64): &{Staking.PoolPublic}? {
         let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
         return poolCollectionCap.borrow()?.getPool(pid: poolID)
+    }
+
+    access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic} {
+        let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+            ?? panic("Pool with ID \(pid) not found or not accessible")
+        let rewardsInfo = pool.getPoolInfo().rewardsInfo
+
+        assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
+
+        return getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardsInfo.keys[0]).address!)
+            .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+    }
+
+    access(all) fun tokenTypeIdentifierToVaultType(_ tokenType: String): Type {
+        return CompositeType(tokenType.concat(".Vault"))!
     }
 }
