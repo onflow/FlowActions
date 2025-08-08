@@ -442,14 +442,28 @@ access(all) fun testSourceAvailableCalculation() {
     Test.moveTime(by: testTimeAdvanceSeconds)
     Test.commitBlock()
 
-    // Withdraw accrued rewards; should equal rps * elapsed
-    result = executeTransaction(
-        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
-        user
-    )
-    Test.expect(result.error, Test.beNil())
+    // Withdraw rewards and try to withdraw more afterwards
+    let results = Test.executeTransactions([
+        // Withdraw accrued rewards; should equal rps * elapsed
+        Test.Transaction(
+            code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
+            authorizers: [user.address],
+            signers: [user],
+            arguments: [poolId, Type<@TokenA.Vault>()],
+        ),
+        // Try to withdraw more than available; should return empty vault
+        Test.Transaction(
+            code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
+            authorizers: [user.address],
+            signers: [user],
+            arguments: [poolId, Type<@TokenA.Vault>()],
+        )
+    ])
+    Test.expect(results.length, Test.equal(2))
+    Test.expect(results[0].error, Test.beNil())
+    Test.expect(results[1].error, Test.beNil())
 
+    // Verify that the reward claimed was only emitted once for the first transaction
     rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
     Test.expect(rewardClaimedEvents.length, Test.equal(1))
 
@@ -464,15 +478,4 @@ access(all) fun testSourceAvailableCalculation() {
     Test.expect(rewardClaimedEvent.tokenKey, Test.equal(expectedTokenKey))
     Test.expect(rewardClaimedEvent.amount, Test.equal(expectedRewardAmount))
     Test.expect(rewardClaimedEvent.userRPSAfter, Test.equal(expectedRPS))
-
-    // Attempt to withdraw again immediately; no rewards should be available now
-    result = executeTransaction(
-        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
-        user
-    )
-    Test.expect(result.error, Test.beNil())
-
-    rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
-    Test.expect(rewardClaimedEvents.length, Test.equal(1))
 }
