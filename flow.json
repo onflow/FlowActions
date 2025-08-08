@@ -30,8 +30,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"FungibleTokenStack": {
-			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
+		"FungibleTokenConnectors": {
+			"source": "cadence/contracts/connectors/FungibleTokenConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -581,7 +581,7 @@
 				"DeFiActions",
 				"DeFiActionsUtils",
 				"SwapStack",
-				"FungibleTokenStack",
+				"FungibleTokenConnectors",
 				"IncrementFiConnectors",
 				"SwapPair",
 				"FlowEVMBridgeUtils",

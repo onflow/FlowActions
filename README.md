@@ -35,7 +35,7 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 | DeFiActions | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
 | DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
 | DeFiActionsUtils | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
-| FungibleTokenStack | 0x5a7b9cee9aaf4e4e | TBD |
+| FungibleTokenConnectors | 0x5a7b9cee9aaf4e4e | TBD |
 | SwapStack | 0xaddd594cf410166a | TBD |
 | IncrementFiConnectors | TBD | TBD |
 | BandOracleConnectors | TBD | TBD |
@@ -81,13 +81,13 @@ Comprehensive event emission enables full workflow tracing and debugging, with s
 To understand DeFiActions, start with these key files:
 
 1. **[`cadence/contracts/interfaces/DeFiActions.cdc`](cadence/contracts/interfaces/DeFiActions.cdc)** - Core interface definitions and documentation
-2. **[`cadence/contracts/connectors/FungibleTokenStack.cdc`](cadence/contracts/connectors/FungibleTokenStack.cdc)** - Basic Source/Sink implementations for FungibleToken vaults
+2. **[`cadence/contracts/connectors/FungibleTokenConnectors.cdc`](cadence/contracts/connectors/FungibleTokenConnectors.cdc)** - Basic Source/Sink implementations for FungibleToken vaults
 3. **[`cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc)** - Example protocol adapter for IncrementFi DEX integration
 
 ### Understanding the System
 
 - **Start with the interfaces**: Review the core primitive definitions in `DeFiActions.cdc`
-- **Study the connectors**: Examine `FungibleTokenStack.cdc` for basic implementation patterns
+- **Study the connectors**: Examine `FungibleTokenConnectors.cdc` for basic implementation patterns
 - **Explore protocol connectors**: See how external protocols integrate via the connector examples
 - **Check the tests**: Browse `cadence/tests/` for usage patterns and workflow examples
 
@@ -116,7 +116,7 @@ To understand DeFiActions, start with these key files:
    flow test cadence/tests/DeFiActions_test.cdc
    
    # Test FungibleToken connectors
-   flow test cadence/tests/FungibleTokenStack_test.cdc
+   flow test cadence/tests/FungibleTokenConnectors_test.cdc
    
    # Test protocol connectors
    flow test cadence/tests/IncrementFiConnectors_test.cdc
@@ -133,9 +133,9 @@ To understand DeFiActions, start with these key files:
 ### Connector Implementations
 
 **Basic Vault Operations:**
-- [`VaultSink`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Deposits tokens to a FungibleToken vault with capacity limits
-- [`VaultSource`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Withdraws tokens from a FungibleToken vault with minimum balance protection
-- [`VaultSinkAndSource`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Combined deposit/withdrawal functionality for a single vault
+- [`VaultSink`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Deposits tokens to a FungibleToken vault with capacity limits
+- [`VaultSource`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Withdraws tokens from a FungibleToken vault with minimum balance protection
+- [`VaultSinkAndSource`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Combined deposit/withdrawal functionality for a single vault
 
 **Protocol Connectors:**
 - [`IncrementFiSwapper`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc) - DEX integration for token swapping via IncrementFi
