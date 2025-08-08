@@ -32,9 +32,9 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 
 | Contract | Testnet | Mainnet |
 |----------|---------|---------|
-| DeFiActions | 0x4c2ff9dd03ab442f | TBD |
-| DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | TBD |
-| DeFiActionsUtils | 0x4c2ff9dd03ab442f | TBD |
+| DeFiActions | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
+| DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
+| DeFiActionsUtils | 0x4c2ff9dd03ab442f | 0xddd3ba0843519b42 |
 | FungibleTokenStack | 0x5a7b9cee9aaf4e4e | TBD |
 | SwapStack | 0xaddd594cf410166a | TBD |
 | IncrementFiConnectors | TBD | TBD |

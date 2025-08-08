@@ -493,6 +493,20 @@
 				"location": "emulator-account.pkey"
 			}
 		},
+		"mainnet-defi-actions": {
+			"address": "ddd3ba0843519b42",
+			"key": {
+				"type": "file",
+				"location": "mainnet-originator.pkey"
+			}
+		},
+		"mainnet-originator": {
+			"address": "0e9374d0c1a78c0f",
+			"key": {
+				"type": "file",
+				"location": "mainnet-originator.pkey"
+			}
+		},
 		"testnet-defi-actions": {
 			"address": "4c2ff9dd03ab442f",
 			"key": {
@@ -509,16 +523,16 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"testnet-swap-stack": {
-			"address": "addd594cf410166a",
+		"testnet-increment-fi-connectors": {
+			"address": "49bae091e5ea16b5",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"testnet-increment-fi-connectors": {
-			"address": "0x49bae091e5ea16b5",
+		"testnet-swap-stack": {
+			"address": "addd594cf410166a",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
