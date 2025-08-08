@@ -42,6 +42,18 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"IncrementFiPoolLiquidityConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiPoolLiquidityConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"IncrementFiStakingConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiStakingConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"MockOracle": {
 			"source": "cadence/tests/contracts/MockOracle.cdc",
 			"aliases": {
@@ -355,7 +367,7 @@
 		},
 		"MetadataViews": {
 			"source": "mainnet://1d7e57aa55817448.MetadataViews",
-			"hash": "10a239cc26e825077de6c8b424409ae173e78e8391df62750b6ba19ffd048f51",
+			"hash": "9032f46909e729d26722cbfcee87265e4f81cd2912e936669c0e6b510d007e81",
 			"aliases": {
 				"emulator": "f8d6e0586b0a20c7",
 				"mainnet": "1d7e57aa55817448",
@@ -403,6 +415,22 @@
 			"hash": "46318aee6fd29616c8048c23210d4c4f5b172eb99a0ca911fbd849c831a52a0b",
 			"aliases": {
 				"mainnet": "b063c16cac85dbd1",
+				"testing": "0000000000000008"
+			}
+		},
+		"Staking": {
+			"source": "mainnet://1b77ba4b414de352.Staking",
+			"hash": "2faa0180c406f783165d6b2e3370076f126ac6a0e8b800ace55707e838147811",
+			"aliases": {
+				"mainnet": "1b77ba4b414de352",
+				"testing": "0000000000000008"
+			}
+		},
+		"StakingError": {
+			"source": "mainnet://1b77ba4b414de352.StakingError",
+			"hash": "f76be3a19f8b640149fa0860316a34058b96c4ac2154486e337fd449306c730e",
+			"aliases": {
+				"mainnet": "1b77ba4b414de352",
 				"testing": "0000000000000008"
 			}
 		},
@@ -583,7 +611,9 @@
 				"FlowEVMBridgeResolver",
 				"BandOracle",
 				"FlowEVMBridgeCustomAssociations",
-				"FlowEVMBridgeCustomAssociationTypes"
+				"FlowEVMBridgeCustomAssociationTypes",
+				"Staking",
+				"StakingError"
 			]
 		},
 		"testnet": {
