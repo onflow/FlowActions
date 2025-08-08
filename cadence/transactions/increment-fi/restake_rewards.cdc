@@ -62,7 +62,7 @@ transaction(
         let zapper = IncrementFiPoolLiquidityConnectors.Zapper(
             token0Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token0Key),
             token1Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token1Key),
-            stableMode: false,
+            stableMode: pair.getPairInfoStruct().isStableswap,
             uniqueID: self.uniqueID
         )
 
