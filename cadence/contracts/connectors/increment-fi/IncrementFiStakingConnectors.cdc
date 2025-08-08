@@ -244,27 +244,26 @@ access(all) contract IncrementFiStakingConnectors {
                     var targetRewards: @{FungibleToken.Vault}? <- nil
                     let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
                     for sliceType in rewards.keys {
-                        if let reward <- rewards.remove(key: sliceType) {
-                            if sliceType == targetSliceType {
-                                if reward.balance > withdrawAmount {
-                                    targetRewards <-! reward.withdraw(amount: withdrawAmount)
-                                    if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
-                                        overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-                                        assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
-                                        destroy reward
-                                    } else {
-                                        panic("No overflow sink found for slice type \(sliceType)")
-                                    }
+                        let reward <- rewards.remove(key: sliceType)!
+                        if sliceType == targetSliceType {
+                            if reward.balance > withdrawAmount {
+                                targetRewards <-! reward.withdraw(amount: withdrawAmount)
+                                if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
+                                    overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                                    assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
+                                    destroy reward
                                 } else {
-                                    targetRewards <-! reward
+                                    panic("No overflow sink found for slice type \(sliceType)")
                                 }
-                            } else if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
-                                overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-                                assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
-                                destroy reward
                             } else {
-                                panic("No overflow sink found for slice type \(sliceType)")
+                                targetRewards <-! reward
                             }
+                        } else if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
+                            overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+                            assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
+                            destroy reward
+                        } else {
+                            panic("No overflow sink found for slice type \(sliceType)")
                         }
                     }
 
