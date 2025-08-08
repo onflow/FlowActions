@@ -212,6 +212,11 @@ access(all) contract IncrementFiStakingConnectors {
         access(all) fun minimumAvailable(): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
                 if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+                    // Stake an empty vault on behalf of the user to update the pool
+                    // The Staking contract does not expose any way to update the unclaimed rewards
+                    // field, so staking an empty vault is a workaround to update the unclaimed rewards
+                    let emptyVault <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
+                    pool.stake(staker: address, stakingToken: <- emptyVault)
                     if let unclaimedRewards = pool.getUserInfo(address: address)?.unclaimedRewards {
                         // Return the unclaimed rewards for the specific vault type
                         return unclaimedRewards[SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)] ?? 0.0

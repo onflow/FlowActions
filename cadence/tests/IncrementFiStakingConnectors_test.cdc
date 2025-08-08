@@ -398,3 +398,81 @@ access(all) fun testMinimumCapacityCalculation() {
     let secondStakeEvent = allStakeEvents[1] as! Staking.TokenStaked
     Test.expect(secondStakeEvent.amount, Test.equal(expectedRemainingCapacity))
 }
+
+access(all) fun testSourceAvailableCalculation() {
+    let user = Test.createAccount()
+
+    // Setup user vault and mint stake tokens
+    setupGenericVault(
+        signer: user,
+        vaultIdentifier: Type<@TokenA.Vault>().identifier
+    )
+    mintTestTokens(
+        signer: Test.getAccount(Type<TokenA>().address!),
+        recipient: user.address,
+        amount: testDepositAmount,
+        minterStoragePath: TokenA.AdminStoragePath,
+        receiverPublicPath: TokenA.ReceiverPublicPath
+    )
+
+    let poolId: UInt64 = 0
+
+    // Deposit tokens into the staking pool
+    var result = executeTransaction(
+        "./transactions/increment-fi/deposit_staking_pool.cdc",
+        [poolId, testDepositAmount],
+        user
+    )
+    Test.expect(result.error, Test.beNil())
+
+    let depositTimestamp = getCurrentBlockTimestamp()
+
+    // Immediately attempt to withdraw rewards; should be zero available and emit no events
+    result = executeTransaction(
+        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
+        [poolId, Type<@TokenA.Vault>()],
+        user
+    )
+    Test.expect(result.error, Test.beNil())
+
+    var rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
+    Test.expect(rewardClaimedEvents.length, Test.equal(0))
+
+    // Advance time to accrue rewards
+    Test.moveTime(by: testTimeAdvanceSeconds)
+    Test.commitBlock()
+
+    // Withdraw accrued rewards; should equal rps * elapsed
+    result = executeTransaction(
+        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
+        [poolId, Type<@TokenA.Vault>()],
+        user
+    )
+    Test.expect(result.error, Test.beNil())
+
+    rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
+    Test.expect(rewardClaimedEvents.length, Test.equal(1))
+
+    let rewardClaimedEvent = rewardClaimedEvents[0] as! Staking.RewardClaimed
+    let expectedTokenKey = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: Type<@TokenA.Vault>().identifier)
+
+    let elapsed = getCurrentBlockTimestamp() - depositTimestamp
+    let expectedRewardAmount = testRps * elapsed
+    let expectedRPS = expectedRewardAmount / testDepositAmount
+
+    Test.expect(rewardClaimedEvent.pid, Test.equal(poolId))
+    Test.expect(rewardClaimedEvent.tokenKey, Test.equal(expectedTokenKey))
+    Test.expect(rewardClaimedEvent.amount, Test.equal(expectedRewardAmount))
+    Test.expect(rewardClaimedEvent.userRPSAfter, Test.equal(expectedRPS))
+
+    // Attempt to withdraw again immediately; no rewards should be available now
+    result = executeTransaction(
+        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
+        [poolId, Type<@TokenA.Vault>()],
+        user
+    )
+    Test.expect(result.error, Test.beNil())
+
+    rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
+    Test.expect(rewardClaimedEvents.length, Test.equal(1))
+}
