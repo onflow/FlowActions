@@ -15,7 +15,7 @@ transaction(pid: UInt64) {
             self.userCertificateCap = acct.capabilities.storage.issue<&Staking.UserCertificate>(Staking.UserCertificateStoragePath)
         }
 
-        let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+        let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
             ?? panic("Pool with ID \(pid) not found or not accessible")
 
         let rewardTokenType = CompositeType(pool.getPoolInfo().rewardsInfo.keys[0].concat(".Vault"))!
@@ -34,7 +34,7 @@ transaction(pid: UInt64) {
     execute {
         let incrementFiSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: self.userCertificateCap,
-            poolID: pid,
+            pid: pid,
             uniqueID: nil
         )
         self.tokenVaultRef.deposit(from: <- incrementFiSource.withdrawAvailable(maxAmount: UFix64.max))

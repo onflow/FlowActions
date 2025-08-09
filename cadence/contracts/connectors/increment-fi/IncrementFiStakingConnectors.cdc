@@ -31,28 +31,28 @@ access(all) contract IncrementFiStakingConnectors {
         /// Address of the user staking in the pool
         access(self) let staker: Address
         /// The unique identifier of the staking pool to deposit into
-        access(self) let poolID: UInt64
+        access(self) let pid: UInt64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new PoolSink
         ///
-        /// @param poolID: The unique identifier of the staking pool to deposit into
+        /// @param pid: The unique identifier of the staking pool to deposit into
         /// @param staker: Address of the user staking in the pool
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
-            poolID: UInt64,
+            pid: UInt64,
             staker: Address,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
-            let pool = IncrementFiStakingConnectors.borrowPool(poolID: poolID)
-                ?? panic("Pool with ID \(poolID) not found or not accessible")
+            let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
+                ?? panic("Pool with ID \(pid) not found or not accessible")
 
             self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool.getPoolInfo().acceptTokenKey)
             self.staker = staker
-            self.poolID = poolID
+            self.pid = pid
             self.uniqueID = uniqueID
         }
 
@@ -98,7 +98,7 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return the minimum capacity available for deposits to this Sink
         ///
         access(all) fun minimumCapacity(): UFix64 {
-            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 // Get the staking amount for the user in the pool
                 let stakingAmount = pool.getUserInfo(address: self.staker)?.stakingAmount ?? 0.0
                 return pool.getPoolInfo().limitAmount - stakingAmount
@@ -117,7 +117,7 @@ access(all) contract IncrementFiStakingConnectors {
                 return
             }
 
-            if let pool: &{Staking.PoolPublic} = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool: &{Staking.PoolPublic} = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 let depositAmount = from.balance < minimumCapacity
                     ? from.balance
                     : minimumCapacity
@@ -139,7 +139,7 @@ access(all) contract IncrementFiStakingConnectors {
         /// The type of Vault this Source provides when claiming rewards
         access(all) let vaultType: Type
         /// The unique identifier of the staking pool to claim rewards from
-        access(self) let poolID: UInt64
+        access(self) let pid: UInt64
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
@@ -149,23 +149,23 @@ access(all) contract IncrementFiStakingConnectors {
         /// Initializes a new PoolRewardsSource
         ///
         /// @param userCertificate: Capability to access the user's staking certificate
-        /// @param poolID: The unique identifier of the staking pool to claim rewards from
+        /// @param pid: The unique identifier of the staking pool to claim rewards from
         /// @param vaultType: The type of Vault this Source provides when claiming rewards
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
-            poolID: UInt64,
+            pid: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
-            let pool = IncrementFiStakingConnectors.borrowPool(poolID: poolID)
-                ?? panic("Pool with ID \(poolID) not found")
+            let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
+                ?? panic("Pool with ID \(pid) not found")
             let rewardsInfo = pool!.getPoolInfo().rewardsInfo
 
-            assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(poolID) has multiple reward token types, only one is supported")
+            assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
             let rewardTokenType = rewardsInfo.keys[0]
 
-            self.poolID = poolID
+            self.pid = pid
             self.userCertificate = userCertificate
             self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardTokenType)
             self.uniqueID = uniqueID
@@ -215,7 +215,7 @@ access(all) contract IncrementFiStakingConnectors {
         ///
         access(all) fun minimumAvailable(): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
-                if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+                if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                     // Stake an empty vault on behalf of the user to update the pool
                     // The Staking contract does not expose any way to update the unclaimed rewards
                     // field, so staking an empty vault is a workaround to update the unclaimed rewards
@@ -243,7 +243,7 @@ access(all) contract IncrementFiStakingConnectors {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
-            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 if let userCertificate = self.userCertificate.borrow() {
                     let withdrawAmount = maxAmount < minimumAvailable
                         ? maxAmount
@@ -252,7 +252,7 @@ access(all) contract IncrementFiStakingConnectors {
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
                     let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
                     
-                    assert(rewards.keys.length <= 1, message: "Pool with ID \(self.poolID) has multiple reward token types, only one is supported")
+                    assert(rewards.keys.length <= 1, message: "Pool with ID \(self.pid) has multiple reward token types, only one is supported")
 
                     if rewards.keys.length == 0 {
                         destroy rewards
@@ -274,9 +274,9 @@ access(all) contract IncrementFiStakingConnectors {
     ///
     /// @return a reference to the staking pool, or nil if not available
     ///
-    access(all) fun borrowPool(poolID: UInt64): &{Staking.PoolPublic}? {
+    access(all) fun borrowPool(pid: UInt64): &{Staking.PoolPublic}? {
         let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-        return poolCollectionCap.borrow()?.getPool(pid: poolID)
+        return poolCollectionCap.borrow()?.getPool(pid: pid)
     }
 
     /// Helper function to borrow a reference to the pair public interface
@@ -284,14 +284,13 @@ access(all) contract IncrementFiStakingConnectors {
     /// @param pid: The pool ID to borrow the pair public interface for
     /// @return a reference to the pair public interface
     ///
-    access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
-        let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+    access(all) fun borrowPairPublicBypid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
+        let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
         if pool == nil {
             return nil
         }
 
-        let rewardsInfo = pool!.getPoolInfo().rewardsInfo
-        let pair = getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardsInfo.keys[0]).address!)
+        let pair = getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool!.getPoolInfo().acceptTokenKey).address!)
             .capabilities
             .borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
         

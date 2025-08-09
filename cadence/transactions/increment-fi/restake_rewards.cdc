@@ -34,7 +34,7 @@ transaction(
     prepare(acct: auth(BorrowValue, SaveValue) &Account) {
         self.staker = acct.address
         self.uniqueID = DeFiActions.createUniqueIdentifier()
-        self.pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
+        self.pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
             ?? panic("Pool with ID \(pid) not found or not accessible")
         self.startingStake = self.pool.getUserInfo(address: acct.address)?.stakingAmount ?? panic("No user info found for address \(acct.address)")
         
@@ -46,7 +46,7 @@ transaction(
                 Staking.UserCertificateStoragePath
             )
         
-        let pair = IncrementFiStakingConnectors.borrowPairPublicByPid(pid: pid)
+        let pair = IncrementFiStakingConnectors.borrowPairPublicBypid(pid: pid)
         if pair == nil {
             panic("Pair with ID \(pid) not found or not accessible")
         }
@@ -55,7 +55,7 @@ transaction(
         // This source will withdraw available rewards from the specified pool using the user's certificate
         let poolRewardsSource = IncrementFiStakingConnectors.PoolRewardsSource(
             userCertificate: userCertificateCap,
-            poolID: pid,
+            pid: pid,
             uniqueID: self.uniqueID
         )
 
@@ -94,7 +94,7 @@ transaction(
         // Create the sink where the converted LP tokens will be deposited back into the staking pool
         // This completes the restaking loop by depositing the new LP tokens for the same user
         let poolSink = IncrementFiStakingConnectors.PoolSink(
-            poolID: pid,
+            pid: pid,
             staker: self.staker,
             uniqueID: self.uniqueID
         )
