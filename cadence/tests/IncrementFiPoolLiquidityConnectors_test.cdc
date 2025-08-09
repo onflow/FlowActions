@@ -53,8 +53,8 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "IncrementFiConnectors",
-        path: "../contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+        name: "IncrementFiSwapConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

@@ -6,7 +6,7 @@ import "TokenA"
 import "TokenB"
 
 import "DeFiActions"
-import "IncrementFiConnectors"
+import "IncrementFiSwapConnectors"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 access(all) let pairCreatorAccount = Test.createAccount()
@@ -53,8 +53,8 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "IncrementFiConnectors",
-        path: "../contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+        name: "IncrementFiSwapConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

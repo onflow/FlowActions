@@ -36,8 +36,14 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"IncrementFiConnectors": {
-			"source": "cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+		"IncrementFiFlashloanConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiFlashloanConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"IncrementFiSwapConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -639,7 +645,8 @@
 				"DeFiActionsUtils",
 				"SwapConnectors",
 				"FungibleTokenConnectors",
-				"IncrementFiConnectors",
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
 				"SwapPair",
 				"FlowEVMBridgeUtils",
 				"SerializeMetadata",
@@ -689,7 +696,8 @@
 				"FungibleTokenConnectors"
 			],
 			"testnet-increment-fi-connectors": [
-				"IncrementFiConnectors",
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
 			],
@@ -713,7 +721,8 @@
 				"FungibleTokenConnectors"
 			],
 			"mainnet-increment-fi-connectors": [
-				"IncrementFiConnectors",
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
 			],
