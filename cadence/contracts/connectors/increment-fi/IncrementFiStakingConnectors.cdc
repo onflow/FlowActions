@@ -47,11 +47,10 @@ access(all) contract IncrementFiStakingConnectors {
             staker: Address,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
-            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-            let poolCollectionRef = poolCollectionCap.borrow() ?? panic("Could not borrow reference to Staking Pool")
-            let pool = poolCollectionRef.getPool(pid: poolID)
+            let pool = IncrementFiStakingConnectors.borrowPool(poolID: poolID)
+                ?? panic("Pool with ID \(poolID) not found or not accessible")
 
-            self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
+            self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool.getPoolInfo().acceptTokenKey)
             self.staker = staker
             self.poolID = poolID
             self.uniqueID = uniqueID
@@ -133,6 +132,9 @@ access(all) contract IncrementFiStakingConnectors {
     /// A DeFiActions.Source implementation that allows claiming rewards from IncrementFi staking pools.
     /// This connector provides tokens by claiming rewards from the designated staking pool.
     ///
+    /// NOTE: This connector assumes that the pool has only one reward token type. If the pool has multiple reward
+    /// token types, the connector will panic.
+    ///
     access(all) struct PoolRewardsSource: DeFiActions.Source {
         /// The type of Vault this Source provides when claiming rewards
         access(all) let vaultType: Type
@@ -156,15 +158,16 @@ access(all) contract IncrementFiStakingConnectors {
             poolID: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
-            let pool = IncrementFiStakingConnectors.borrowPool(poolID: poolID) ?? panic("Pool with ID \(poolID) not found")
-            let rewardsInfo = pool.getPoolInfo().rewardsInfo
+            let pool = IncrementFiStakingConnectors.borrowPool(poolID: poolID)
+                ?? panic("Pool with ID \(poolID) not found")
+            let rewardsInfo = pool!.getPoolInfo().rewardsInfo
 
             assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(poolID) has multiple reward token types, only one is supported")
             let rewardTokenType = rewardsInfo.keys[0]
 
             self.poolID = poolID
             self.userCertificate = userCertificate
-            self.vaultType = CompositeType(rewardTokenType.concat(".Vault"))!
+            self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardTokenType)
             self.uniqueID = uniqueID
         }
 
@@ -276,17 +279,31 @@ access(all) contract IncrementFiStakingConnectors {
         return poolCollectionCap.borrow()?.getPool(pid: poolID)
     }
 
-    access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic} {
+    /// Helper function to borrow a reference to the pair public interface
+    ///
+    /// @param pid: The pool ID to borrow the pair public interface for
+    /// @return a reference to the pair public interface
+    ///
+    access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
         let pool = IncrementFiStakingConnectors.borrowPool(poolID: pid)
-            ?? panic("Pool with ID \(pid) not found or not accessible")
-        let rewardsInfo = pool.getPoolInfo().rewardsInfo
+        if pool == nil {
+            return nil
+        }
 
-        assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
-
-        return getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardsInfo.keys[0]).address!)
-            .capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+        let rewardsInfo = pool!.getPoolInfo().rewardsInfo
+        let pair = getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardsInfo.keys[0]).address!)
+            .capabilities
+            .borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+        
+        return pair
     }
 
+    /// Helper function to convert a token type identifier to a vault type
+    /// E.g. "A.0x1234567890.USDC" -> Type("A.0x1234567890.USDC.Vault")
+    ///
+    /// @param tokenType: The token type identifier to convert to a vault type
+    /// @return the vault type
+    ///
     access(all) fun tokenTypeIdentifierToVaultType(_ tokenType: String): Type {
         return CompositeType(tokenType.concat(".Vault"))!
     }

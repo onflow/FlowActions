@@ -20,6 +20,8 @@ transaction(
 ) {
     // Address of the user
     let staker: Address
+    // Unique ID for the restaking operation
+    let uniqueID: DeFiActions.UniqueIdentifier
     // Reference to the staking pool's public interface
     let pool: &{Staking.PoolPublic}
     // The user's initial staked amount before the restaking operation
@@ -28,8 +30,6 @@ transaction(
     let tokenSource: SwapStack.SwapSource
     // Expected amount of LP tokens to be restaked
     let expectedStakeIncrease: UFix64
-    // Unique ID for the restaking operation
-    let uniqueID: DeFiActions.UniqueIdentifier
 
     prepare(acct: auth(BorrowValue, SaveValue) &Account) {
         self.staker = acct.address
@@ -45,8 +45,11 @@ transaction(
             .issue<&Staking.UserCertificate>(
                 Staking.UserCertificateStoragePath
             )
-
+        
         let pair = IncrementFiStakingConnectors.borrowPairPublicByPid(pid: pid)
+        if pair == nil {
+            panic("Pair with ID \(pid) not found or not accessible")
+        }
 
         // Create the PoolRewardsSource to harvest rewards from the staking pool
         // This source will withdraw available rewards from the specified pool using the user's certificate
@@ -60,9 +63,9 @@ transaction(
         // The zapper takes the reward token and the pair token to create LP tokens
         // that can be staked back into the pool for compound returns
         let zapper = IncrementFiPoolLiquidityConnectors.Zapper(
-            token0Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token0Key),
-            token1Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair.getPairInfoStruct().token1Key),
-            stableMode: pair.getPairInfoStruct().isStableswap,
+            token0Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair!.getPairInfoStruct().token0Key),
+            token1Type: IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pair!.getPairInfoStruct().token1Key),
+            stableMode: pair!.getPairInfoStruct().isStableswap,
             uniqueID: self.uniqueID
         )
 
