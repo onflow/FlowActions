@@ -259,7 +259,10 @@ access(all) contract IncrementFiStakingConnectors {
                         return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
                     }
 
-                    assert(rewards.keys[0] == targetSliceType, message: "Reward token type \(rewards.keys[0]) is not supported")
+                    assert(
+                        rewards.keys[0] == targetSliceType,
+                        message: "Reward token type \(rewards.keys[0]) is not supported by this Source instance (poolID: \(self.pid), instance sourceType: \(self.vaultType.identifier)). This instance can only claim \(targetSliceType) rewards."
+                    )
                     let reward <- rewards.remove(key: rewards.keys[0])!
                     destroy rewards
                     return <- reward
