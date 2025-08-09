@@ -12,8 +12,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsEVMConnectors": {
-			"source": "cadence/contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
+		"UniswapV2SwapConnectors": {
+			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -574,7 +574,7 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"mainnet-uniswapv2-connectors": {
+		"mainnet-uniswapv2-swap-connectors": {
 			"address": "0e5b1dececaca3a8",
 			"key": {
 				"type": "google-kms",
@@ -622,7 +622,7 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"testnet-uniswapv2-connectors": {
+		"testnet-uniswapv2-swap-connectors": {
 			"address": "fef8e4c5c16ccda5",
 			"key": {
 				"type": "google-kms",
@@ -701,8 +701,8 @@
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
 			],
-			"testnet-uniswapv2-connectors": [
-				"UniswapV2Connectors"
+			"testnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
 			]
 		},
 		"mainnet": {
@@ -726,8 +726,8 @@
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
 			],
-			"mainnet-uniswapv2-connectors": [
-				"UniswapV2Connectors"
+			"mainnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
 			]
 		}
 	}

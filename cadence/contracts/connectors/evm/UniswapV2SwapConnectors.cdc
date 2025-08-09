@@ -13,18 +13,18 @@ import "SwapConnectors"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// DeFiActionsEVMConnectors
+/// UniswapV2SwapConnectors
 ///
-/// DeFi connector implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiActions. These
-/// connectors are originally intended for use in DeFiActions components, but may have broader use cases.
+/// DeFiActions Swapper connector implementation fitting UniswapV2 EVM-based swap protocols for use in DeFiActions
+/// workflows.
 ///
-access(all) contract DeFiActionsEVMConnectors {
+access(all) contract UniswapV2SwapConnectors {
 
-    /// UniswapV2EVMSwapper
+    /// Swapper
     ///
     /// A DeFiActions connector that swaps between tokens using an EVM-based UniswapV2Router contract
     ///
-    access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
+    access(all) struct Swapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
         /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
@@ -227,7 +227,7 @@ access(all) contract DeFiActionsEVMConnectors {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                DeFiActionsEVMConnectors._callError("approve(address,uint256)",
+                UniswapV2SwapConnectors._callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
@@ -240,7 +240,7 @@ access(all) contract DeFiActionsEVMConnectors {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                DeFiActionsEVMConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                UniswapV2SwapConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
