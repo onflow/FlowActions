@@ -110,7 +110,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         /// Where it returns a placeholder quote with UFix64.max inAmount and outAmount
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             assert(forDesired == UFix64.max, message: "quoteIn operation not implemented")
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: self.inType(),
                 outType: self.outType(),
                 inAmount: UFix64.max,
