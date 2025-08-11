@@ -105,10 +105,10 @@ access(all) fun testSink() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -123,7 +123,7 @@ access(all) fun testSink() {
     Test.expect(tokenStakedEvent.tokenKey, Test.equal(expectedTokenKey))
     Test.expect(tokenStakedEvent.operator, Test.equal(user.address))
     Test.expect(tokenStakedEvent.amount, Test.equal(testDepositAmount))
-    Test.expect(tokenStakedEvent.pid, Test.equal(poolId))
+    Test.expect(tokenStakedEvent.pid, Test.equal(pid))
 }
 
 access(all) fun testSource() {
@@ -142,12 +142,12 @@ access(all) fun testSource() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
 
     // First deposit tokens into the staking pool
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool.cdc",
-        [poolId, testDepositAmount, Type<@TokenA.Vault>()],
+        [pid, testDepositAmount, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -160,7 +160,7 @@ access(all) fun testSource() {
     // Create and test the rewards source
     result = executeTransaction(
         "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -177,7 +177,7 @@ access(all) fun testSource() {
     let expectedRewardAmount = testRps * elapsed
     let expectedRPS = expectedRewardAmount / testDepositAmount
 
-    Test.expect(rewardClaimedEvent.pid, Test.equal(poolId))
+    Test.expect(rewardClaimedEvent.pid, Test.equal(pid))
     Test.expect(rewardClaimedEvent.tokenKey, Test.equal(expectedTokenKey))
     Test.expect(rewardClaimedEvent.amount, Test.equal(expectedRewardAmount))
     Test.expect(rewardClaimedEvent.userRPSAfter, Test.equal(expectedRPS))
@@ -200,10 +200,10 @@ access(all) fun testSinkAtCapacityLimit() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -214,7 +214,7 @@ access(all) fun testSinkAtCapacityLimit() {
 
     let tokenStakedEvent = tokenStakedEvents[0] as! Staking.TokenStaked
     Test.expect(tokenStakedEvent.amount, Test.equal(stakeAmount))
-    Test.expect(tokenStakedEvent.pid, Test.equal(poolId))
+    Test.expect(tokenStakedEvent.pid, Test.equal(pid))
 }
 
 access(all) fun testSinkMultipleUsers() {
@@ -237,10 +237,10 @@ access(all) fun testSinkMultipleUsers() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user1
     )
     Test.expect(result.error, Test.beNil())
@@ -260,7 +260,7 @@ access(all) fun testSinkMultipleUsers() {
 
     result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user2
     )
     Test.expect(result.error, Test.beNil())
@@ -295,10 +295,10 @@ access(all) fun testSinkWithUserAtCapacityLimit() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -320,7 +320,7 @@ access(all) fun testSinkWithUserAtCapacityLimit() {
 
     result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -351,10 +351,10 @@ access(all) fun testMinimumCapacityCalculation() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
     let result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -386,7 +386,7 @@ access(all) fun testMinimumCapacityCalculation() {
 
     let result2 = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool_sink.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid, Type<@TokenA.Vault>()],
         user2
     )
     Test.expect(result2.error, Test.beNil())
@@ -415,12 +415,12 @@ access(all) fun testSourceAvailableCalculation() {
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
 
-    let poolId: UInt64 = 0
+    let pid: UInt64 = 0
 
     // Deposit tokens into the staking pool
     var result = executeTransaction(
         "./transactions/increment-fi/deposit_staking_pool.cdc",
-        [poolId, testDepositAmount, Type<@TokenA.Vault>()],
+        [pid, testDepositAmount, Type<@TokenA.Vault>()],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -430,7 +430,7 @@ access(all) fun testSourceAvailableCalculation() {
     // Immediately attempt to withdraw rewards; should be zero available and emit no events
     result = executeTransaction(
         "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [poolId, Type<@TokenA.Vault>()],
+        [pid],
         user
     )
     Test.expect(result.error, Test.beNil())
@@ -449,14 +449,14 @@ access(all) fun testSourceAvailableCalculation() {
             code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
             authorizers: [user.address],
             signers: [user],
-            arguments: [poolId, Type<@TokenA.Vault>()],
+            arguments: [pid],
         ),
         // Try to withdraw more than available; should return empty vault
         Test.Transaction(
             code: Test.readFile("./transactions/increment-fi/withdraw_pool_rewards_source.cdc"),
             authorizers: [user.address],
             signers: [user],
-            arguments: [poolId, Type<@TokenA.Vault>()],
+            arguments: [pid],
         )
     ])
     Test.expect(results.length, Test.equal(2))
@@ -474,7 +474,7 @@ access(all) fun testSourceAvailableCalculation() {
     let expectedRewardAmount = testRps * elapsed
     let expectedRPS = expectedRewardAmount / testDepositAmount
 
-    Test.expect(rewardClaimedEvent.pid, Test.equal(poolId))
+    Test.expect(rewardClaimedEvent.pid, Test.equal(pid))
     Test.expect(rewardClaimedEvent.tokenKey, Test.equal(expectedTokenKey))
     Test.expect(rewardClaimedEvent.amount, Test.equal(expectedRewardAmount))
     Test.expect(rewardClaimedEvent.userRPSAfter, Test.equal(expectedRPS))

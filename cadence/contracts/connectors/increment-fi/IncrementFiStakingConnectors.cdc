@@ -3,6 +3,7 @@ import "DeFiActionsUtils"
 import "FungibleToken"
 import "Staking"
 import "SwapConfig"
+import "SwapInterfaces"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -30,29 +31,28 @@ access(all) contract IncrementFiStakingConnectors {
         /// Address of the user staking in the pool
         access(self) let staker: Address
         /// The unique identifier of the staking pool to deposit into
-        access(self) let poolID: UInt64
+        access(self) let pid: UInt64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         /// Initializes a new PoolSink
         ///
-        /// @param poolID: The unique identifier of the staking pool to deposit into
+        /// @param pid: The unique identifier of the staking pool to deposit into
         /// @param staker: Address of the user staking in the pool
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
-            poolID: UInt64,
+            pid: UInt64,
             staker: Address,
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
-            let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-            let poolCollectionRef = poolCollectionCap.borrow() ?? panic("Could not borrow reference to Staking Pool")
-            let pool = poolCollectionRef.getPool(pid: poolID)
+            let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
+                ?? panic("Pool with ID \(pid) not found or not accessible")
 
-            self.vaultType = CompositeType(pool.getPoolInfo().acceptTokenKey.concat(".Vault"))!
+            self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool.getPoolInfo().acceptTokenKey)
             self.staker = staker
-            self.poolID = poolID
+            self.pid = pid
             self.uniqueID = uniqueID
         }
 
@@ -98,7 +98,7 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return the minimum capacity available for deposits to this Sink
         ///
         access(all) fun minimumCapacity(): UFix64 {
-            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 // Get the staking amount for the user in the pool
                 let stakingAmount = pool.getUserInfo(address: self.staker)?.stakingAmount ?? 0.0
                 return pool.getPoolInfo().limitAmount - stakingAmount
@@ -117,7 +117,7 @@ access(all) contract IncrementFiStakingConnectors {
                 return
             }
 
-            if let pool: &{Staking.PoolPublic} = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool: &{Staking.PoolPublic} = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 let depositAmount = from.balance < minimumCapacity
                     ? from.balance
                     : minimumCapacity
@@ -132,15 +132,16 @@ access(all) contract IncrementFiStakingConnectors {
     /// A DeFiActions.Source implementation that allows claiming rewards from IncrementFi staking pools.
     /// This connector provides tokens by claiming rewards from the designated staking pool.
     ///
+    /// NOTE: This connector assumes that the pool has only one reward token type. If the pool has multiple reward
+    /// token types, the connector will panic.
+    ///
     access(all) struct PoolRewardsSource: DeFiActions.Source {
         /// The type of Vault this Source provides when claiming rewards
         access(all) let vaultType: Type
         /// The unique identifier of the staking pool to claim rewards from
-        access(self) let poolID: UInt64
+        access(self) let pid: UInt64
         /// Capability to access the user's staking certificate
         access(self) let userCertificate: Capability<&Staking.UserCertificate>
-        /// The set of overflow sinks to handle any excess rewards that cannot be handled by this Source
-        access(self) let overflowSinks: {Type: {DeFiActions.Sink}}
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
@@ -148,22 +149,25 @@ access(all) contract IncrementFiStakingConnectors {
         /// Initializes a new PoolRewardsSource
         ///
         /// @param userCertificate: Capability to access the user's staking certificate
-        /// @param poolID: The unique identifier of the staking pool to claim rewards from
+        /// @param pid: The unique identifier of the staking pool to claim rewards from
         /// @param vaultType: The type of Vault this Source provides when claiming rewards
-        /// @param overflowSinks: A set of DeFiActions.Sink to handle any overflow from the rewards claim
         /// @param uniqueID: Optional identifier for associating connectors in a stack
         ///
         init(
             userCertificate: Capability<&Staking.UserCertificate>,
-            poolID: UInt64,
-            vaultType: Type,
-            overflowSinks: {Type: {DeFiActions.Sink}},
+            pid: UInt64,
             uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
-            self.poolID = poolID
+            let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
+                ?? panic("Pool with ID \(pid) not found")
+            let rewardsInfo = pool!.getPoolInfo().rewardsInfo
+
+            assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
+            let rewardTokenType = rewardsInfo.keys[0]
+
+            self.pid = pid
             self.userCertificate = userCertificate
-            self.vaultType = vaultType
-            self.overflowSinks = overflowSinks
+            self.vaultType = IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(rewardTokenType)
             self.uniqueID = uniqueID
         }
 
@@ -211,7 +215,7 @@ access(all) contract IncrementFiStakingConnectors {
         ///
         access(all) fun minimumAvailable(): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
-                if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+                if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                     // Stake an empty vault on behalf of the user to update the pool
                     // The Staking contract does not expose any way to update the unclaimed rewards
                     // field, so staking an empty vault is a workaround to update the unclaimed rewards
@@ -239,47 +243,29 @@ access(all) contract IncrementFiStakingConnectors {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
-            if let pool = IncrementFiStakingConnectors.borrowPool(poolID: self.poolID) {
+            if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 if let userCertificate = self.userCertificate.borrow() {
                     let withdrawAmount = maxAmount < minimumAvailable
                         ? maxAmount
                         : minimumAvailable
 
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
-                    var targetRewards: @{FungibleToken.Vault}? <- nil
                     let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
-                    for sliceType in rewards.keys {
-                        let reward <- rewards.remove(key: sliceType)!
-                        if sliceType == targetSliceType {
-                            if reward.balance > withdrawAmount {
-                                targetRewards <-! reward.withdraw(amount: withdrawAmount)
-                                if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
-                                    overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-                                    assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
-                                    destroy reward
-                                } else {
-                                    panic("No overflow sink found for slice type \(sliceType)")
-                                }
-                            } else {
-                                targetRewards <-! reward
-                            }
-                        } else if let overflowSink = self.overflowSinks[CompositeType(sliceType.concat(".Vault"))!] {
-                            overflowSink.depositCapacity(from: &reward as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-                            assert(reward.balance == 0.0, message: "Overflow sink should consume all rewards for type \(sliceType).Vault")
-                            destroy reward
-                        } else {
-                            panic("No overflow sink found for slice type \(sliceType)")
-                        }
-                    }
+                    
+                    assert(rewards.keys.length <= 1, message: "Pool with ID \(self.pid) has multiple reward token types, only one is supported")
 
-                    if targetRewards != nil {
+                    if rewards.keys.length == 0 {
                         destroy rewards
-                        return <- targetRewards!
-                    } else {
-                        destroy rewards
-                        destroy targetRewards
                         return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
                     }
+
+                    assert(
+                        rewards.keys[0] == targetSliceType,
+                        message: "Reward token type \(rewards.keys[0]) is not supported by this Source instance (poolID: \(self.pid), instance sourceType: \(self.vaultType.identifier)). This instance can only claim \(targetSliceType) rewards."
+                    )
+                    let reward <- rewards.remove(key: rewards.keys[0])!
+                    destroy rewards
+                    return <- reward
                 }
             }
 
@@ -291,8 +277,36 @@ access(all) contract IncrementFiStakingConnectors {
     ///
     /// @return a reference to the staking pool, or nil if not available
     ///
-    access(all) fun borrowPool(poolID: UInt64): &{Staking.PoolPublic}? {
+    access(all) fun borrowPool(pid: UInt64): &{Staking.PoolPublic}? {
         let poolCollectionCap = getAccount(Type<Staking>().address!).capabilities.get<&Staking.StakingPoolCollection>(Staking.CollectionPublicPath)
-        return poolCollectionCap.borrow()?.getPool(pid: poolID)
+        return poolCollectionCap.borrow()?.getPool(pid: pid)
+    }
+
+    /// Helper function to borrow a reference to the pair public interface
+    ///
+    /// @param pid: The pool ID to borrow the pair public interface for
+    /// @return a reference to the pair public interface
+    ///
+    access(all) fun borrowPairPublicBypid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
+        let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
+        if pool == nil {
+            return nil
+        }
+
+        let pair = getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool!.getPoolInfo().acceptTokenKey).address!)
+            .capabilities
+            .borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+        
+        return pair
+    }
+
+    /// Helper function to convert a token type identifier to a vault type
+    /// E.g. "A.0x1234567890.USDC" -> Type("A.0x1234567890.USDC.Vault")
+    ///
+    /// @param tokenType: The token type identifier to convert to a vault type
+    /// @return the vault type
+    ///
+    access(all) fun tokenTypeIdentifierToVaultType(_ tokenType: String): Type {
+        return CompositeType(tokenType.concat(".Vault"))!
     }
 }
