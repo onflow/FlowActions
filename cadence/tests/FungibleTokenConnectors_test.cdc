@@ -41,7 +41,7 @@ access(all) fun testSink() {
     transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
 
     let saveResult = executeTransaction(
-        "../transactions/fungible-token-stack/save_vault_sink.cdc",
+        "../transactions/fungible-token-connectors/save_vault_sink.cdc",
         [recipient.address, /public/flowTokenReciever, StoragePath(identifier: "flowTokenVaultSink_\(recipient.address)")!, nil, nil],
         user
     )
