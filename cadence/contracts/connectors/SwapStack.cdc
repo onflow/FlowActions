@@ -292,15 +292,12 @@ access(all) contract SwapStack {
                 return // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
             }
 
-            let quote = self.swapper.quoteIn(forDesired: limit, reverse: false)
+            let quote = limit > from.balance
+                ? self.swapper.quoteIn(forDesired: limit, reverse: false)
+                : self.swapper.quoteOut(forProvided: from.balance, reverse: false)
+
             let swapVault <- from.createEmptyVault()
-            if from.balance <= quote.inAmount  {
-                // sink can accept all of the available tokens, so we swap everything
-                swapVault.deposit(from: <-from.withdraw(amount: from.balance))
-            } else {
-                // sink is limited to fewer tokens than we have available - swap the amount we need to meet the limit
-                swapVault.deposit(from: <-from.withdraw(amount: quote.inAmount))
-            }
+            swapVault.deposit(from: <-from.withdraw(amount: quote.inAmount))
 
             // swap then deposit to the inner sink
             let swappedTokens <- self.swapper.swap(quote: quote, inVault: <-swapVault)
@@ -403,11 +400,7 @@ access(all) contract SwapStack {
                 ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(), reverse: false)
                 : self.swapper.quoteIn(forDesired: maxAmount, reverse: false)
 
-            // find out how much liquidity to gather from the inner Source
-            let availableIn = self.source.minimumAvailable()
-            let quoteIn = availableIn < quote.inAmount ? availableIn : quote.inAmount
-
-            let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quoteIn)
+            let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quote.inAmount)
             if sourceLiquidity.balance == 0.0 {
                 Burner.burn(<-sourceLiquidity)
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
