@@ -31,7 +31,7 @@ transaction(
     // Expected amount of LP tokens to be restaked
     let expectedStakeIncrease: UFix64
 
-    prepare(acct: auth(BorrowValue, SaveValue) &Account) {
+    prepare(acct: auth(BorrowValue, SaveValue, IssueStorageCapabilityController) &Account) {
         self.staker = acct.address
         self.uniqueID = DeFiActions.createUniqueIdentifier()
         self.pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
@@ -46,7 +46,7 @@ transaction(
                 Staking.UserCertificateStoragePath
             )
         
-        let pair = IncrementFiStakingConnectors.borrowPairPublicBypid(pid: pid)
+        let pair = IncrementFiStakingConnectors.borrowPairPublicByPid(pid: pid)
         if pair == nil {
             panic("Pair with ID \(pid) not found or not accessible")
         }
@@ -76,7 +76,7 @@ transaction(
             source: poolRewardsSource,
             uniqueID: self.uniqueID
         )
-
+        
         // Get the expected amount of LP tokens to be restaked
         self.expectedStakeIncrease = zapper.quoteOut(
             forProvided: poolRewardsSource.minimumAvailable(),
@@ -102,7 +102,7 @@ transaction(
         // Execute the restaking process:
         // 1. Withdraw available LP tokens from the rewards source (up to the pool sink's capacity)
         // 2. Deposit the LP tokens into the pool sink to complete the restaking
-        let vault <- self.tokenSource.withdrawAvailable(maxAmount: poolSink.minimumCapacity())
+        let vault <- self.tokenSource.withdrawAvailable(maxAmount: UFix64.max)
         poolSink.depositCapacity(from: &vault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
         
         // Ensure all tokens were properly deposited (vault should be empty)

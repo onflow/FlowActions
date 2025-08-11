@@ -301,14 +301,16 @@ access(all)
 fun createStakingPool(
     _ signer: Test.TestAccount,
     _ limitAmount: UFix64,
-    _ stakingTokenType: Type,
+    _ vaultTokenType: Type,
     _ rewardInfo: [Staking.RewardInfo],
-    _ depositAmount: UFix64
+    _ rewardTokenVaultStoragePath: StoragePath?,
+    _ depositAmount: UFix64?
 ) {
     let res = _executeTransaction("./transactions/increment-fi/create_staking_pool.cdc", [
         limitAmount,
-        stakingTokenType,
+        vaultTokenType,
         rewardInfo,
+        rewardTokenVaultStoragePath,
         depositAmount
     ], signer)
     Test.expect(res, Test.beSucceeded())

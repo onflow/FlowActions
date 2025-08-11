@@ -105,8 +105,17 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// The estimated amount required to provide a Vault with the desired output balance
+        ///
+        /// NOTE: quoteIn operation is not implemented and only supported for UFix64.max
+        /// Where it returns a placeholder quote with UFix64.max inAmount and outAmount
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            panic("TODO: quoteIn operation is not supported")
+            assert(forDesired == UFix64.max, message: "quoteIn operation not implemented")
+            return SwapStack.BasicQuote(
+                inType: self.inType(),
+                outType: self.outType(),
+                inAmount: UFix64.max,
+                outAmount: UFix64.max
+            )
         }
 
         /// The estimated amount delivered out for a provided input balance
