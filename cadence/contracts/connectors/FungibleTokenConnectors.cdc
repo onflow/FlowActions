@@ -8,13 +8,13 @@ import "DeFiActions"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// FungibleTokenStack
+/// FungibleTokenConnectors
 ///
-/// This contract defines generic StackFi Sink & Source connector implementations for use with underlying Vault
-/// Capabilities. These connectors can be used alone or in conjunction with other StackFi connectors to create complex
-/// DeFi workflows.
+/// This contract defines generic DeFi Actions Sink & Source connector implementations for use with underlying Vault
+/// Capabilities. These connectors can be used alone or in conjunction with other DeFi Actions connectors to create
+/// complex DeFi workflows.
 ///
-access(all) contract FungibleTokenStack {
+access(all) contract FungibleTokenConnectors {
 
     /// VaultSink
     ///

@@ -7,24 +7,24 @@ import "FlowEVMBridgeConfig"
 import "FlowEVMBridge"
 
 import "DeFiActions"
-import "SwapStack"
+import "SwapConnectors"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// DeFiActionsEVMConnectors
+/// UniswapV2SwapConnectors
 ///
-/// DeFi connector implementations fitting EVM-based DeFi protocols to the interfaces defined in DeFiActions. These
-/// connectors are originally intended for use in DeFiActions components, but may have broader use cases.
+/// DeFiActions Swapper connector implementation fitting UniswapV2 EVM-based swap protocols for use in DeFiActions
+/// workflows.
 ///
-access(all) contract DeFiActionsEVMConnectors {
+access(all) contract UniswapV2SwapConnectors {
 
-    /// UniswapV2EVMSwapper
+    /// Swapper
     ///
     /// A DeFiActions connector that swaps between tokens using an EVM-based UniswapV2Router contract
     ///
-    access(all) struct UniswapV2EVMSwapper : DeFiActions.Swapper {
+    access(all) struct Swapper : DeFiActions.Swapper {
         /// UniswapV2Router contract's EVM address
         access(all) let routerAddress: EVM.EVMAddress
         /// A swap path defining the route followed for facilitated swaps. Each element should be a valid token address
@@ -111,12 +111,12 @@ access(all) contract DeFiActionsEVMConnectors {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        /// @return a SwapConnectors.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountIn != nil ? amountIn! : 0.0,
@@ -131,12 +131,12 @@ access(all) contract DeFiActionsEVMConnectors {
         /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
         ///     in the opposite direction, outVault -> inVault
         ///
-        /// @return a SwapStack.BasicQuote containing estimate data. In order to prevent upstream reversion,
+        /// @return a SwapConnectors.BasicQuote containing estimate data. In order to prevent upstream reversion,
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountOut != nil ? forProvided : 0.0,
@@ -227,7 +227,7 @@ access(all) contract DeFiActionsEVMConnectors {
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
-                DeFiActionsEVMConnectors._callError("approve(address,uint256)",
+                UniswapV2SwapConnectors._callError("approve(address,uint256)",
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
@@ -240,7 +240,7 @@ access(all) contract DeFiActionsEVMConnectors {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                DeFiActionsEVMConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                UniswapV2SwapConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)

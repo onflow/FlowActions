@@ -72,20 +72,26 @@ access(all) fun beforeEach() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "FungibleTokenStack",
-        path: "../contracts/connectors/FungibleTokenStack.cdc",
+        name: "FungibleTokenConnectors",
+        path: "../contracts/connectors/FungibleTokenConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "SwapStack",
-        path: "../contracts/connectors/SwapStack.cdc",
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "IncrementFiConnectors",
-        path: "../contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+        name: "IncrementFiSwapConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "IncrementFiFlashloanConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiFlashloanConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

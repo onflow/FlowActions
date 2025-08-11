@@ -4,6 +4,7 @@ out/
 
 # flow
 *.pkey
+*.pem
 imports
 coverage.lcov
 coverage.json

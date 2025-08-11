@@ -32,13 +32,17 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 
 | Contract | Testnet | Mainnet |
 |----------|---------|---------|
-| DeFiActions | TBD | TBD |
-| DeFiActionsUtils | TBD | TBD |
-| FungibleTokenStack | TBD | TBD |
-| SwapStack | TBD | TBD |
-| IncrementFiConnectors | TBD | TBD |
-| BandOracleConnectors | TBD | TBD |
-| DeFiActionsEVMConnectors | TBD | TBD |
+| DeFiActions | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
+| DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
+| DeFiActionsUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
+| FungibleTokenConnectors | 0x5a7b9cee9aaf4e4e | 0x1d9a619393e9fb53 |
+| SwapConnectors | 0xaddd594cf410166a | 0x0bce04a00aedf132 |
+| IncrementFiSwapConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
+| IncrementFiFlashloanConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
+| IncrementFiPoolLiquidityConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
+| IncrementFiStakingConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
+| BandOracleConnectors | 0x1a9f5d18d096cd7a | 0xf627b5c89141ed99 |
+| UniswapV2Connectors | 0xfef8e4c5c16ccda5 | 0x0e5b1dececaca3a8 |
 
 ## Core Interfaces
 
@@ -80,13 +84,13 @@ Comprehensive event emission enables full workflow tracing and debugging, with s
 To understand DeFiActions, start with these key files:
 
 1. **[`cadence/contracts/interfaces/DeFiActions.cdc`](cadence/contracts/interfaces/DeFiActions.cdc)** - Core interface definitions and documentation
-2. **[`cadence/contracts/connectors/FungibleTokenStack.cdc`](cadence/contracts/connectors/FungibleTokenStack.cdc)** - Basic Source/Sink implementations for FungibleToken vaults
-3. **[`cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc)** - Example protocol adapter for IncrementFi DEX integration
+2. **[`cadence/contracts/connectors/FungibleTokenConnectors.cdc`](cadence/contracts/connectors/FungibleTokenConnectors.cdc)** - Basic Source/Sink implementations for FungibleToken vaults
+3. **[`cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc`](cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc)** - Example protocol adapter for IncrementFi DEX integration
 
 ### Understanding the System
 
 - **Start with the interfaces**: Review the core primitive definitions in `DeFiActions.cdc`
-- **Study the connectors**: Examine `FungibleTokenStack.cdc` for basic implementation patterns
+- **Study the connectors**: Examine `FungibleTokenConnectors.cdc` for basic implementation patterns
 - **Explore protocol connectors**: See how external protocols integrate via the connector examples
 - **Check the tests**: Browse `cadence/tests/` for usage patterns and workflow examples
 
@@ -115,10 +119,10 @@ To understand DeFiActions, start with these key files:
    flow test cadence/tests/DeFiActions_test.cdc
    
    # Test FungibleToken connectors
-   flow test cadence/tests/FungibleTokenStack_test.cdc
+   flow test cadence/tests/FungibleTokenConnectors_test.cdc
    
    # Test protocol connectors
-   flow test cadence/tests/IncrementFiConnectors_test.cdc
+   flow test cadence/tests/IncrementFiSwapConnectors_test.cdc
    ```
 
 ### Local Development
@@ -132,14 +136,14 @@ To understand DeFiActions, start with these key files:
 ### Connector Implementations
 
 **Basic Vault Operations:**
-- [`VaultSink`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Deposits tokens to a FungibleToken vault with capacity limits
-- [`VaultSource`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Withdraws tokens from a FungibleToken vault with minimum balance protection
-- [`VaultSinkAndSource`](cadence/contracts/connectors/FungibleTokenStack.cdc) - Combined deposit/withdrawal functionality for a single vault
+- [`VaultSink`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Deposits tokens to a FungibleToken vault with capacity limits
+- [`VaultSource`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Withdraws tokens from a FungibleToken vault with minimum balance protection
+- [`VaultSinkAndSource`](cadence/contracts/connectors/FungibleTokenConnectors.cdc) - Combined deposit/withdrawal functionality for a single vault
 
 **Protocol Connectors:**
-- [`IncrementFiSwapper`](cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc) - DEX integration for token swapping via IncrementFi
+- [`IncrementFiSwapper`](cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc) - DEX integration for token swapping via IncrementFi
 - [`BandPriceOracle`](cadence/contracts/connectors/bande-oracle/BandOracleConnectors.cdc) - Price feed integration with Band Protocol oracle
-- [`EVMSwapper`](cadence/contracts/connectors/evm/DeFiActionsEVMConnectors.cdc) - UniswapV2-style swapping on Flow EVM
+- [`EVMSwapper`](cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc) - UniswapV2-style swapping on Flow EVM
 
 ### Usage Patterns
 

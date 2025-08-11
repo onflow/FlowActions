@@ -8,12 +8,12 @@ import "DeFiActionsUtils"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// SwapStack
+/// SwapConnectors
 ///
-/// This contract defines DeFiActions Sink & Source connector implementations for use with DeFi protocols. These
-/// connectors can be used alone or in conjunction with other DeFiActions connectors to create complex DeFi workflows.
+/// This contract defines DeFi Actions Sink & Source connector implementations for use with DeFi protocols. These
+/// connectors can be used alone or in conjunction with other DeFi Actions connectors to create complex DeFi workflows.
 ///
-access(all) contract SwapStack {
+access(all) contract SwapConnectors {
 
     /// BasicQuote
     ///

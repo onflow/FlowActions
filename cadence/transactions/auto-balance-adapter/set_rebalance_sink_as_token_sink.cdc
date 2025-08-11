@@ -2,7 +2,7 @@ import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
 import "DeFiActions"
-import "FungibleTokenStack"
+import "FungibleTokenConnectors"
 
 /// An example transaction configuring a DeFiActions AutoBalancer with a rebalance Sink directing overflown value to the
 /// signer's stored Vault
@@ -42,7 +42,7 @@ transaction(vaultIdentifier: String?, sinkMax: UFix64?, autoBalancerStoragePath:
 
             // get the Vault's Capability and construct the VaultSink
             let depositVault = signer.capabilities.get<&{FungibleToken.Vault}>(vaultData.receiverPath)
-            self.vaultSink = FungibleTokenStack.VaultSink(max: sinkMax, depositVault: depositVault, uniqueID: nil)
+            self.vaultSink = FungibleTokenConnectors.VaultSink(max: sinkMax, depositVault: depositVault, uniqueID: nil)
         } else {
             self.vaultSink = nil
         }

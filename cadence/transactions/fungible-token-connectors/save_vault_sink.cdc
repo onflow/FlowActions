@@ -2,7 +2,7 @@ import "FungibleToken"
 import "FungibleTokenMetadataViews"
 import "FlowToken"
 
-import "FungibleTokenStack"
+import "FungibleTokenConnectors"
 
 transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: StoragePath, max: UFix64?) {
 
@@ -24,7 +24,7 @@ transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: Sto
     }
 
     execute {
-        let sink = FungibleTokenStack.VaultSink(
+        let sink = FungibleTokenConnectors.VaultSink(
                 max: max,
                 depositVault: self.depositVault,
                 uniqueID: nil
@@ -33,7 +33,7 @@ transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: Sto
     }
 
     post {
-        self.signer.storage.type(at: sinkStoragePath) == Type<FungibleTokenStack.VaultSink>():
+        self.signer.storage.type(at: sinkStoragePath) == Type<FungibleTokenConnectors.VaultSink>():
         "VaultSink was not stored to sinkStoragePath \(sinkStoragePath.toString())"
     }
 }

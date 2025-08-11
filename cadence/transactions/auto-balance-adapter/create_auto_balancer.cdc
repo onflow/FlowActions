@@ -2,7 +2,7 @@ import "FungibleToken"
 
 import "DeFiActions"
 import "MockOracle"
-import "FungibleTokenStack"
+import "FungibleTokenConnectors"
 
 /// NOT FOR PRODUCTION - THIS TRANSACTION IS EXAMPLE CODE
 ///

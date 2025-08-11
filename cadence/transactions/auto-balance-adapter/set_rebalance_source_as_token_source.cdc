@@ -2,7 +2,7 @@ import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
 import "DeFiActions"
-import "FungibleTokenStack"
+import "FungibleTokenConnectors"
 
 /// An example transaction configuring a DeFiActions AutoBalancer with a rebalance Sink directing overflown value to the
 /// signer's stored Vault
@@ -35,7 +35,7 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
             assert(withdrawVault.check(),
                 message: "Invalid authorized FungibleToken.Vault Capability issued against \(vaultData.storagePath) - ensure a Vault is configured at the expected path"
             )
-            self.vaultSource = FungibleTokenStack.VaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
+            self.vaultSource = FungibleTokenConnectors.VaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
         } else {
             self.vaultSource = nil
         }

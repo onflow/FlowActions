@@ -2,7 +2,7 @@ import "FungibleToken"
 import "Staking"
 import "IncrementFiStakingConnectors"
 import "IncrementFiPoolLiquidityConnectors"
-import "SwapStack"
+import "SwapConnectors"
 import "DeFiActions"
 import "SwapInterfaces"
 import "SwapConfig"
@@ -27,7 +27,7 @@ transaction(
     // The user's initial staked amount before the restaking operation
     let startingStake: UFix64
     // The source that converts reward tokens to LP tokens
-    let tokenSource: SwapStack.SwapSource
+    let tokenSource: SwapConnectors.SwapSource
     // Expected amount of LP tokens to be restaked
     let expectedStakeIncrease: UFix64
 
@@ -71,7 +71,7 @@ transaction(
 
         // Create the SwapSource that uses the zapper to convert reward tokens to LP tokens
         // This combines the reward harvesting with the LP token conversion process
-        self.tokenSource = SwapStack.SwapSource(
+        self.tokenSource = SwapConnectors.SwapSource(
             swapper: zapper,
             source: poolRewardsSource,
             uniqueID: self.uniqueID

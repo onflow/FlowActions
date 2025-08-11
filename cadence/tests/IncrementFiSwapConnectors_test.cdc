@@ -6,7 +6,7 @@ import "TokenA"
 import "TokenB"
 
 import "DeFiActions"
-import "IncrementFiConnectors"
+import "IncrementFiSwapConnectors"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 access(all) let pairCreatorAccount = Test.createAccount()
@@ -41,20 +41,20 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "FungibleTokenStack",
-        path: "../contracts/connectors/FungibleTokenStack.cdc",
+        name: "FungibleTokenConnectors",
+        path: "../contracts/connectors/FungibleTokenConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "SwapStack",
-        path: "../contracts/connectors/SwapStack.cdc",
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "IncrementFiConnectors",
-        path: "../contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+        name: "IncrementFiSwapConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())

@@ -12,8 +12,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsEVMConnectors": {
-			"source": "cadence/contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
+		"UniswapV2SwapConnectors": {
+			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -30,14 +30,20 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"FungibleTokenStack": {
-			"source": "cadence/contracts/connectors/FungibleTokenStack.cdc",
+		"FungibleTokenConnectors": {
+			"source": "cadence/contracts/connectors/FungibleTokenConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
 		},
-		"IncrementFiConnectors": {
-			"source": "cadence/contracts/connectors/increment-fi/IncrementFiConnectors.cdc",
+		"IncrementFiFlashloanConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiFlashloanConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"IncrementFiSwapConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -60,8 +66,8 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"SwapStack": {
-			"source": "cadence/contracts/connectors/SwapStack.cdc",
+		"SwapConnectors": {
+			"source": "cadence/contracts/connectors/SwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000007"
 			}
@@ -520,6 +526,109 @@
 				"type": "file",
 				"location": "emulator-account.pkey"
 			}
+		},
+		"mainnet-band-oracle-connectors": {
+			"address": "f627b5c89141ed99",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-defi-actions": {
+			"address": "92195d814edf9cb0",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-fungible-token-connectors": {
+			"address": "1d9a619393e9fb53",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-increment-fi-connectors": {
+			"address": "efa9bd7d1b17f1ed",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-originator": {
+			"address": "0e9374d0c1a78c0f",
+			"key": {
+				"type": "file",
+				"location": "mainnet-originator.pkey"
+			}
+		},
+		"mainnet-swap-connectors": {
+			"address": "0bce04a00aedf132",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-uniswapv2-swap-connectors": {
+			"address": "0e5b1dececaca3a8",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-band-oracle-connectors": {
+			"address": "1a9f5d18d096cd7a",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-defi-actions": {
+			"address": "4c2ff9dd03ab442f",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-fungible-token-connectors": {
+			"address": "5a7b9cee9aaf4e4e",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-increment-fi-connectors": {
+			"address": "49bae091e5ea16b5",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-swap-connectors": {
+			"address": "addd594cf410166a",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-uniswapv2-swap-connectors": {
+			"address": "fef8e4c5c16ccda5",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
 		}
 	},
 	"deployments": {
@@ -534,9 +643,10 @@
 				"DeFiActionsMathUtils",
 				"DeFiActions",
 				"DeFiActionsUtils",
-				"SwapStack",
-				"FungibleTokenStack",
-				"IncrementFiConnectors",
+				"SwapConnectors",
+				"FungibleTokenConnectors",
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
 				"SwapPair",
 				"FlowEVMBridgeUtils",
 				"SerializeMetadata",
@@ -568,6 +678,56 @@
 				"FlowEVMBridgeCustomAssociationTypes",
 				"Staking",
 				"StakingError"
+			]
+		},
+		"testnet": {
+			"testnet-defi-actions": [
+				"DeFiActionsUtils",
+				"DeFiActionsMathUtils",
+				"DeFiActions"
+			],
+			"testnet-band-oracle-connectors": [
+				"BandOracleConnectors"
+			],
+			"testnet-swap-connectors": [
+				"SwapConnectors"
+			],
+			"testnet-fungible-token-connectors": [
+				"FungibleTokenConnectors"
+			],
+			"testnet-increment-fi-connectors": [
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
+				"IncrementFiPoolLiquidityConnectors",
+				"IncrementFiStakingConnectors"
+			],
+			"testnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
+			]
+		},
+		"mainnet": {
+			"mainnet-defi-actions": [
+				"DeFiActionsUtils",
+				"DeFiActionsMathUtils",
+				"DeFiActions"
+			],
+			"mainnet-band-oracle-connectors": [
+				"BandOracleConnectors"
+			],
+			"mainnet-swap-connectors": [
+				"SwapConnectors"
+			],
+			"mainnet-fungible-token-connectors": [
+				"FungibleTokenConnectors"
+			],
+			"mainnet-increment-fi-connectors": [
+				"IncrementFiSwapConnectors",
+				"IncrementFiFlashloanConnectors",
+				"IncrementFiPoolLiquidityConnectors",
+				"IncrementFiStakingConnectors"
+			],
+			"mainnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
 			]
 		}
 	}

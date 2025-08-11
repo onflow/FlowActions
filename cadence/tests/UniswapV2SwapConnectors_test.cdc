@@ -46,14 +46,14 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "SwapStack",
-        path: "../contracts/connectors/SwapStack.cdc",
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DeFiActionsEVMConnectors",
-        path: "../contracts/connectors/evm/DeFiActionsEVMConnectors.cdc",
+        name: "UniswapV2SwapConnectors",
+        path: "../contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -61,5 +61,5 @@ fun setup() {
 
 access(all)
 fun testSetupSucceeds() {
-    log("DeFiActionsEVMConnectors deployment success")
+    log("UniswapV2SwapConnectors deployment success")
 }
