@@ -219,7 +219,7 @@ access(all) contract IncrementFiStakingConnectors {
                     // Stake an empty vault on behalf of the user to update the pool
                     // The Staking contract does not expose any way to update the unclaimed rewards
                     // field, so staking an empty vault is a workaround to update the unclaimed rewards
-                    let emptyVault <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
+                    let emptyVault <- DeFiActionsUtils.getEmptyVault(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool.getPoolInfo().acceptTokenKey))
                     pool.stake(staker: address, stakingToken: <- emptyVault)
                     if let unclaimedRewards = pool.getUserInfo(address: address)?.unclaimedRewards {
                         // Return the unclaimed rewards for the specific vault type
@@ -287,7 +287,7 @@ access(all) contract IncrementFiStakingConnectors {
     /// @param pid: The pool ID to borrow the pair public interface for
     /// @return a reference to the pair public interface
     ///
-    access(all) fun borrowPairPublicBypid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
+    access(all) fun borrowPairPublicByPid(pid: UInt64): &{SwapInterfaces.PairPublic}? {
         let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
         if pool == nil {
             return nil
@@ -295,7 +295,7 @@ access(all) contract IncrementFiStakingConnectors {
 
         let pair = getAccount(IncrementFiStakingConnectors.tokenTypeIdentifierToVaultType(pool!.getPoolInfo().acceptTokenKey).address!)
             .capabilities
-            .borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)!
+            .borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)
         
         return pair
     }

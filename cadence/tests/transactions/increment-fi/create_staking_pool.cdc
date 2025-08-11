@@ -5,9 +5,10 @@ import "FungibleTokenMetadataViews"
 
 transaction(
     limitAmount: UFix64,
-    vaultType: Type,
+    stakingVaultType: Type,
     rewardInfo: [Staking.RewardInfo],
-    depositAmount: UFix64
+    rewardTokenVaultStoragePath: StoragePath?,
+    depositAmount: UFix64?
 ) {
     prepare(acct: auth(Capabilities, Storage) &Account) {        
         let poolCollection = acct.storage.borrow<&Staking.StakingPoolCollection>(from: Staking.CollectionStoragePath)
@@ -18,27 +19,24 @@ transaction(
         let poolAdminRef = acct.storage.borrow<&Staking.PoolAdmin>(from: Staking.PoolAdminStoragePath)
             ?? panic("Could not borrow reference to Staking Admin")
 
-        let ftContract = getAccount(vaultType.address!)
+        let contractRef = getAccount(stakingVaultType.address!)
             .contracts
-            .borrow<&{FungibleToken}>(name: vaultType.contractName!)!
-        let ftVaultData = ftContract
-            .resolveContractView(
-                resourceType: nil,
-                viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
-            )! as! FungibleTokenMetadataViews.FTVaultData
-
-        let tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: ftVaultData.storagePath)
-            ?? panic("Could not borrow reference to Token Vault")
+            .borrow<&{FungibleToken}>(name: stakingVaultType.contractName!)!
         
         let pid = Staking.poolCount
         poolCollection.createStakingPool(
             adminRef: adminRef,
             poolAdminAddr: poolAdminRef.owner!.address,
             limitAmount: limitAmount,
-            vault: <- ftContract.createEmptyVault(vaultType: vaultType),
+            vault: <- contractRef.createEmptyVault(vaultType: stakingVaultType),
             rewards: rewardInfo
         )
 
-        poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenVaultRef.withdraw(amount: depositAmount))
+        if depositAmount != nil {
+            let tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: rewardTokenVaultStoragePath!)
+                ?? panic("Could not borrow reference to Token Vault")
+
+            poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenVaultRef.withdraw(amount: depositAmount!))
+        }
     }
 }

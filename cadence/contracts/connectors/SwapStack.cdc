@@ -399,11 +399,12 @@ access(all) contract SwapStack {
             }
 
             // expect output amount as the lesser between the amount available and the maximum amount
-            var amountOut = minimumAvail < maxAmount ? minimumAvail : maxAmount
+            var quote = minimumAvail < maxAmount
+                ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(), reverse: false)
+                : self.swapper.quoteIn(forDesired: maxAmount, reverse: false)
 
             // find out how much liquidity to gather from the inner Source
             let availableIn = self.source.minimumAvailable()
-            let quote = self.swapper.quoteIn(forDesired: amountOut, reverse: false)
             let quoteIn = availableIn < quote.inAmount ? availableIn : quote.inAmount
 
             let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quoteIn)
@@ -412,7 +413,7 @@ access(all) contract SwapStack {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
             let outVault <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
-            if outVault.balance > amountOut {
+            if outVault.balance > quote.outAmount {
                 // TODO - what to do if excess is found?
                 //  - can swapBack() but can't deposit to the inner source and can't return an unsupported Vault type
                 //      -> could make inner {Source} an intersection {Source, Sink}

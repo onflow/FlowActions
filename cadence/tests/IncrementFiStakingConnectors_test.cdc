@@ -48,7 +48,6 @@ access(all) fun beforeEach() {
     )
 
     // Create a staking pool
-    let stakingTokenType = Type<@TokenA.Vault>()
     let rewardInfo = Staking.RewardInfo(
         rewardPerSession: testRps,
         sessionInterval: testSessionInterval,
@@ -58,9 +57,10 @@ access(all) fun beforeEach() {
     createStakingPool(
         incrementFiStakingAccount,
         testLimitAmount,
-        stakingTokenType,
+        Type<@TokenA.Vault>(),
         [rewardInfo],
-        testAdminSeedAmount
+        /storage/tokenAVault,
+        testAdminSeedAmount,
     )
     
     var err = Test.deployContract(
