@@ -44,46 +44,6 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 | BandOracleConnectors | 0x1a9f5d18d096cd7a | 0xf627b5c89141ed99 |
 | UniswapV2Connectors | 0xfef8e4c5c16ccda5 | 0x0e5b1dececaca3a8 |
 
-### To Deploy
-
-#### Testnet
-
-##### Core
-- [X] 0x4c2ff9dd03ab442f - DeFiActionsUtils
-- [X] 0x4c2ff9dd03ab442f - DeFiActionsMathUtils
-- [X] 0x4c2ff9dd03ab442f - DeFiActions
-
-##### Connectors
-- [ ] 0x1a9f5d18d096cd7a - BandOracleConnectors
-- [ ] 0x5a7b9cee9aaf4e4e - FungibleTokenConnectors
-- [ ] 0xaddd594cf410166a - SwapConnectors
-- [ ] 0xfef8e4c5c16ccda5 - UniswapV2SwapConnectors
-
-**IncrementFi**
-- [ ] 0x49bae091e5ea16b5 - IncrementFiSwapConnectors
-- [ ] 0x49bae091e5ea16b5 - IncrementFiFlashloanConnectors
-- [ ] 0x49bae091e5ea16b5 - IncrementFiPoolLiquidityConnectors
-- [ ] 0x49bae091e5ea16b5 - IncrementFiStakingConnectors
-
-#### Mainnet
-
-##### Core
-- [ ] 0x92195d814edf9cb0 - DeFiActionsUtils
-- [ ] 0x92195d814edf9cb0 - DeFiActionsMathUtils
-- [ ] 0x92195d814edf9cb0 - DeFiActions
-
-##### Connectors
-- [ ] 0xf627b5c89141ed99 - BandOracleConnectors
-- [ ] 0x1d9a619393e9fb53 - FungibleTokenConnectors
-- [ ] 0x0bce04a00aedf132 - SwapConnectors
-- [ ] 0x0e5b1dececaca3a8 - UniswapV2SwapConnectors
-
-**IncrementFi**
-- [ ] 0xefa9bd7d1b17f1ed - IncrementFiSwapConnectors
-- [ ] 0xefa9bd7d1b17f1ed - IncrementFiFlashloanConnectors
-- [ ] 0xefa9bd7d1b17f1ed - IncrementFiPoolLiquidityConnectors
-- [ ] 0xefa9bd7d1b17f1ed - IncrementFiStakingConnectors
-
 ## Core Interfaces
 
 DeFiActions defines five fundamental interface types that represent core DeFi operations:
