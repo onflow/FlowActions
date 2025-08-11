@@ -287,13 +287,13 @@ access(all) contract SwapStack {
         /// @param from: the Vault to source deposits from
         ///
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            let limit = self.sink.minimumCapacity()
+            let limit = self.minimumCapacity()
             if from.balance == 0.0 || limit == 0.0 || from.getType() != self.getSinkType() {
                 return // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
             }
 
             let quote = limit > from.balance
-                ? self.swapper.quoteIn(forDesired: limit, reverse: false)
+                ? self.swapper.quoteIn(forDesired: self.sink.minimumCapacity(), reverse: false)
                 : self.swapper.quoteOut(forProvided: from.balance, reverse: false)
 
             let swapVault <- from.createEmptyVault()
