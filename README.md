@@ -76,7 +76,7 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 - [ ] 0xf627b5c89141ed99 - BandOracle
 - [ ] 0x1d9a619393e9fb53 - FungibleTokenConnectors
 - [ ] 0x0bce04a00aedf132 - SwapConnectors
-- [ ] 0x0e5b1dececaca3a8 - UniswapV2connector
+- [ ] 0x0e5b1dececaca3a8 - UniswapV2SwapConnectors
 
 **IncrementFi**
 - [ ] 0xefa9bd7d1b17f1ed - IncrementFiSwapConnectors
