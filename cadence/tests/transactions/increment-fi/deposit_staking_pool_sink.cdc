@@ -9,7 +9,7 @@ transaction(pid: UInt64, vaultType: Type) {
 
     prepare(acct: auth(BorrowValue) &Account) {
         self.incrementFiSink = IncrementFiStakingConnectors.PoolSink(
-            poolID: pid,
+            pid: pid,
             staker: acct.address,
             uniqueID: nil
         )
