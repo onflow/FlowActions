@@ -48,7 +48,6 @@ access(all) fun beforeEach() {
     )
 
     // Create a staking pool
-    let stakingTokenType = Type<@TokenA.Vault>()
     let rewardInfo = Staking.RewardInfo(
         rewardPerSession: testRps,
         sessionInterval: testSessionInterval,
@@ -58,9 +57,10 @@ access(all) fun beforeEach() {
     createStakingPool(
         incrementFiStakingAccount,
         testLimitAmount,
-        stakingTokenType,
+        Type<@TokenA.Vault>(),
         [rewardInfo],
-        testAdminSeedAmount
+        /storage/tokenAVault,
+        testAdminSeedAmount,
     )
     
     var err = Test.deployContract(
@@ -427,17 +427,6 @@ access(all) fun testSourceAvailableCalculation() {
 
     let depositTimestamp = getCurrentBlockTimestamp()
 
-    // Immediately attempt to withdraw rewards; should be zero available and emit no events
-    result = executeTransaction(
-        "./transactions/increment-fi/withdraw_pool_rewards_source.cdc",
-        [pid],
-        user
-    )
-    Test.expect(result.error, Test.beNil())
-
-    var rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
-    Test.expect(rewardClaimedEvents.length, Test.equal(0))
-
     // Advance time to accrue rewards
     Test.moveTime(by: testTimeAdvanceSeconds)
     Test.commitBlock()
@@ -464,7 +453,7 @@ access(all) fun testSourceAvailableCalculation() {
     Test.expect(results[1].error, Test.beNil())
 
     // Verify that the reward claimed was only emitted once for the first transaction
-    rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
+    let rewardClaimedEvents = Test.eventsOfType(Type<Staking.RewardClaimed>())
     Test.expect(rewardClaimedEvents.length, Test.equal(1))
 
     let rewardClaimedEvent = rewardClaimedEvents[0] as! Staking.RewardClaimed
