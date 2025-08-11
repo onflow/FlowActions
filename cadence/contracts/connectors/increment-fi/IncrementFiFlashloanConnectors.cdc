@@ -4,22 +4,45 @@ import "SwapInterfaces"
 import "SwapConfig"
 import "SwapFactory"
 
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+///
+/// IncrementFiFlashloanConnectors
+///
+/// DeFiActions adapter implementations fitting IncrementFi protocols to the DeFiActions Flasher interface.
+///
 access(all) contract IncrementFiFlashloanConnectors {
+
+    /// Canonical path in which to store the generic FlashLoanExecutor resource
+    access(all) let executorStoragePath: StoragePath
+
+    /* --- CONSTRUCTS --- */
 
     /// Flasher
     ///
     /// A DeFiActions connector that performs flash loans using IncrementFi's SwapPair contract
     ///
-    access(all) struct Flasher : SwapInterfaces.FlashLoanExecutor, DeFiActions.Flasher {
+    access(all) struct Flasher : DeFiActions.Flasher {
         /// The address of the SwapPair contract to use for flash loans
         access(all) let pairAddress: Address
         /// The type of token to borrow
         access(all) let type: Type
+        /// Capability to the FlashLoanExecutor resource
+        access(self) let executor: Capability<&{SwapInterfaces.FlashLoanExecutor}>
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(pairAddress: Address, type: Type, uniqueID: DeFiActions.UniqueIdentifier?) {
+        init(
+            pairAddress: Address,
+            type: Type,
+            executor: Capability<&{SwapInterfaces.FlashLoanExecutor}>,
+            uniqueID: DeFiActions.UniqueIdentifier?
+        ) {
+            pre {
+                executor.check(): "Invalid SwapInterfaces.FlashLoanExecutor capability provided"
+            }
             let pair = getAccount(pairAddress).capabilities.borrow<&{SwapInterfaces.PairPublic}>(SwapConfig.PairPublicPath)
                 ?? panic("Could not reference SwapPair public capability at address \(pairAddress)")
             let pairInfo = pair.getPairInfoStruct()
@@ -28,6 +51,7 @@ access(all) contract IncrementFiFlashloanConnectors {
                     .concat("valid types for this SwapPair are \(pairInfo.token0Key) and \(pairInfo.token1Key)"))
             self.pairAddress = pairAddress
             self.type = type
+            self.executor = executor
             self.uniqueID = uniqueID
         }
 
@@ -98,12 +122,30 @@ access(all) contract IncrementFiFlashloanConnectors {
 
             // perform the flash loan
             pair.flashloan(
-                executor: &self as &{SwapInterfaces.FlashLoanExecutor},
+                executor: self._borrowExecutor(),
                 requestedTokenVaultType: self.type,
                 requestedAmount: amount,
                 params: params
             )
         }
+        /// Returns a reference to the FlashLoanExecutor capability
+        ///
+        /// @return a reference to the FlashLoanExecutor capability
+        ///
+        access(self) fun _borrowExecutor(): &{SwapInterfaces.FlashLoanExecutor} {
+            return self.executor.borrow() ?? panic("Could not borrow FlashLoanExecutor capability")
+        }
+    }
+
+    /// FlashLoanExecutor
+    ///
+    /// A resource that implements the SwapInterfaces.FlashLoanExecutor interface and is used to execute flash loans.
+    /// This resource is required to in order to execute flash loans on IncrementFi's SwapPair contract, but is made
+    /// generically to be used in conjunction with the Flasher DeFiActions connector defined in this contract. Instead
+    /// of statically declaring the logic within the Executor's executeAndRepay() function, the callback function is
+    /// passed as a parameter to the executeAndRepay() function via the params object indexed by "callback".
+    ///
+    access(all) resource Executor : SwapInterfaces.FlashLoanExecutor {
         /// Performs a flash loan of the specified amount. The Flasher.flashLoan() callback function should be found in
         /// the params object passed to this function under the key "callback". The callback function is passed the fee
         /// amount, a Vault containing the loan, and the data. The callback function should return a Vault containing
@@ -120,5 +162,19 @@ access(all) contract IncrementFiFlashloanConnectors {
             // return the repaid token
             return <- repaidToken
         }
+    }
+
+    /* --- PUBLIC FUNCTIONS --- */
+
+    /// Creates a new FlashLoanExecutor resource
+    ///
+    /// @return a new FlashLoanExecutor resource
+    ///
+    access(all) fun createExecutor(): @Executor {
+        return <- create Executor()
+    }
+
+    init() {
+        self.executorStoragePath = StoragePath(identifier: "IncrementFiFlashloanConnectorsExecutor_\(self.account.address)")!
     }
 }
