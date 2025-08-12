@@ -161,7 +161,7 @@ access(all) contract FungibleTokenConnectors {
             return self.withdrawVaultType
         }
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
-        access(all) fun minimumAvailable(): UFix64 {
+        access(all) fun minimumAvailable(liquidation: Bool): UFix64 {
             if let vault = self.withdrawVault.borrow() {
                 return self.minimumBalance < vault.balance ? vault.balance - self.minimumBalance : 0.0
             }
