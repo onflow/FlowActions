@@ -222,7 +222,7 @@ fun testEstimateAndSwapBackVolatile() {
 }
 
 access(all)
-fun testZeroQuoteDoesNotPanic() {
+fun testZeroQuoteOutDoesNotPanic() {
     // Test that instantiating a zapper and calling quoteOut with 0 doesn't panic
     let zeroAmount = 0.0
 
