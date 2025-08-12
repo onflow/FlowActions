@@ -170,7 +170,7 @@ access(all) contract FungibleTokenConnectors {
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            let available = self.minimumAvailable()
+            let available = self.minimumAvailable(liquidation: true)
             if !self.withdrawVault.check() || available == 0.0 || maxAmount == 0.0 {
                 return <- DeFiActionsUtils.getEmptyVault(self.withdrawVaultType)
             }
@@ -262,7 +262,7 @@ access(all) contract FungibleTokenConnectors {
             return 0.0
         }
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
-        access(all) fun minimumAvailable(): UFix64 {
+        access(all) fun minimumAvailable(liquidation: Bool): UFix64 {
             if let vault = self.vault.borrow() {
                 return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
             }
