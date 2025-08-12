@@ -12,12 +12,6 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"UniswapV2SwapConnectors": {
-			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
-		},
 		"DeFiActionsMathUtils": {
 			"source": "cadence/contracts/utils/DeFiActionsMathUtils.cdc",
 			"aliases": {
@@ -42,12 +36,6 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"IncrementFiSwapConnectors": {
-			"source": "cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
-		},
 		"IncrementFiPoolLiquidityConnectors": {
 			"source": "cadence/contracts/connectors/increment-fi/IncrementFiPoolLiquidityConnectors.cdc",
 			"aliases": {
@@ -56,6 +44,12 @@
 		},
 		"IncrementFiStakingConnectors": {
 			"source": "cadence/contracts/connectors/increment-fi/IncrementFiStakingConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"IncrementFiSwapConnectors": {
+			"source": "cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -88,6 +82,12 @@
 			"source": "cadence/tests/contracts/TokenB.cdc",
 			"aliases": {
 				"testing": "0000000000000010"
+			}
+		},
+		"UniswapV2SwapConnectors": {
+			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
 			}
 		}
 	},
@@ -421,7 +421,8 @@
 			"hash": "46318aee6fd29616c8048c23210d4c4f5b172eb99a0ca911fbd849c831a52a0b",
 			"aliases": {
 				"mainnet": "b063c16cac85dbd1",
-				"testing": "0000000000000008"
+				"testing": "0000000000000008",
+				"testnet": "6ca93d49c45a249f"
 			}
 		},
 		"Staking": {
@@ -429,7 +430,8 @@
 			"hash": "2faa0180c406f783165d6b2e3370076f126ac6a0e8b800ace55707e838147811",
 			"aliases": {
 				"mainnet": "1b77ba4b414de352",
-				"testing": "0000000000000008"
+				"testing": "0000000000000008",
+				"testnet": "26a1e94319e81a3c"
 			}
 		},
 		"StakingError": {
@@ -437,7 +439,8 @@
 			"hash": "f76be3a19f8b640149fa0860316a34058b96c4ac2154486e337fd449306c730e",
 			"aliases": {
 				"mainnet": "1b77ba4b414de352",
-				"testing": "0000000000000008"
+				"testing": "0000000000000008",
+				"testnet": "26a1e94319e81a3c"
 			}
 		},
 		"StringUtils": {
@@ -680,53 +683,53 @@
 				"StakingError"
 			]
 		},
-		"testnet": {
-			"testnet-defi-actions": [
-				"DeFiActionsUtils",
-				"DeFiActionsMathUtils",
-				"DeFiActions"
-			],
-			"testnet-band-oracle-connectors": [
+		"mainnet": {
+			"mainnet-band-oracle-connectors": [
 				"BandOracleConnectors"
 			],
-			"testnet-swap-connectors": [
-				"SwapConnectors"
-			],
-			"testnet-fungible-token-connectors": [
-				"FungibleTokenConnectors"
-			],
-			"testnet-increment-fi-connectors": [
-				"IncrementFiSwapConnectors",
-				"IncrementFiFlashloanConnectors",
-				"IncrementFiPoolLiquidityConnectors",
-				"IncrementFiStakingConnectors"
-			],
-			"testnet-uniswapv2-swap-connectors": [
-				"UniswapV2SwapConnectors"
-			]
-		},
-		"mainnet": {
 			"mainnet-defi-actions": [
 				"DeFiActionsUtils",
 				"DeFiActionsMathUtils",
 				"DeFiActions"
 			],
-			"mainnet-band-oracle-connectors": [
-				"BandOracleConnectors"
-			],
-			"mainnet-swap-connectors": [
-				"SwapConnectors"
-			],
 			"mainnet-fungible-token-connectors": [
 				"FungibleTokenConnectors"
 			],
 			"mainnet-increment-fi-connectors": [
-				"IncrementFiSwapConnectors",
 				"IncrementFiFlashloanConnectors",
+				"IncrementFiSwapConnectors",
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
 			],
+			"mainnet-swap-connectors": [
+				"SwapConnectors"
+			],
 			"mainnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
+			]
+		},
+		"testnet": {
+			"testnet-band-oracle-connectors": [
+				"BandOracleConnectors"
+			],
+			"testnet-defi-actions": [
+				"DeFiActionsUtils",
+				"DeFiActionsMathUtils",
+				"DeFiActions"
+			],
+			"testnet-fungible-token-connectors": [
+				"FungibleTokenConnectors"
+			],
+			"testnet-increment-fi-connectors": [
+				"IncrementFiFlashloanConnectors",
+				"IncrementFiSwapConnectors",
+				"IncrementFiPoolLiquidityConnectors",
+				"IncrementFiStakingConnectors"
+			],
+			"testnet-swap-connectors": [
+				"SwapConnectors"
+			],
+			"testnet-uniswapv2-swap-connectors": [
 				"UniswapV2SwapConnectors"
 			]
 		}
