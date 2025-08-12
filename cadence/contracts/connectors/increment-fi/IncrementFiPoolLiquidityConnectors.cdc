@@ -127,6 +127,16 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         /// @return a DeFiActions.Quote struct containing the estimated amount delivered out for a provided input balance
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            // Handle zero amount case gracefully
+            if (forProvided == 0.0) {
+                return SwapConnectors.BasicQuote(
+                    inType: reverse ? self.outType() : self.inType(),
+                    outType: reverse ? self.inType() : self.outType(),
+                    inAmount: 0.0,
+                    outAmount: 0.0
+                )
+            }
+            
             let pairPublicRef = self.getPairPublicRef()
             let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
             let token1Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token1Type.identifier)
