@@ -96,9 +96,9 @@ access(all) contract SwapConnectors {
             for i in InclusiveRange(0, swappers.length - 1) {
                 let swapper = &swappers[i] as &{DeFiActions.Swapper}
                 assert(swapper.inType() == inVault,
-                message: "Mismatched inVault \(inVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.inType().identifier)")
+                    message: "Mismatched inVault \(inVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.inType().identifier)")
                 assert(swapper.outType() == outVault,
-                message: "Mismatched outVault \(outVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.outType().identifier)")
+                    message: "Mismatched outVault \(outVault.identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.outType().identifier)")
             }
             self.inVault = inVault
             self.outVault = outVault
@@ -191,8 +191,8 @@ access(all) contract SwapConnectors {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
                 // call the appropriate estimator
                 let estimate = out
-                ? swapper.quoteOut(forProvided: amount, reverse: true).outAmount
-                : swapper.quoteIn(forDesired: amount, reverse: true).inAmount
+                    ? swapper.quoteOut(forProvided: amount, reverse: true).outAmount
+                    : swapper.quoteIn(forDesired: amount, reverse: true).inAmount
                 if (out ? res[1] < estimate : estimate < res[1]) {
                     // take minimum for in, maximum for out
                     res = [UFix64(i), estimate]
@@ -230,7 +230,7 @@ access(all) contract SwapConnectors {
             pre {
                 swapper.outType() == sink.getSinkType():
                 "Swapper outputs \(swapper.outType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
-                .concat("Ensure the provided Swapper outputs a Vault Type compatible with the provided Sink")
+                    .concat("Ensure the provided Swapper outputs a Vault Type compatible with the provided Sink")
             }
             self.swapper = swapper
             self.sink = sink
@@ -247,8 +247,8 @@ access(all) contract SwapConnectors {
                 type: self.getType(),
                 id: self.id(),
                 innerComponents: [
-                self.swapper.getComponentInfo(),
-                self.sink.getComponentInfo()
+                    self.swapper.getComponentInfo(),
+                    self.sink.getComponentInfo()
                 ]
             )
         }
@@ -330,7 +330,7 @@ access(all) contract SwapConnectors {
             pre {
                 source.getSourceType() == swapper.inType():
                 "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inType().identifier) - "
-                .concat("Ensure the provided Source outputs a Vault Type compatible with the provided Swapper")
+                    .concat("Ensure the provided Source outputs a Vault Type compatible with the provided Swapper")
             }
             self.swapper = swapper
             self.source = source
@@ -347,8 +347,8 @@ access(all) contract SwapConnectors {
                 type: self.getType(),
                 id: self.id(),
                 innerComponents: [
-                self.swapper.getComponentInfo(),
-                self.source.getComponentInfo()
+                    self.swapper.getComponentInfo(),
+                    self.source.getComponentInfo()
                 ]
             )
         }
@@ -381,10 +381,10 @@ access(all) contract SwapConnectors {
         ///
         access(all) fun minimumAvailable(liquidation: Bool): UFix64 {
             // estimate post-conversion currency based on the source's pre-conversion balance available
-            let availableIn = self.source.minimumAvailable()
+            let availableIn = self.source.minimumAvailable(liquidation: liquidation)
             return availableIn > 0.0
-            ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
-            : 0.0
+                ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
+                : 0.0
         }
         /// Withdraws the provided amount of currency from this Source, swapping the provided amount to the required type if necessary
         ///
@@ -393,15 +393,15 @@ access(all) contract SwapConnectors {
         /// @return the Vault containing the withdrawn currency
         ///
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            let minimumAvail = self.minimumAvailable()
+            let minimumAvail = self.minimumAvailable(liquidation: true)
             if minimumAvail == 0.0 || maxAmount == 0.0 {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
             // expect output amount as the lesser between the amount available and the maximum amount
             var quote = minimumAvail < maxAmount
-            ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(), reverse: false)
-            : self.swapper.quoteIn(forDesired: maxAmount, reverse: false)
+                ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(liquidation: true), reverse: false)
+                : self.swapper.quoteIn(forDesired: maxAmount, reverse: false)
 
             let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quote.inAmount)
             if sourceLiquidity.balance == 0.0 {
