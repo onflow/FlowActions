@@ -14,7 +14,7 @@ import "DeFiActions"
 ///
 /// IncrementFiSwapConnectors
 ///
-/// DeFiActions adapter implementations fitting IncrementFi protocols to the data structure defined in DeFiActions.
+/// DeFiActions adapter implementations fitting IncrementFi protocols to the DeFiActions Swapper interface.
 ///
 access(all) contract IncrementFiSwapConnectors {
 
