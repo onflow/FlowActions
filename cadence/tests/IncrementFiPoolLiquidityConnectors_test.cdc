@@ -221,6 +221,52 @@ fun testEstimateAndSwapBackVolatile() {
     Test.expect(outAmount, Test.equal(expectedOutAmount))
 }
 
+access(all)
+fun testZeroQuoteDoesNotPanic() {
+    // Test that instantiating a zapper and calling quoteOut with 0 doesn't panic
+    let zeroAmount = 0.0
+
+    // Test stable mode with zero quote - forward direction (TokenA -> LP)
+    let stableQuoteForward = quoteOut(
+        inAmount: zeroAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    Test.expect(stableQuoteForward, Test.equal(0.0))
+
+    // Test stable mode with zero quote - reverse direction (LP -> TokenA)
+    let stableQuoteReverse = quoteOut(
+        inAmount: zeroAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: true
+    )
+    Test.expect(stableQuoteReverse, Test.equal(0.0))
+
+    // Test volatile mode with zero quote - forward direction (TokenA -> LP)
+    let volatileQuoteForward = quoteOut(
+        inAmount: zeroAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: false
+    )
+    Test.expect(volatileQuoteForward, Test.equal(0.0))
+
+    // Test volatile mode with zero quote - reverse direction (LP -> TokenA)
+    let volatileQuoteReverse = quoteOut(
+        inAmount: zeroAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: true
+    )
+    Test.expect(volatileQuoteReverse, Test.equal(0.0))
+}
+
 access(self) fun quoteOut(
     inAmount: UFix64,
     tokenAIdentifier: String,
