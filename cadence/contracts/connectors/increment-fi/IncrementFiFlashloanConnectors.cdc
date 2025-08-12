@@ -15,7 +15,7 @@ import "SwapFactory"
 access(all) contract IncrementFiFlashloanConnectors {
 
     /// Canonical path in which to store the generic FlashLoanExecutor resource
-    access(all) let executorStoragePath: StoragePath
+    access(all) let ExecutorStoragePath: StoragePath
 
     /* --- CONSTRUCTS --- */
 
@@ -175,6 +175,6 @@ access(all) contract IncrementFiFlashloanConnectors {
     }
 
     init() {
-        self.executorStoragePath = StoragePath(identifier: "IncrementFiFlashloanConnectorsExecutor_\(self.account.address)")!
+        self.ExecutorStoragePath = StoragePath(identifier: "IncrementFiFlashloanConnectorsExecutor_\(self.account.address)")!
     }
 }
