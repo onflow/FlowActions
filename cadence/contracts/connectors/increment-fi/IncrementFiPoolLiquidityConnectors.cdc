@@ -117,8 +117,6 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         ///
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let pairPublicRef = self.getPairPublicRef()
-            let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
-            let token1Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token1Type.identifier)
             let tokenReserves = self.getTokenReserves(pairPublicRef: pairPublicRef)
             let token0Reserve = tokenReserves[0]
             let token1Reserve = tokenReserves[1]
@@ -129,6 +127,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
             if (!reverse) {
                 // We need to find how much token0 input would produce 'forDesired' LP tokens
+                let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
 
                 // Use binary search to find the optimal input amount
                 // Start with reasonable bounds based on current reserves
