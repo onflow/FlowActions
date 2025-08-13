@@ -429,7 +429,7 @@ access(all) contract DeFiActions {
         finalized. To avoid the need for re-deploying with that interface and related fields managing ScheduleCallback
         structs, the AutoBalancer and its connectors are omitted from the DeFiActions contract on Testnet & Mainnet
         until the FlowCallbackScheduler contract is available.
-    *******************************************************************************************************************/
+     *******************************************************************************************************************/
 
     /// AutoBalancerSink
     ///
