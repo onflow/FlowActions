@@ -425,11 +425,11 @@ access(all) contract DeFiActions {
     }
 
     /*******************************************************************************************************************
-    NOTICE: The AutoBalancer will extend the FlowCallbackScheduler.CallbackHandler interface which is not yet
-    finalized. To avoid the need for re-deploying with that interface and related fields managing ScheduleCallback
-    structs, the AutoBalancer and its connectors are omitted from the DeFiActions contract on Testnet & Mainnet
-    until the FlowCallbackScheduler contract is available.
-    *******************************************************************************************************************/
+        NOTICE: The AutoBalancer will extend the FlowCallbackScheduler.CallbackHandler interface which is not yet
+        finalized. To avoid the need for re-deploying with that interface and related fields managing ScheduleCallback
+        structs, the AutoBalancer and its connectors are omitted from the DeFiActions contract on Testnet & Mainnet
+        until the FlowCallbackScheduler contract is available.
+        *******************************************************************************************************************/
 
     /// AutoBalancerSink
     ///
@@ -618,7 +618,7 @@ access(all) contract DeFiActions {
                 "The contract defining Vault \(vaultType.identifier) does not conform to FungibleToken contract interface"
             }
             assert(oracle.price(ofToken: vaultType) != nil,
-            message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vaultType.identifier)")
+                message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vaultType.identifier)")
             self._valueOfDeposits = 0.0
             self._rebalanceRange = [lower, upper]
             self._oracle = oracle
@@ -778,7 +778,7 @@ access(all) contract DeFiActions {
                 cap.check(): "Invalid AutoBalancer Capability provided"
                 self.getType() == cap.borrow()!.getType() && self.uuid == cap.borrow()!.uuid:
                 "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - "
-                .concat("provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)")
+                    .concat("provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)")
             }
             self._selfCap = cap
         }
