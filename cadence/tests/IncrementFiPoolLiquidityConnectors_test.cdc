@@ -274,13 +274,15 @@ fun testEstimateWithQuoteInAndSwapStable() {
     let expectedOutAmount = 4.2
 
     // Estimate swap amount
-    let calculatedInAmount = quoteIn(
+    let quoteInResult = quoteIn(
         outAmount: expectedOutAmount,
         tokenAIdentifier: tokenAIdentifier,
         tokenBIdentifier: tokenBIdentifier,
         stableMode: true,
         reverse: false
     )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
 
     // Execute swap
     let outAmount = swap(
@@ -289,10 +291,7 @@ fun testEstimateWithQuoteInAndSwapStable() {
         tokenBIdentifier: tokenBIdentifier,
         stableMode: true,
     )
-    // Use tolerance-based comparison for floating-point DeFi calculations
-    let tolerance = expectedOutAmount * estimationTolerance / 100.0
-    let withinTolerance = outAmount >= expectedOutAmount - tolerance && outAmount <= expectedOutAmount + tolerance
-    Test.expect(withinTolerance, Test.equal(true))
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
 }
 
 access(all)
@@ -300,13 +299,15 @@ fun testEstimateWithQuoteInAndSwapBackStable() {
     let expectedOutAmount = 0.1
 
     // Estimate swap amount
-    let calculatedInAmount = quoteIn(
+    let quoteInResult = quoteIn(
         outAmount: expectedOutAmount,
         tokenAIdentifier: tokenAIdentifier,
         tokenBIdentifier: tokenBIdentifier,
         stableMode: true,
         reverse: true
     )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
 
     // Execute swapBack
     let outAmount = swapBack(
@@ -316,10 +317,7 @@ fun testEstimateWithQuoteInAndSwapBackStable() {
         stableMode: true,
     )
 
-    // Use tolerance-based comparison for floating-point DeFi calculations
-    let tolerance = expectedOutAmount * estimationTolerance / 100.0
-    let withinTolerance = outAmount >= expectedOutAmount - tolerance && outAmount <= expectedOutAmount + tolerance
-    Test.expect(withinTolerance, Test.equal(true))
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
 }
 
 access(all)
@@ -327,13 +325,15 @@ fun testEstimateWithQuoteInAndSwapVolatile() {
     let expectedOutAmount = 69.01
 
     // Estimate swap amount
-    let calculatedInAmount = quoteIn(
+    let quoteInResult = quoteIn(
         outAmount: expectedOutAmount,
         tokenAIdentifier: tokenAIdentifier,
         tokenBIdentifier: tokenBIdentifier,
         stableMode: false,
         reverse: false
     )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
 
     // Execute swap
     let outAmount = swap(
@@ -342,11 +342,7 @@ fun testEstimateWithQuoteInAndSwapVolatile() {
         tokenBIdentifier: tokenBIdentifier,
         stableMode: false,
     )
-    // Use tolerance-based comparison for floating-point DeFi calculations
-    let tolerance = expectedOutAmount * estimationTolerance / 100.0
-    let withinTolerance = outAmount >= expectedOutAmount - tolerance && outAmount <= expectedOutAmount + tolerance
-
-    Test.expect(withinTolerance, Test.equal(true))
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
 }
 
 access(all)
@@ -354,13 +350,15 @@ fun testEstimateWithQuoteInAndSwapBackVolatile() {
     let expectedOutAmount = 11.0
 
     // Estimate swap amount
-    let calculatedInAmount = quoteIn(
+    let quoteInResult = quoteIn(
         outAmount: expectedOutAmount,
         tokenAIdentifier: tokenAIdentifier,
         tokenBIdentifier: tokenBIdentifier,
         stableMode: false,
         reverse: true
     )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
 
     // Execute swapBack
     let outAmount = swapBack(
@@ -370,10 +368,7 @@ fun testEstimateWithQuoteInAndSwapBackVolatile() {
         stableMode: false,
     )
 
-    // Use tolerance-based comparison for floating-point DeFi calculations
-    let tolerance = expectedOutAmount * estimationTolerance / 100.0
-    let withinTolerance = outAmount >= expectedOutAmount - tolerance && outAmount <= expectedOutAmount + tolerance
-    Test.expect(withinTolerance, Test.equal(true))
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
 }
 
 access(self) fun quoteIn(
@@ -382,15 +377,24 @@ access(self) fun quoteIn(
     tokenBIdentifier: String,
     stableMode: Bool,
     reverse: Bool,
-): UFix64 {
+): [UFix64 ;2] {
     let amountsOutRes = executeScript(
             "../scripts/increment-fi-adapters/zapper/get_amounts_in.cdc",
             [outAmount, tokenAIdentifier, tokenBIdentifier, stableMode, reverse]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
     let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
-    Test.assertEqual(outAmount, quote.outAmount)
-    return quote.inAmount
+
+    // quoteIn will return an estimated input amount and the corresponding output amount
+    // the estimated input amount should always be less than or equal to the actual output
+    // amount within a certain tolerance
+    let tolerance = outAmount * estimationTolerance / 100.0
+    let withinTolerance = quote.outAmount <= outAmount && quote.outAmount >= outAmount - tolerance
+    Test.expect(withinTolerance, Test.equal(true))
+
+    log(quote)
+
+    return [quote.inAmount, quote.outAmount]
 }
 
 access(self) fun quoteOut(
