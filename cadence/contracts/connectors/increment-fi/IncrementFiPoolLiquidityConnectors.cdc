@@ -164,7 +164,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 let result = self.quoteOut(forProvided: midInput, reverse: reverse).outAmount
 
                 // Track the best result we've seen
-                let currentDiff = result >= forDesired ? result - forDesired : forDesired - result
+                let currentDiff = result <= forDesired ? forDesired - result : UFix64.max
                 if (bestResult == 0.0 || currentDiff < bestDiff) {
                     bestDiff = currentDiff
                     bestResult = result
@@ -180,6 +180,11 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 }
 
                 log("epoch: \(epoch), minInput: \(minInput), maxInput: \(maxInput), midInput: \(midInput), result: \(result), bestResult: \(bestResult), bestInput: \(bestInput), bestDiff: \(bestDiff)")
+
+                // Convergence check
+                if (maxInput - minInput <= SwapConfig.ufix64NonZeroMin) {
+                    break
+                }
 
                 epoch = epoch + 1
             }
