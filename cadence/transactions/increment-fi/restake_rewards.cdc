@@ -79,7 +79,7 @@ transaction(
         
         // Get the expected amount of LP tokens to be restaked
         self.expectedStakeIncrease = zapper.quoteOut(
-            forProvided: poolRewardsSource.minimumAvailable(liquidation: true),
+            forProvided: poolRewardsSource.minimumAvailable(liquidate: true),
             reverse: false
         ).outAmount
     }

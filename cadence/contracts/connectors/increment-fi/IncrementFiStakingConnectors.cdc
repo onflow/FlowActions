@@ -213,7 +213,7 @@ access(all) contract IncrementFiStakingConnectors {
         ///
         /// @return the minimum amount of rewards available for claiming from this Source
         ///
-        access(all) fun minimumAvailable(liquidation: Bool): UFix64 {
+        access(all) fun minimumAvailable(liquidate: Bool): UFix64 {
             if let address = self.userCertificate.borrow()?.owner?.address {
                 if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                     // Stake an empty vault on behalf of the user to update the pool
@@ -238,7 +238,7 @@ access(all) contract IncrementFiStakingConnectors {
         /// @return a Vault containing the claimed rewards
         ///
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            let minimumAvailable = self.minimumAvailable(liquidation: true)
+            let minimumAvailable = self.minimumAvailable(liquidate: true)
             if minimumAvailable == 0.0 {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }

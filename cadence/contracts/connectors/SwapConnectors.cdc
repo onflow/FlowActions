@@ -379,9 +379,9 @@ access(all) contract SwapConnectors {
         ///
         /// @return the minimum amount of currency available to withdraw from this Source
         ///
-        access(all) fun minimumAvailable(liquidation: Bool): UFix64 {
+        access(all) fun minimumAvailable(liquidate: Bool): UFix64 {
             // estimate post-conversion currency based on the source's pre-conversion balance available
-            let availableIn = self.source.minimumAvailable(liquidation: liquidation)
+            let availableIn = self.source.minimumAvailable(liquidate: liquidate)
             return availableIn > 0.0
                 ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
                 : 0.0
@@ -393,14 +393,14 @@ access(all) contract SwapConnectors {
         /// @return the Vault containing the withdrawn currency
         ///
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            let minimumAvail = self.minimumAvailable(liquidation: true)
+            let minimumAvail = self.minimumAvailable(liquidate: true)
             if minimumAvail == 0.0 || maxAmount == 0.0 {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
 
             // expect output amount as the lesser between the amount available and the maximum amount
             var quote = minimumAvail < maxAmount
-                ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(liquidation: true), reverse: false)
+                ? self.swapper.quoteOut(forProvided: self.source.minimumAvailable(liquidate: true), reverse: false)
                 : self.swapper.quoteIn(forDesired: maxAmount, reverse: false)
 
             let sourceLiquidity <- self.source.withdrawAvailable(maxAmount: quote.inAmount)
