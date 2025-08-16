@@ -30,6 +30,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"EVMTokenConnectors": {
+			"source": "cadence/contracts/connectors/evm/EVMTokenConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"FungibleTokenConnectors": {
 			"source": "cadence/contracts/connectors/FungibleTokenConnectors.cdc",
 			"aliases": {
@@ -655,6 +661,7 @@
 				"SwapConnectors",
 				"FungibleTokenConnectors",
 				"EVMNativeFlowConnectors",
+				"EVMTokenConnectors",
 				"IncrementFiSwapConnectors",
 				"IncrementFiFlashloanConnectors",
 				"SwapPair",
