@@ -14,7 +14,9 @@ import "DeFiActionsUtils"
 ///
 /// EVMTokenConnectors
 ///
-/// A collection of DeFiActions connectors that deposit/withdraw tokens to/from EVM addresses
+/// A collection of DeFiActions connectors that deposit/withdraw tokens to/from EVM addresses.
+/// NOTE: These connectors move FLOW to/from the COA's WFLOW balance, not it's native FLOW balance. See
+///       EVMNativeFlowConnectors for connectors that move FLOW to/from the COA's native FLOW balance.
 ///
 access(all) contract EVMTokenConnectors {
 

@@ -218,7 +218,7 @@ fun evmCall(_ signer: Test.TestAccount, target: String, calldata: String, gasLim
 access(all)
 fun getEVMAddressHexFromEvents(_ evts: [AnyStruct], idx: Int): String {
     Test.assert(evts.length > idx, message: "Event index out of bounds")
-    
+
     let evt = evts[idx] as? EVM.TransactionExecuted
         ?? panic("Event at index ".concat(idx.toString()).concat(" is not a TransactionExecuted event"))
     let emittedAddress = evt.contractAddress
@@ -496,7 +496,7 @@ fun createWFLOWHandler(_ signer: Test.TestAccount, wflowAddress: String) {
         signer
     )
     Test.expect(enableHandlerResult, Test.beSucceeded())
-    
+
 }
 
 access(all) struct BridgeSetupResult {

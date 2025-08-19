@@ -290,7 +290,7 @@ access(all) fun testSourceWithdrawTokenASucceeds() {
     transferFlow(signer: serviceAccount, recipient: user.address, amount: flowBalance)
     setupGenericVault(signer: user, vaultIdentifier: Type<@TokenA.Vault>().identifier)
     mintTestTokens(signer: tokenAAccount, recipient: user.address, amount: tokenABalance, minterStoragePath: TokenA.AdminStoragePath, receiverPublicPath: TokenA.ReceiverPublicPath)
-    
+
     // create a COA for the user
     createCOA(user, fundingAmount: 0.0)
     // get the EVM address of the COA
