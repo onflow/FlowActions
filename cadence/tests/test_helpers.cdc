@@ -1,6 +1,7 @@
 import Test
 
 import "MetadataViews"
+import "FlowToken"
 import "EVM"
 import "TokenA"
 import "TokenB"
@@ -56,6 +57,13 @@ fun getEVMFlowBalance(_ evmAddressHex: String): UFix64 {
 }
 
 access(all)
+fun getEVMTokenBalance(of: String, erc20Address: String): UFix64 {
+    let res = _executeScript("../scripts/evm/get_evm_token_balance_as_ufix64.cdc", [of, erc20Address])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64
+}
+
+access(all)
 fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
     let res = _executeScript("../scripts/tokens/get_balance.cdc", [address, vaultPublicPath])
     Test.expect(res, Test.beSucceeded())
@@ -81,6 +89,13 @@ fun getAutoBalancerValueOfDeposits(address: Address, publicPath: PublicPath): UF
     let res = _executeScript("../scripts/auto-balance-adapter/get_value_of_deposits.cdc", [address, publicPath])
     Test.expect(res, Test.beSucceeded())
     return res.returnValue as! UFix64?
+}
+
+access(all)
+fun getEVMAddressAssociated(withType: String): String? {
+    let res = _executeScript("./scripts/get_evm_address_associated_with_type.cdc", [withType])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! String?
 }
 
 /* --- Transaction Helpers --- */
@@ -475,6 +490,13 @@ fun createWFLOWHandler(_ signer: Test.TestAccount, wflowAddress: String) {
         signer
     )
     Test.expect(createHandlerResult, Test.beSucceeded())
+    let enableHandlerResult = _executeTransaction(
+        "./transactions/bridge/setup/enable_token_handler.cdc",
+        [Type<@FlowToken.Vault>().identifier],
+        signer
+    )
+    Test.expect(enableHandlerResult, Test.beSucceeded())
+    
 }
 
 access(all) struct BridgeSetupResult {

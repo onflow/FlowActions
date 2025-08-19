@@ -58,7 +58,7 @@ access(all) fun testSinkDepositSucceeds() {
 
     // get the EVM-native FLOW balance of the COA
     let balance = getEVMFlowBalance(recipient)
-    Test.assertEqual(balance, depositAmount)
+    Test.assertEqual(depositAmount, balance)
 }
 
 access(all) fun testSinkDepositWithMaxSucceeds() {
@@ -85,7 +85,7 @@ access(all) fun testSinkDepositWithMaxSucceeds() {
 
     // get the EVM-native FLOW balance of the COA
     let balance = getEVMFlowBalance(recipient)
-    Test.assertEqual(balance, sinkMax)
+    Test.assertEqual(sinkMax, balance)
 }
 
 access(all) fun testSourceWithdrawSucceeds() {
@@ -108,7 +108,7 @@ access(all) fun testSourceWithdrawSucceeds() {
 
     // get the FLOW balance of the user
     let balance = getBalance(address: user.address, vaultPublicPath: /public/flowTokenReceiver)!
-    Test.assertEqual(balance, flowBalance - fundingAmount + withdrawAmount)
+    Test.assertEqual(flowBalance - fundingAmount + withdrawAmount, balance)
 }
 
 access(all) fun testSourceWithdrawWithMinSucceeds() {
@@ -132,5 +132,5 @@ access(all) fun testSourceWithdrawWithMinSucceeds() {
 
     // get the FLOW balance of the user
     let balance = getBalance(address: user.address, vaultPublicPath: /public/flowTokenReceiver)!
-    Test.assertEqual(balance, flowBalance - fundingAmount)
+    Test.assertEqual(flowBalance - fundingAmount, balance)
 }
