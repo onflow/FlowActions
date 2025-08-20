@@ -13,7 +13,7 @@ import "DeFiActionsUtils"
 ///
 /// A collection of DeFiActions connectors that target EVM addresses and deposit/withdraw FLOW as EVM-native FLOW
 ///
-access(all) contract EVMNativeFlowConnectors {
+access(all) contract EVMNativeFLOWConnectors {
 
     /// Sink
     ///
