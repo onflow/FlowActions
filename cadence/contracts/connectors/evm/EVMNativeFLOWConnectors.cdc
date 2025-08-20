@@ -37,13 +37,6 @@ access(all) contract EVMNativeFLOWConnectors {
             self.uniqueID = uniqueID
         }
 
-        /// Returns the EVM address this Sink targets
-        ///
-        /// @return the EVM address this Sink targets
-        ///
-        access(all) view fun evmAddress(): EVM.EVMAddress {
-            return self.address
-        }
         /// Returns a ComponentInfo struct containing information about this Sink and its inner DFA components
         ///
         /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
@@ -137,13 +130,6 @@ access(all) contract EVMNativeFLOWConnectors {
             self.uniqueID = uniqueID
         }
 
-        /// Returns the EVM address this Source targets
-        ///
-        /// @return the EVM address this Source targets
-        ///
-        access(all) view fun evmAddress(): EVM.EVMAddress {
-            return self.address
-        }
         /// Returns a ComponentInfo struct containing information about this Source and its inner DFA components
         ///
         /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
