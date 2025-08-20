@@ -558,6 +558,14 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
+		"mainnet-evm-token-connectors": {
+			"address": "cc15a0c9c656b648",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
 		"mainnet-fungible-token-connectors": {
 			"address": "1d9a619393e9fb53",
 			"key": {
@@ -607,6 +615,14 @@
 		},
 		"testnet-defi-actions": {
 			"address": "4c2ff9dd03ab442f",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-evm-token-connectors": {
+			"address": "b88ba0e976146cd1",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -706,6 +722,10 @@
 				"DeFiActionsMathUtils",
 				"DeFiActions"
 			],
+			"mainnet-evm-token-connectors": [
+				"EVMNativeFLOWConnectors",
+				"EVMTokenConnectors"
+			],
 			"mainnet-fungible-token-connectors": [
 				"FungibleTokenConnectors"
 			],
@@ -730,6 +750,10 @@
 				"DeFiActionsUtils",
 				"DeFiActionsMathUtils",
 				"DeFiActions"
+			],
+			"testnet-evm-token-connectors": [
+				"EVMNativeFLOWConnectors",
+				"EVMTokenConnectors"
 			],
 			"testnet-fungible-token-connectors": [
 				"FungibleTokenConnectors"
