@@ -137,19 +137,40 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             assert(lpTokenSupply > 0.0, message: "Pool must have positive LP token supply")
 
             // The number of epochs to run the binary search for
-            let estimationEpochs = 200
+            // It takes ~64 iterations to exhaust UFix64 precision
+            let estimationEpochs = 64
 
             // Use binary search to find the optimal input amount
             // Start with reasonable bounds based on current reserves
             var minInput = SwapConfig.ufix64NonZeroMin
             var maxInput = 0.0
             if (!reverse) {
+                let maxLpMintAmount = self.getMaxLpMintAmount(pairPublicRef: pairPublicRef)
+                // Unachievable
+                if forDesired > maxLpMintAmount {
+                    return SwapConnectors.BasicQuote(
+                        inType: self.inType(),
+                        outType: self.outType(),
+                        inAmount: 0.0,
+                        outAmount: forDesired
+                    )
+                }
+
                 // Top bound to calculate how much token0 we'd need to provide to get the desired LP amount
-                maxInput = forDesired * (token0Reserve > token1Reserve ? token0Reserve : token1Reserve)
+                maxInput = UFix64.max
             } else {
+                // Unachievable
+                if forDesired > lpTokenSupply {
+                    return SwapConnectors.BasicQuote(
+                        inType: self.inType(),
+                        outType: self.outType(),
+                        inAmount: 0.0,
+                        outAmount: forDesired
+                    )
+                }
+
                 // Top bound to calculate how much LP tokens we'd need to provide to get the desired token0 amount
-                let lpTokensForToken0 = (forDesired * lpTokenSupply) / token0Reserve
-                maxInput = lpTokensForToken0 * (token0Reserve > token1Reserve ? token0Reserve / token1Reserve : token1Reserve / token0Reserve)
+                maxInput = lpTokenSupply
             }
 
             // Binary search to find the input amount that produces the desired output
@@ -158,7 +179,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             var bestDiff = 0.0
             var epoch = 0
             while (epoch < estimationEpochs) {
-                let midInput = (minInput + maxInput) * 0.5
+                let midInput = minInput * 0.5 + maxInput * 0.5
 
                 // Calculate how much tokens we'd get from this input
                 let result = self.quoteOut(forProvided: midInput, reverse: reverse).outAmount
@@ -179,9 +200,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                     break
                 }
 
-                log("epoch: \(epoch), minInput: \(minInput), maxInput: \(maxInput), midInput: \(midInput), result: \(result), bestResult: \(bestResult), bestInput: \(bestInput), bestDiff: \(bestDiff)")
-
-                // Convergence check
+                // Precision check, we can't be more precise than this for midInput
                 if (maxInput - minInput <= SwapConfig.ufix64NonZeroMin) {
                     break
                 }
@@ -234,8 +253,8 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 let lpAmount = self.calculateLpAmount(
                     token0Amount: forProvided - zappedAmount,
                     token1Amount: swappedAmount,
-                    token0Offset: Fix64(zappedAmount),
-                    token1Offset: -Fix64(swappedAmount),
+                    token0Offset: zappedAmount,
+                    token1Offset: swappedAmount,
                     pairPublicRef: pairPublicRef
                 )
 
@@ -247,6 +266,17 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 )
             } else {
                 // Reverse operation: calculate how much token0Vault you get when providing LP tokens
+
+                let lpSupply = pairPublicRef.getPairInfo()[5] as! UFix64
+                // Unachievable
+                if forProvided > lpSupply {
+                    return SwapConnectors.BasicQuote(
+                        inType: self.inType(),
+                        outType: self.outType(),
+                        inAmount: forProvided,
+                        outAmount: 0.0
+                    )
+                }
 
                 // Calculate how much token0 and token1 you get from removing liquidity
                 let tokenAmounts = self.calculateTokenAmountsFromLp(lpAmount: forProvided, pairPublicRef: pairPublicRef)
@@ -353,39 +383,53 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 )
             } else {
                 var desiredZappedAmount = 0.0
+                let reserve0Scaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
+                let reserve1Scaled = SwapConfig.UFix64ToScaledUInt256(token1Reserve)
+                let forProvidedScaled = SwapConfig.UFix64ToScaledUInt256(forProvided)
                 if (token0Reserve > token1Reserve) {
-                    desiredZappedAmount = forProvided * token1Reserve / token0Reserve
+                    desiredZappedAmount = SwapConfig.ScaledUInt256ToUFix64(
+                        forProvidedScaled * reserve1Scaled / reserve0Scaled
+                    )
                 } else {
-                    desiredZappedAmount = forProvided * token0Reserve / token1Reserve
+                    desiredZappedAmount = SwapConfig.ScaledUInt256ToUFix64(
+                        forProvidedScaled * reserve0Scaled / reserve1Scaled
+                    )
                 }
                 let token0Key = self.token0Type.identifier
-                let desiredAmountOut = pairPublicRef.getAmountOut(amountIn: desiredZappedAmount, tokenInKey: token0Key)
-                let propAmountOut = (forProvided - desiredZappedAmount) / (token0Reserve + desiredZappedAmount) * (token1Reserve - desiredAmountOut)
-                var bias = 0.0
-                if (desiredAmountOut > propAmountOut) {
-                    bias = desiredAmountOut - propAmountOut
-                } else {
-                    bias = propAmountOut - desiredAmountOut
-                }
-                if (bias <= 0.0001) {
-                    zappedAmount = desiredZappedAmount
-                } else {
-                    var minAmount = SwapConfig.ufix64NonZeroMin
-                    var maxAmount = forProvided - SwapConfig.ufix64NonZeroMin
-                    var midAmount = 0.0
+                var desiredAmountOut = pairPublicRef.getAmountOut(amountIn: desiredZappedAmount, tokenInKey: token0Key)
+                var propAmountOut = 0.0
+                var minAmount = SwapConfig.ufix64NonZeroMin
+                var maxAmount = forProvided - SwapConfig.ufix64NonZeroMin
+                var midAmount = 0.0
+                if desiredAmountOut <= token1Reserve {
+                    propAmountOut = (forProvided - desiredZappedAmount) / (token0Reserve + desiredZappedAmount) * (token1Reserve - desiredAmountOut)
+                    var bias = 0.0
                     if (desiredAmountOut > propAmountOut) {
-                        maxAmount = desiredZappedAmount
+                        bias = desiredAmountOut - propAmountOut
                     } else {
-                        minAmount = desiredZappedAmount
+                        bias = propAmountOut - desiredAmountOut
                     }
-                    var epoch = 0
-                    while (epoch < 36) {
-                        midAmount = (minAmount + maxAmount) * 0.5;
-                        if maxAmount - midAmount < SwapConfig.ufix64NonZeroMin {
-                            break
+                    if (bias <= 0.0001) {
+                        return desiredZappedAmount
+                    } else {
+                        if (desiredAmountOut > propAmountOut) {
+                            maxAmount = desiredZappedAmount
+                        } else {
+                            minAmount = desiredZappedAmount
                         }
-                        let amountOut = pairPublicRef.getAmountOut(amountIn: midAmount, tokenInKey: token0Key)
-                        let reserveAft0 = token0Reserve + midAmount
+                    }
+                } else {
+                    maxAmount = desiredZappedAmount
+                }
+                var epoch = 0
+                while (epoch < 36) {
+                    midAmount = minAmount * 0.5 + maxAmount * 0.5;
+                    if maxAmount - midAmount < SwapConfig.ufix64NonZeroMin {
+                        break
+                    }
+                    let amountOut = pairPublicRef.getAmountOut(amountIn: midAmount, tokenInKey: token0Key)
+                    let reserveAft0 = token0Reserve + midAmount
+                    if amountOut <= token1Reserve {
                         let reserveAft1 = token1Reserve - amountOut
                         let ratioUser = (forProvided - midAmount) / amountOut
                         let ratioPool = reserveAft0 / reserveAft1
@@ -401,10 +445,13 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                             }
                             maxAmount = midAmount
                         }
-                        epoch = epoch + 1
+                    } else {
+                        maxAmount = midAmount
                     }
-                    zappedAmount = midAmount
+
+                    epoch = epoch + 1
                 }
+                zappedAmount = midAmount
             }
             return zappedAmount
         }
@@ -415,8 +462,8 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         ///
         /// @param token0Amount: the amount of token0 to add to the pool
         /// @param token1Amount: the amount of token1 to add to the pool
-        /// @param token0Offset: the offset of token0 reserves, used to simulate the impact of a swap on the reserves
-        /// @param token1Offset: the offset of token1 reserves, used to simulate the impact of a swap on the reserves
+        /// @param token0Offset: the offset of token0 reserves, used to simulate the impact of a swap on the reserves (added)
+        /// @param token1Offset: the offset of token1 reserves, used to simulate the impact of a swap on the reserves (subtracted)
         /// @param pairPublicRef: a reference to the pair public interface
         ///
         /// @return the amount of LP tokens received
@@ -424,8 +471,8 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         access(self) view fun calculateLpAmount(
             token0Amount: UFix64,
             token1Amount: UFix64,
-            token0Offset: Fix64,
-            token1Offset: Fix64,
+            token0Offset: UFix64,
+            token1Offset: UFix64,
             pairPublicRef: &{SwapInterfaces.PairPublic},
         ): UFix64 {
             let pairInfo = pairPublicRef.getPairInfo()
@@ -434,8 +481,9 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             var token1Reserve = tokenReserves[1]
 
             // Note: simulate zap swap impact on reserves
-            token0Reserve = UFix64(Fix64(token0Reserve) + token0Offset)
-            token1Reserve = UFix64(Fix64(token1Reserve) + token1Offset)
+            // Zapping always swaps token0 -> token1
+            token0Reserve = token0Reserve + token0Offset
+            token1Reserve = token1Reserve - token1Offset
 
             let reserve0LastScaled = SwapConfig.UFix64ToScaledUInt256(token0Reserve)
             let reserve1LastScaled = SwapConfig.UFix64ToScaledUInt256(token1Reserve)
@@ -594,6 +642,15 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 )
             }
             return swappedToken0Amount
+        }
+
+        // Returns the maximum amount of LP tokens that can be minted
+        // It's bound by the reserves of token1 that can be swapped to token0
+        access(self) fun getMaxLpMintAmount(
+            pairPublicRef: &{SwapInterfaces.PairPublic},
+        ): UFix64 {
+            let quote = self.quoteOut(forProvided: UFix64.max, reverse: false)
+            return quote.outAmount
         }
     }
 

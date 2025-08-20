@@ -88,14 +88,14 @@ fun setup() {
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 10000.0,
+        amount: 1000000.0,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 10000.0,
+        amount: 1000000.0,
         minterStoragePath: TokenB.AdminStoragePath,
         receiverPublicPath: TokenB.ReceiverPublicPath
     )
@@ -371,6 +371,88 @@ fun testEstimateWithQuoteInAndSwapBackVolatile() {
     Test.expect(outAmount, Test.equal(calculatedOutAmount))
 }
 
+access(all)
+fun testEstimateWithQuoteInUnachievableStable() {
+    let expectedOutAmount = 40000.2
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
+access(all)
+fun testEstimateWithQuoteInUnachievableVolatile() {
+    let expectedOutAmount = 12000000.0
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
+access(all)
+fun testEstimateSmallAmountWithQuoteInAndSwapStable() {
+    let expectedOutAmount = 0.000042
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInUnachievableReverseStable() {
+    let expectedOutAmount = 40000.2
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: true
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
 access(self) fun quoteIn(
     outAmount: UFix64,
     tokenAIdentifier: String,
@@ -391,8 +473,6 @@ access(self) fun quoteIn(
     let tolerance = outAmount * estimationTolerance / 100.0
     let withinTolerance = quote.outAmount <= outAmount && quote.outAmount >= outAmount - tolerance
     Test.expect(withinTolerance, Test.equal(true))
-
-    log(quote)
 
     return [quote.inAmount, quote.outAmount]
 }
