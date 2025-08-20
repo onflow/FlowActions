@@ -106,8 +106,10 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
         /// The estimated amount required to provide a Vault with the desired output balance
         ///
-        /// Note: This function uses binary search to estimate the optimal input amount. It is not guaranteed to converge for
-        ///       all inputs and pool reserves.
+        /// Note: The returned quote is the best estimate for the input amount and the corresponding
+        ///       output amount. The output amount may be slightly different from the desired output amount
+        ///       due to the precision of the UFix64 type.
+        ///       This function returns 0.0 for unachievable amounts.
         ///
         /// @param forDesired: the amount of the output token to receive
         /// @param reverse: if reverse is false, will estimate the amount of token0 to provide for a desired LP amount
@@ -185,6 +187,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 let result = self.quoteOut(forProvided: midInput, reverse: reverse).outAmount
 
                 // Track the best result we've seen
+                // Note: We look for numbers that are less than the desired amount.
                 let currentDiff = result <= forDesired ? forDesired - result : UFix64.max
                 if (bestResult == 0.0 || currentDiff < bestDiff) {
                     bestDiff = currentDiff
