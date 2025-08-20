@@ -6,7 +6,6 @@ import "FungibleToken"
 import "FlowToken"
 import "TokenA"
 import "EVM"
-import "EVMNativeFlowConnectors"
 import "DeFiActions"
 
 access(all) let serviceAccount = Test.serviceAccount()

@@ -2,9 +2,9 @@ import "FungibleToken"
 import "FlowToken"
 import "EVM"
 import "DeFiActions"
-import "EVMNativeFlowConnectors"
+import "EVMNativeFLOWConnectors"
 
-/// Deposits the given amount of FLOW to the given EVM address via a EVMNativeFlowConnectors.Sink
+/// Deposits the given amount of FLOW to the given EVM address via a EVMNativeFLOWConnectors.Sink
 ///
 /// @param sinkMax: The maximum amount of FLOW the EVM address can hold; if nil, the Sink will deposit any balance
 /// @param amount: The amount of FLOW to deposit
@@ -28,7 +28,7 @@ transaction(sinkMax: UFix64?, amount: UFix64, evmAddressHex: String) {
         self.beforeBalance = self.recipient.balance().inFLOW()
 
         // create the Sink
-        self.sink = EVMNativeFlowConnectors.Sink(
+        self.sink = EVMNativeFLOWConnectors.Sink(
             max: sinkMax,
             address: self.recipient,
             uniqueID: nil

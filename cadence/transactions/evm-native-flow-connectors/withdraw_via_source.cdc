@@ -2,10 +2,10 @@ import "FungibleToken"
 import "FlowToken"
 import "EVM"
 import "DeFiActions"
-import "EVMNativeFlowConnectors"
+import "EVMNativeFLOWConnectors"
 
 /// Withdraws the given amount of FLOW from the signer's CadenceOwnedAccount's native FLOW balance via a 
-/// EVMNativeFlowConnectors.Source connector
+/// EVMNativeFLOWConnectors.Source connector
 ///
 /// @param sourceMin: The minimum amount of FLOW for the EVM address to hold beyond which the Source will not withdraw
 ///      if nil, there will be no minimum balance for the EVM address
@@ -40,7 +40,7 @@ transaction(sourceMin: UFix64?, amount: UFix64, to: Address?) {
         let coaRef = coa.borrow()!
 
         // create the Source
-        self.source = EVMNativeFlowConnectors.Source(
+        self.source = EVMNativeFLOWConnectors.Source(
             min: sourceMin,
             coa: coa,
             uniqueID: nil
