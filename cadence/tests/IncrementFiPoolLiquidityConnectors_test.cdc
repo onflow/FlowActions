@@ -18,6 +18,8 @@ access(all) let tokenBIdentifier = Type<@TokenB.Vault>().identifier // "A.<ADDRE
 access(all) let tokenAKey = String.join(tokenAIdentifier.split(separator: ".").slice(from: 0, upTo: 3), separator: ".")
 access(all) let tokenBKey = String.join(tokenBIdentifier.split(separator: ".").slice(from: 0, upTo: 3), separator: ".")
 
+access(all) let estimationTolerance = 0.1 // 0.1% tolerance for DeFi precision differences
+
 access(all)
 fun setup() {
     setupIncrementFiDependencies()
@@ -86,14 +88,14 @@ fun setup() {
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 10000.0,
+        amount: 1000000.0,
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
     mintTestTokens(
         signer: testTokenAccount,
         recipient: pairCreatorAccount.address,
-        amount: 10000.0,
+        amount: 1000000.0,
         minterStoragePath: TokenB.AdminStoragePath,
         receiverPublicPath: TokenB.ReceiverPublicPath
     )
@@ -265,6 +267,214 @@ fun testZeroQuoteOutDoesNotPanic() {
         reverse: true
     )
     Test.expect(volatileQuoteReverse, Test.equal(0.0))
+}
+
+access(all)
+fun testEstimateWithQuoteInAndSwapStable() {
+    let expectedOutAmount = 4.2
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInAndSwapBackStable() {
+    let expectedOutAmount = 0.1
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: true
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swapBack
+    let outAmount = swapBack(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInAndSwapVolatile() {
+    let expectedOutAmount = 69.01
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+    )
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInAndSwapBackVolatile() {
+    let expectedOutAmount = 11.0
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: true
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swapBack
+    let outAmount = swapBack(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+    )
+
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInUnachievableStable() {
+    let expectedOutAmount = 40000.2
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
+access(all)
+fun testEstimateWithQuoteInUnachievableVolatile() {
+    let expectedOutAmount = 12000000.0
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: false,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
+access(all)
+fun testEstimateSmallAmountWithQuoteInAndSwapStable() {
+    let expectedOutAmount = 0.000042
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: false
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Execute swap
+    let outAmount = swap(
+        inAmount: calculatedInAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+    )
+    Test.expect(outAmount, Test.equal(calculatedOutAmount))
+}
+
+access(all)
+fun testEstimateWithQuoteInUnachievableReverseStable() {
+    let expectedOutAmount = 40000.2
+
+    // Estimate swap amount
+    let quoteInResult = quoteIn(
+        outAmount: expectedOutAmount,
+        tokenAIdentifier: tokenAIdentifier,
+        tokenBIdentifier: tokenBIdentifier,
+        stableMode: true,
+        reverse: true
+    )
+    let calculatedInAmount = quoteInResult[0]
+    let calculatedOutAmount = quoteInResult[1]
+
+    // Unachievable
+    Test.expect(calculatedInAmount, Test.equal(0.0))
+}
+
+access(self) fun quoteIn(
+    outAmount: UFix64,
+    tokenAIdentifier: String,
+    tokenBIdentifier: String,
+    stableMode: Bool,
+    reverse: Bool,
+): [UFix64 ;2] {
+    let amountsOutRes = executeScript(
+            "../scripts/increment-fi-adapters/zapper/get_amounts_in.cdc",
+            [outAmount, tokenAIdentifier, tokenBIdentifier, stableMode, reverse]
+        )
+    Test.expect(amountsOutRes, Test.beSucceeded())
+    let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
+
+    // quoteIn will return an estimated input amount and the corresponding output amount
+    // the estimated input amount should always be less than or equal to the actual output
+    // amount within a certain tolerance
+    let tolerance = outAmount * estimationTolerance / 100.0
+    let withinTolerance = quote.outAmount <= outAmount && quote.outAmount >= outAmount - tolerance
+    Test.expect(withinTolerance, Test.equal(true))
+
+    return [quote.inAmount, quote.outAmount]
 }
 
 access(self) fun quoteOut(
