@@ -247,6 +247,19 @@ access(all) contract EVMTokenConnectors {
             }
             return 0.0
         }
+        /// Returns the maximum available balance for this Source regardless or the minimumBalance
+        access(all) fun maximumAvailable(): UFix64 {
+            if let coa = self.coa.borrow() {
+                let erc20Address = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.withdrawVaultType)!
+                let balance = FlowEVMBridgeUtils.balanceOf(owner: coa.address(), evmContractAddress: erc20Address)
+                let balanceInCadence = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                    balance,
+                    erc20Address: erc20Address
+                )
+                return balanceInCadence
+            }
+            return 0.0
+        }
         /// Withdraws the given amount of tokens from the CadenceOwnedAccount's balance of ERC20 tokens
         ///
         /// @param maxAmount: the maximum amount of tokens to withdraw
