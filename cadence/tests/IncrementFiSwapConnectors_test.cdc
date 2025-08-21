@@ -5,8 +5,8 @@ import "test_helpers.cdc"
 import "TokenA"
 import "TokenB"
 
-import "DFB"
-import "IncrementFiAdapters"
+import "DeFiActions"
+import "IncrementFiSwapConnectors"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 access(all) let pairCreatorAccount = Test.createAccount()
@@ -23,32 +23,38 @@ fun setup() {
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DeFiActionsUtils",
+        path: "../contracts/utils/DeFiActionsUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DeFiActionsMathUtils",
+        path: "../contracts/utils/DeFiActionsMathUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "DeFiActions",
+        path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "FungibleTokenStack",
-        path: "../contracts/connectors/FungibleTokenStack.cdc",
+        name: "FungibleTokenConnectors",
+        path: "../contracts/connectors/FungibleTokenConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "SwapStack",
-        path: "../contracts/connectors/SwapStack.cdc",
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "IncrementFiAdapters",
-        path: "../contracts/adapters/IncrementFiAdapters.cdc",
+        name: "IncrementFiSwapConnectors",
+        path: "../contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
@@ -87,7 +93,7 @@ fun setup() {
         token1InDesired: 200.0,
         token0InMin: 0.0,
         token1InMin: 0.0,
-        deadline: getCurrentBlockTimestamp(),
+        deadline: getCurrentBlockTimestamp() + 1000.0,
         token0VaultPath: TokenA.VaultStoragePath,
         token1VaultPath: TokenB.VaultStoragePath,
         stableMode: false
@@ -103,7 +109,7 @@ fun testAdapterGetAmountsInSucceeds() {
             [outAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsInRes, Test.beSucceeded())
-    let quote = amountsInRes.returnValue! as! {DFB.Quote}
+    let quote = amountsInRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(outAmount, quote.outAmount)
 }
 
@@ -116,6 +122,6 @@ fun testAdapterGetAmountsOutSucceeds() {
             [inAmount, tokenAIdentifier, tokenBIdentifier, path]
         )
     Test.expect(amountsOutRes, Test.beSucceeded())
-    let quote = amountsOutRes.returnValue! as! {DFB.Quote}
+    let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(inAmount, quote.inAmount)
 }

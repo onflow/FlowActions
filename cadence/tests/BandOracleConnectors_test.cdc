@@ -6,14 +6,20 @@ access(all) let serviceAccount = Test.serviceAccount()
 
 access(all) fun setup() {
     var err = Test.deployContract(
-        name: "DFBUtils",
-        path: "../contracts/utils/DFBUtils.cdc",
+        name: "DeFiActionsUtils",
+        path: "../contracts/utils/DeFiActionsUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DFB",
-        path: "../contracts/interfaces/DFB.cdc",
+        name: "DeFiActionsMathUtils",
+        path: "../contracts/utils/DeFiActionsMathUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "DeFiActions",
+        path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -24,13 +30,13 @@ access(all) fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "BandOracleAdapters",
-        path: "../contracts/adapters/BandOracleAdapters.cdc",
+        name: "BandOracleConnectors",
+        path: "../contracts/connectors/band-oracle/BandOracleConnectors.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
 }
 
 access(all) fun testSetupSuccess() {
-    log("BandOracleAdapters deployment success")
+    log("BandOracleConnectors deployment success")
 }

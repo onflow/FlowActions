@@ -1,10 +1,10 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "DFB"
-import "FungibleTokenStack"
+import "DeFiActions"
+import "FungibleTokenConnectors"
 
-/// An example transaction configuring a DeFiBlocks AutoBalancer with a rebalance Sink directing overflown value to the
+/// An example transaction configuring a DeFiActions AutoBalancer with a rebalance Sink directing overflown value to the
 /// signer's stored Vault
 ///
 /// @param vaultIdentifier: the Vault type which the AutoBalancer contains. If `nil` the Source is set to `nil`
@@ -13,8 +13,8 @@ import "FungibleTokenStack"
 ///
 transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePath: StoragePath) {
 
-    let autoBalancer: auth(DFB.Set) &DFB.AutoBalancer
-    let vaultSource: FungibleTokenStack.VaultSource?
+    let autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
+    let vaultSource: {DeFiActions.Source}?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         if vaultIdentifier != nil {
@@ -35,18 +35,18 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
             assert(withdrawVault.check(),
                 message: "Invalid authorized FungibleToken.Vault Capability issued against \(vaultData.storagePath) - ensure a Vault is configured at the expected path"
             )
-            self.vaultSource = FungibleTokenStack.VaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
+            self.vaultSource = FungibleTokenConnectors.VaultSource(min: sourceMin, withdrawVault: withdrawVault, uniqueID: nil)
         } else {
             self.vaultSource = nil
         }
 
         // assign the AutoBalancer
-        self.autoBalancer = signer.storage.borrow<auth(DFB.Set) &DFB.AutoBalancer>(from: autoBalancerStoragePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Set) &DeFiActions.AutoBalancer>(from: autoBalancerStoragePath)
             ?? panic("AutoBalancer was not configured properly at \(autoBalancerStoragePath)")
     }
 
     execute {
         // Set the VaultSource as the AutoBalancer's rebalanceSource
-        self.autoBalancer.setSource(self.vaultSource)
+        self.autoBalancer.setSource(self.vaultSource, updateSourceID: true)
     }
 }

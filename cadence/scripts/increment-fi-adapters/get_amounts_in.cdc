@@ -1,13 +1,14 @@
-import "DFB"
-import "IncrementFiAdapters"
+import "DeFiActions"
+import "IncrementFiSwapConnectors"
 
 access(all)
-fun main(forDesired: UFix64, inVaultIdentifier: String, outVaultIdentifier: String, path: [String]): {DFB.Quote} {
-    let swapper = IncrementFiAdapters.Swapper(
+fun main(forDesired: UFix64, inVaultIdentifier: String, outVaultIdentifier: String, path: [String]): {DeFiActions.Quote} {
+    let swapper = IncrementFiSwapConnectors.Swapper(
         path: path,
         inVault: CompositeType(inVaultIdentifier) ?? panic("Invalid inVault \(inVaultIdentifier)"),
         outVault: CompositeType(outVaultIdentifier) ?? panic("Invalid outVault \(outVaultIdentifier)"),
         uniqueID: nil
     )
-    return swapper.quoteIn(forDesired: forDesired, reverse: false)
+    let quote = swapper.quoteIn(forDesired: forDesired, reverse: false)
+    return quote
 }

@@ -1,12 +1,12 @@
 import "FungibleToken"
 
-import "DFB"
+import "DeFiActions"
 import "MockOracle"
-import "FungibleTokenStack"
+import "FungibleTokenConnectors"
 
 /// NOT FOR PRODUCTION - THIS TRANSACTION IS EXAMPLE CODE
 ///
-/// An example transaction configuring a DeFiBlocks AutoBalancer and saving it in the signer's account
+/// An example transaction configuring a DeFiActions AutoBalancer and saving it in the signer's account
 ///
 /// @param unitOfAccount: vault type denominating PriceOracle's price
 /// @param staleThreshold: seconds beyond which an oracle's price will be considered stale
@@ -26,8 +26,8 @@ transaction(
     publicPath: PublicPath
 ) {
 
-    var autoBalancer: auth(DFB.Set) &DFB.AutoBalancer
-    var authCap: Capability<auth(FungibleToken.Withdraw) &DFB.AutoBalancer>?
+    var autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
+    var authCap: Capability<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         let tokenType = CompositeType(vaultIdentifier) ?? panic("Invalid vaultIdentifier \(vaultIdentifier)")
@@ -38,10 +38,10 @@ transaction(
 
             // PriceOracle is mocked here
             // PRODUCTION CASES SHOULD USE A VALID PRICEORACLE ADAPTER
-            let oracle = MockOracle.PriceOracle()
+            let oracle = MockOracle.PriceOracle(nil)
 
             // construct the AutoBalancer & save in signer's account
-            let ab <- DFB.createAutoBalancer(
+            let ab <- DeFiActions.createAutoBalancer(
                 oracle: oracle,
                 vaultType: tokenType,
                 lowerThreshold: lowerThreshold,
@@ -52,18 +52,18 @@ transaction(
             )
             signer.storage.save(<-ab, to: storagePath)
             // publish public Capability
-            let cap = signer.capabilities.storage.issue<&DFB.AutoBalancer>(storagePath)
+            let cap = signer.capabilities.storage.issue<&DeFiActions.AutoBalancer>(storagePath)
             signer.capabilities.unpublish(publicPath)
             signer.capabilities.publish(cap, at: publicPath)
 
             // issue an authorized Capability on the AutoBalancer
-            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &DFB.AutoBalancer>(storagePath)
+            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>(storagePath)
         }
 
         // ensure proper configuration in storage and via published Capability
-        self.autoBalancer = signer.storage.borrow<auth(DFB.Set) &DFB.AutoBalancer>(from: storagePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Set) &DeFiActions.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not configured properly at \(storagePath)")
-        let public = signer.capabilities.borrow<&DFB.AutoBalancer>(publicPath)
+        let public = signer.capabilities.borrow<&DeFiActions.AutoBalancer>(publicPath)
             ?? panic("AutoBalancer Capability was not published to \(publicPath)")
         assert(self.autoBalancer.vaultType() == tokenType,
             message: "Expected configured AutoBalancer to manage \(vaultIdentifier) but stored AutoBalancer manages \(self.autoBalancer.vaultType().identifier)")

@@ -1,36 +1,44 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
-import "DFBUtils"
-import "DFB"
+import "DeFiActionsUtils"
+import "DeFiActions"
 
-/// FungibleTokenStack
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// This contract defines generic StackFi Sink & Source connector implementations for use with underlying Vault
-/// Capabilities. These connectors can be used alone or in conjunction with other StackFi connectors to create complex
-/// DeFi workflows.
+/// FungibleTokenConnectors
 ///
-access(all) contract FungibleTokenStack {
+/// This contract defines generic DeFi Actions Sink & Source connector implementations for use with underlying Vault
+/// Capabilities. These connectors can be used alone or in conjunction with other DeFi Actions connectors to create
+/// complex DeFi workflows.
+///
+access(all) contract FungibleTokenConnectors {
 
-    access(all) struct VaultSink : DFB.Sink {
+    /// VaultSink
+    ///
+    /// A DeFiActions connector that deposits tokens into a Vault
+    ///
+    access(all) struct VaultSink : DeFiActions.Sink {
         /// The Vault Type accepted by the Sink
         access(all) let depositVaultType: Type
         /// The maximum balance of the linked Vault, checked before executing a deposit
         access(all) let maximumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// An unentitled Capability on the Vault to which deposits are distributed
         access(self) let depositVault: Capability<&{FungibleToken.Vault}>
 
         init(
             max: UFix64?,
             depositVault: Capability<&{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 depositVault.check(): "Provided invalid Capability"
-                DFBUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
@@ -39,11 +47,38 @@ access(all) contract FungibleTokenStack {
             self.depositVault = depositVault
         }
 
+        /// Returns a ComponentInfo struct containing information about this VaultSink and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type {
             return self.depositVaultType
         }
-
         /// Returns an estimate of how much of the associated Vault can be accepted by this Sink
         access(all) fun minimumCapacity(): UFix64 {
             if let vault = self.depositVault.borrow() {
@@ -51,7 +86,6 @@ access(all) contract FungibleTokenStack {
             }
             return 0.0
         }
-
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             let minimumCapacity = self.minimumCapacity()
@@ -64,25 +98,29 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSource : DFB.Source {
+    /// VaultSource
+    ///
+    /// A DeFiActions connector that withdraws tokens from a Vault
+    ///
+    access(all) struct VaultSource : DeFiActions.Source {
         /// Returns the Vault type provided by this Source
         access(all) let withdrawVaultType: Type
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced
         access(self) let withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
         init(
             min: UFix64?,
             withdrawVault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 withdrawVault.check(): "Provided invalid Capability"
-                DFBUtils.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(withdrawVault.borrow()!.getType()):
                 "The contract defining Vault \(withdrawVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
             }
             self.minimumBalance = min ?? 0.0 // assume no minimum if none provided
@@ -90,12 +128,38 @@ access(all) contract FungibleTokenStack {
             self.uniqueID = uniqueID
             self.withdrawVaultType = withdrawVault.borrow()!.getType()
         }
-
+        /// Returns a ComponentInfo struct containing information about this VaultSource and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type {
             return self.withdrawVaultType
         }
-
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
             if let vault = self.withdrawVault.borrow() {
@@ -104,9 +168,11 @@ access(all) contract FungibleTokenStack {
             return 0.0
         }
 
-        access(all) fun liquidationValue(): UFix64 {
+        /// Returns an estimate of how much of the associated Vault can be provided by this Source
+        /// regardless of the minimum balance
+        access(all) fun maximumAvailable(): UFix64 {
             if let vault = self.withdrawVault.borrow() {
-                return self.minimumBalance < vault.balance ? vault.balance - self.minimumBalance : 0.0
+                return vault.balance
             }
             return 0.0
         }
@@ -116,7 +182,7 @@ access(all) contract FungibleTokenStack {
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             let available = self.minimumAvailable()
             if !self.withdrawVault.check() || available == 0.0 || maxAmount == 0.0 {
-                return <- DFBUtils.getEmptyVault(self.withdrawVaultType)
+                return <- DeFiActionsUtils.getEmptyVault(self.withdrawVaultType)
             }
             // take the lesser between the available and maximum requested amount
             let withdrawalAmount = available <= maxAmount ? available : maxAmount
@@ -124,7 +190,11 @@ access(all) contract FungibleTokenStack {
         }
     }
 
-    access(all) struct VaultSinkAndSource : DFB.Sink, DFB.Source {
+    /// VaultSinkAndSource
+    ///
+    /// A DeFiActions connector that both deposits and withdraws tokens from a Vault
+    ///
+    access(all) struct VaultSinkAndSource : DeFiActions.Sink, DeFiActions.Source {
         /// The minimum balance of the linked Vault
         access(all) let minimumBalance: UFix64
         /// The maximum balance of the linked Vault
@@ -133,7 +203,7 @@ access(all) contract FungibleTokenStack {
         access(all) let vaultType: Type
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// An entitled Capability on the Vault from which withdrawals are sourced & deposit are routed
         access(self) let vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
 
@@ -141,11 +211,11 @@ access(all) contract FungibleTokenStack {
             min: UFix64?,
             max: UFix64?,
             vault: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 vault.check(): "Invalid Vault Capability provided"
-                DFBUtils.definingContractIsFungibleToken(vault.borrow()!.getType()):
+                DeFiActionsUtils.definingContractIsFungibleToken(vault.borrow()!.getType()):
                 "The contract defining Vault \(vault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
                 min ?? 0.0 < max ?? UFix64.max:
                 "Minimum balance must be less than maximum balance if either is declared"
@@ -157,16 +227,43 @@ access(all) contract FungibleTokenStack {
             self.vault = vault
         }
 
+        /// Returns a ComponentInfo struct containing information about this VaultSinkAndSource and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type {
             return self.vaultType
         }
-
         /// Returns the Vault type provided by this Source
         access(all) view fun getSourceType(): Type {
             return self.vaultType
         }
-
         /// Returns an estimate of how much of the associated Vault can be accepted by this Sink
         access(all) fun minimumCapacity(): UFix64 {
             if let vault = self.vault.borrow() {
@@ -174,7 +271,6 @@ access(all) contract FungibleTokenStack {
             }
             return 0.0
         }
-
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
             if let vault = self.vault.borrow() {
@@ -183,9 +279,10 @@ access(all) contract FungibleTokenStack {
             return 0.0
         }
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
-        access(all) fun liquidationValue(): UFix64 {
+        /// regardless of the minimum balance
+        access(all) fun maximumAvailable(): UFix64 {
             if let vault = self.vault.borrow() {
-                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
+                return vault.balance
             }
             return 0.0
         }
@@ -196,7 +293,6 @@ access(all) contract FungibleTokenStack {
                 vault.deposit(from: <-from.withdraw(amount: from.balance))
             }
         }
-
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
@@ -204,7 +300,7 @@ access(all) contract FungibleTokenStack {
                 let finalAmount = vault.balance < maxAmount ? vault.balance : maxAmount
                 return <-vault.withdraw(amount: finalAmount)
             }
-            return <- DFBUtils.getEmptyVault(self.vaultType)
+            return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
         }
     }
 }

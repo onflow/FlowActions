@@ -1,26 +1,34 @@
 import "FungibleToken"
 import "Burner"
 
+import "SwapInterfaces"
+import "SwapConfig"
+import "SwapFactory"
 import "SwapRouter"
-import "SwapStack"
-import "DFB"
+import "SwapConnectors"
+import "DeFiActions"
 
-/// IncrementFiAdapters
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+/// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
+/// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// DeFi adapter implementations fitting IncrementFi protocols to the data structure defined in DeFiAdapters.
+/// IncrementFiSwapConnectors
 ///
-access(all) contract IncrementFiAdapters {
+/// DeFiActions adapter implementations fitting IncrementFi protocols to the DeFiActions Swapper interface.
+///
+access(all) contract IncrementFiSwapConnectors {
 
-    /// An implementation of DFB.Swapper connector that swaps between tokens using IncrementFi's
-    /// SwapRouter contract
+    /// Swapper
     ///
-    access(all) struct Swapper : DFB.Swapper {
+    /// A DeFiActions connector that swaps between tokens using IncrementFi's SwapRouter contract
+    ///
+    access(all) struct Swapper : DeFiActions.Swapper {
         /// A swap path as defined by IncrementFi's SwapRouter
         ///  e.g. [A.f8d6e0586b0a20c7.FUSD, A.f8d6e0586b0a20c7.FlowToken, A.f8d6e0586b0a20c7.USDC]
         access(all) let path: [String]
         /// An optional identifier allowing protocols to identify stacked connector operations by defining a protocol-
         /// specific Identifier to associated connectors on construction
-        access(contract) let uniqueID: DFB.UniqueIdentifier?
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
         /// The pre-conversion currency accepted for a swap
         access(self) let inVault: Type
         /// The post-conversion currency returned by a swap
@@ -30,13 +38,13 @@ access(all) contract IncrementFiAdapters {
             path: [String],
             inVault: Type,
             outVault: Type,
-            uniqueID: DFB.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 path.length >= 2:
                 "Provided path must have a length of at least 2 - provided path has \(path.length) elements"
             }
-            IncrementFiAdapters.validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
+            IncrementFiSwapConnectors._validateSwapperInitArgs(path: path, inVault: inVault, outVault: outVault)
 
             self.path = path
             self.inVault = inVault
@@ -44,6 +52,34 @@ access(all) contract IncrementFiAdapters {
             self.uniqueID = uniqueID
         }
 
+        /// Returns a ComponentInfo struct containing information about this Swapper and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
         /// The type of Vault this Swapper accepts when performing a swap
         access(all) view fun inType(): Type {
             return self.inVault
@@ -53,9 +89,9 @@ access(all) contract IncrementFiAdapters {
             return self.outVault
         }
         /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountsIn = SwapRouter.getAmountsIn(amountOut: forDesired, tokenKeyPath: reverse ? self.path.reverse() : self.path)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountsIn.length == 0 ? 0.0 : amountsIn[0],
@@ -63,9 +99,9 @@ access(all) contract IncrementFiAdapters {
             )
         }
         /// The estimated amount delivered out for a provided input balance
-        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DFB.Quote} {
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             let amountsOut = SwapRouter.getAmountsOut(amountIn: forProvided, tokenKeyPath: reverse ? self.path.reverse() : self.path)
-            return SwapStack.BasicQuote(
+            return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: forProvided,
@@ -75,7 +111,7 @@ access(all) contract IncrementFiAdapters {
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(quote: {DFB.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOut = self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-inVault,
@@ -87,7 +123,7 @@ access(all) contract IncrementFiAdapters {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(quote: {DFB.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOut = self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-residual,
@@ -98,11 +134,13 @@ access(all) contract IncrementFiAdapters {
         }
     }
 
+    /* --- INTERNAL HELPERS --- */
+
     /// Reverts if the in and out Vaults are not defined by the token key path identifiers as used by IncrementFi's
     /// SwapRouter. Notably does not validate the intermediary path values if there are any.
     ///
     access(self)
-    view fun validateSwapperInitArgs(
+    view fun _validateSwapperInitArgs(
         path: [String],
         inVault: Type,
         outVault: Type

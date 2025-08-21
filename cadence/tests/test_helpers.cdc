@@ -1,10 +1,13 @@
 import Test
 
 import "MetadataViews"
+import "FlowToken"
 import "EVM"
 import "TokenA"
 import "TokenB"
 import "SwapFactory"
+import "Staking"
+import "SwapConfig"
 
 /* --- Test Helpers --- */
 
@@ -47,6 +50,20 @@ fun getCOAAddressHex(atFlowAddress: Address): String {
 }
 
 access(all)
+fun getEVMFlowBalance(_ evmAddressHex: String): UFix64 {
+    let res = _executeScript("../scripts/evm/get_evm_flow_balance.cdc", [evmAddressHex])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64
+}
+
+access(all)
+fun getEVMTokenBalance(of: String, erc20Address: String): UFix64 {
+    let res = _executeScript("../scripts/evm/get_evm_token_balance_as_ufix64.cdc", [of, erc20Address])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! UFix64
+}
+
+access(all)
 fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
     let res = _executeScript("../scripts/tokens/get_balance.cdc", [address, vaultPublicPath])
     Test.expect(res, Test.beSucceeded())
@@ -72,6 +89,13 @@ fun getAutoBalancerValueOfDeposits(address: Address, publicPath: PublicPath): UF
     let res = _executeScript("../scripts/auto-balance-adapter/get_value_of_deposits.cdc", [address, publicPath])
     Test.expect(res, Test.beSucceeded())
     return res.returnValue as! UFix64?
+}
+
+access(all)
+fun getEVMAddressAssociated(withType: String): String? {
+    let res = _executeScript("./scripts/get_evm_address_associated_with_type.cdc", [withType])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! String?
 }
 
 /* --- Transaction Helpers --- */
@@ -194,7 +218,7 @@ fun evmCall(_ signer: Test.TestAccount, target: String, calldata: String, gasLim
 access(all)
 fun getEVMAddressHexFromEvents(_ evts: [AnyStruct], idx: Int): String {
     Test.assert(evts.length > idx, message: "Event index out of bounds")
-    
+
     let evt = evts[idx] as? EVM.TransactionExecuted
         ?? panic("Event at index ".concat(idx.toString()).concat(" is not a TransactionExecuted event"))
     let emittedAddress = evt.contractAddress
@@ -270,6 +294,21 @@ fun setupIncrementFiDependencies() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
+
+
+    // deploy Staking contracts
+    err = Test.deployContract(
+        name: "StakingError",
+        path: "../../imports/1b77ba4b414de352/StakingError.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "Staking",
+        path: "../../imports/1b77ba4b414de352/Staking.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
 }
 
 access(all)
@@ -277,6 +316,25 @@ fun deploySwapPairTemplate(_ signer: Test.TestAccount) {
     // must be deployed by transaction and not by Test.deployContract() because init args accept @{FungibleToken.Vault}
     // but the Test.deployContract() args parameter only accepts [AnyStruct]
     let res = _executeTransaction("./transactions/deploy_swap_pair.cdc", [swapPairTemplateCode], signer)
+    Test.expect(res, Test.beSucceeded())
+}
+
+access(all)
+fun createStakingPool(
+    _ signer: Test.TestAccount,
+    _ limitAmount: UFix64,
+    _ vaultTokenType: Type,
+    _ rewardInfo: [Staking.RewardInfo],
+    _ rewardTokenVaultStoragePath: StoragePath?,
+    _ depositAmount: UFix64?
+) {
+    let res = _executeTransaction("./transactions/increment-fi/create_staking_pool.cdc", [
+        limitAmount,
+        vaultTokenType,
+        rewardInfo,
+        rewardTokenVaultStoragePath,
+        depositAmount
+    ], signer)
     Test.expect(res, Test.beSucceeded())
 }
 
@@ -432,6 +490,13 @@ fun createWFLOWHandler(_ signer: Test.TestAccount, wflowAddress: String) {
         signer
     )
     Test.expect(createHandlerResult, Test.beSucceeded())
+    let enableHandlerResult = _executeTransaction(
+        "./transactions/bridge/setup/enable_token_handler.cdc",
+        [Type<@FlowToken.Vault>().identifier],
+        signer
+    )
+    Test.expect(enableHandlerResult, Test.beSucceeded())
+
 }
 
 access(all) struct BridgeSetupResult {
