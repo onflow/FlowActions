@@ -161,11 +161,12 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                 // Top bound to calculate how much token0 we'd need to provide to get the desired LP amount
                 maxInput = UFix64.max
             } else {
+                let maxToken0Returned = self.getMaxToken0Returned(pairPublicRef: pairPublicRef)
                 // Unachievable
-                if forDesired > lpTokenSupply {
+                if forDesired > maxToken0Returned {
                     return SwapConnectors.BasicQuote(
-                        inType: self.inType(),
-                        outType: self.outType(),
+                        inType: self.outType(),
+                        outType: self.inType(),
                         inAmount: 0.0,
                         outAmount: forDesired
                     )
@@ -623,9 +624,14 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             let token0ReserveWithOffset = Fix64(token0Reserve) + token0Offset
             let token1ReserveWithOffset = Fix64(token1Reserve) + token1Offset
 
+            // Insufficient liquidity
+            if token0ReserveWithOffset <= 0.0 || token1ReserveWithOffset <= 0.0 {
+                return 0.0
+            }
+
             // Ensure reserves don't go below minimum values
-            token0Reserve = UFix64(token0ReserveWithOffset > 0.0 ? token0ReserveWithOffset : 0.0)
-            token1Reserve = UFix64(token1ReserveWithOffset > 0.0 ? token1ReserveWithOffset : 0.0)
+            token0Reserve = UFix64(token0ReserveWithOffset)
+            token1Reserve = UFix64(token1ReserveWithOffset)
 
             var swappedToken0Amount = 0.0
             if (self.stableMode) {
@@ -653,6 +659,16 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             pairPublicRef: &{SwapInterfaces.PairPublic},
         ): UFix64 {
             let quote = self.quoteOut(forProvided: UFix64.max, reverse: false)
+            return quote.outAmount
+        }
+
+        // Returns the maximum amount of token0 that can be returned by providing all LP tokens
+        access(self) fun getMaxToken0Returned(
+            pairPublicRef: &{SwapInterfaces.PairPublic},
+        ): UFix64 {
+            let pairInfo = pairPublicRef.getPairInfo()
+            let lpTokenSupply = pairInfo[5] as! UFix64
+            let quote = self.quoteOut(forProvided: lpTokenSupply - SwapConfig.ufix64NonZeroMin, reverse: true)
             return quote.outAmount
         }
     }
