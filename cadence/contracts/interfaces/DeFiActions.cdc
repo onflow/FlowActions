@@ -424,6 +424,11 @@ access(all) contract DeFiActions {
         }
     }
 
+    access(all) struct interface Liquidator : IdentifiableStruct {
+        access(all) fun liquidationAmount(): UFix64
+        access(all) fun liquidate(data: AnyStruct?): @{FungibleToken.Vault}
+    }
+
     /*******************************************************************************************************************
         NOTICE: The AutoBalancer will extend the FlowCallbackScheduler.CallbackHandler interface which is not yet
         finalized. To avoid the need for re-deploying with that interface and related fields managing ScheduleCallback
