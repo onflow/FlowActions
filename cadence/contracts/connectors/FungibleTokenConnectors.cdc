@@ -171,10 +171,7 @@ access(all) contract FungibleTokenConnectors {
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         /// regardless of the minimum balance
         access(all) fun maximumAvailable(): UFix64 {
-            if let vault = self.withdrawVault.borrow() {
-                return vault.balance
-            }
-            return 0.0
+            return self.minimumAvailable()
         }
 
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
@@ -281,10 +278,7 @@ access(all) contract FungibleTokenConnectors {
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         /// regardless of the minimum balance
         access(all) fun maximumAvailable(): UFix64 {
-            if let vault = self.vault.borrow() {
-                return vault.balance
-            }
-            return 0.0
+            return self.minimumBalance()
         }
 
         /// Deposits up to the Sink's capacity from the provided Vault

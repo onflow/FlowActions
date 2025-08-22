@@ -530,10 +530,7 @@ access(all) contract DeFiActions {
         }
 
         access(all) fun maximumAvailable(): UFix64 {
-            if let ab = self.autoBalancer.borrow() {
-                return ab.vaultBalance()
-            }
-            return 0.0
+            return self.minimumAvailable()
         }
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned

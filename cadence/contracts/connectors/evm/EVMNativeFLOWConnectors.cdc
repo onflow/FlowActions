@@ -180,10 +180,7 @@ access(all) contract EVMNativeFLOWConnectors {
         /// @return the maximum available balance of this Source
         ///
         access(all) fun maximumAvailable(): UFix64 {
-            if let balance = self.coa.borrow()?.balance()?.inFLOW() {
-                return balance
-            }
-            return 0.0
+            return self.minimumAvailable()
         }
         /// Withdraws the given amount of FLOW from the COA's EVM-native FLOW balance
         ///
