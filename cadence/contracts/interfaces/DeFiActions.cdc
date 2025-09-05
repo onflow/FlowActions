@@ -287,7 +287,6 @@ access(all) contract DeFiActions {
         access(all) view fun getSourceType(): Type
         /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
         access(all) fun minimumAvailable(): UFix64
-        access(all) fun maximumAvailable(): UFix64
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
@@ -527,10 +526,6 @@ access(all) contract DeFiActions {
                 return ab.vaultBalance()
             }
             return 0.0
-        }
-
-        access(all) fun maximumAvailable(): UFix64 {
-            return self.minimumAvailable()
         }
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned

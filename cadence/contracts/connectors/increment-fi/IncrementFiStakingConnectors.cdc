@@ -231,10 +231,6 @@ access(all) contract IncrementFiStakingConnectors {
             return 0.0 // no capacity if the staking pool is not available
         }
 
-        access(all) fun maximumAvailable(): UFix64 {
-            return self.minimumAvailable()
-        }
-
         /// Withdraws rewards from the staking pool up to the specified maximum amount
         /// Overflow rewards are sent to the appropriate overflow sinks if provided
         ///
