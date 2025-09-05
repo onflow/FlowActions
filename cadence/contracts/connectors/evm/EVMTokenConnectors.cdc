@@ -247,6 +247,10 @@ access(all) contract EVMTokenConnectors {
             }
             return 0.0
         }
+        /// Returns the maximum available balance for this Source regardless or the minimumBalance
+        access(all) fun maximumAvailable(): UFix64 {
+            return self.minimumAvailable()
+        }
         /// Withdraws the given amount of tokens from the CadenceOwnedAccount's balance of ERC20 tokens
         ///
         /// @param maxAmount: the maximum amount of tokens to withdraw
