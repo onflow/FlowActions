@@ -386,18 +386,6 @@ access(all) contract SwapConnectors {
                 ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
                 : 0.0
         }
-        /// Returns the maximum amount of currency available to withdraw from this Source
-        ///
-        /// @return the maximum amount of currency available to withdraw from this Source
-        ///
-        access(all) fun maximumAvailable(): UFix64 {
-            // estimate post-conversion currency based on the source's pre-conversion balance available
-            let availableIn = self.source.maximumAvailable()
-            return availableIn > 0.0
-                ? self.swapper.quoteOut(forProvided: availableIn, reverse: false).outAmount
-                : 0.0
-        }
-
         /// Withdraws the provided amount of currency from this Source, swapping the provided amount to the required type if necessary
         ///
         /// @param maxAmount: the maximum amount of currency to withdraw from this Source
