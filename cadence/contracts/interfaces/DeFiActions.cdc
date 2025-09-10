@@ -100,6 +100,9 @@ access(all) contract DeFiActions {
         uniqueID: UInt64?
     )
 
+    /// Emitted when Liquidator.liquidate is called
+    access(all) event Liquidated()
+
     /* --- CONSTRUCTS --- */
 
     access(all) entitlement Identify
@@ -420,6 +423,27 @@ access(all) contract DeFiActions {
                     uniqueID: self.uniqueID?.id ?? nil,
                     flasherType: self.getType().identifier
                 )
+            }
+        }
+    }
+
+    /// Liquidator
+    ///
+    /// A Liquidator connector enables the liquidation of funds. The general use case is withdrawing all
+    /// available funds from a connected liquidity source.
+    ///
+    access(all) struct interface Liquidator : IdentifiableStruct {
+        /// Returns the type this Liquidator provides on liquidation
+        access(all) view fun getLiquidationType(): Type
+        /// Returns the amount available for liquidation
+        access(all) fun liquidationAmount(): UFix64
+        /// Liquidates available funds. It's up to the implementation to cast and utilize the provided data
+        /// if any is provided.
+        access(FungibleToken.Withdraw) fun liquidate(data: AnyStruct?): @{FungibleToken.Vault} {
+            post {
+                result.getType() == self.getLiquidationType():
+                "Invalid liquidation - expected \(self.getLiquidationType().identifier) but returned \(result.getType().identifier)"
+                emit Liquidated()
             }
         }
     }
