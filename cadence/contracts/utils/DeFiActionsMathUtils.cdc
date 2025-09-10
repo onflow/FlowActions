@@ -99,15 +99,23 @@ access(all) contract DeFiActionsMathUtils {
         _ fractionalPart: UInt128, 
         _ originalValue: UInt128
     ) {
+        // Invariants for sanity
+        assert(fractionalPart < self.e8, message: "fractionalPart out of range")
+
+        // Max UFix64 is 184_467_440_737.09551615
+        // integerPart is in whole units; fractionalPart is in 1e8 units.
+
+        // 1) Integer bound: integerPart must be <= floor(UFix64.max) = 184_467_440_737
         assert(
             integerPart <= UInt128(UFix64.max),
             message: "Integer part \(integerPart.toString()) exceeds UFix64 max"
         )
 
-        let MAX_FRACTIONAL_PART = self.toUInt128(0.09551616)
+        // 2) Fractional bound when integer is at max: allow up to 0.09551615 (i.e., < 0.09551616)
+        let MAX_FRAC_PLUS_ONE: UInt128 = 9_551_616 // 0.09551616 * 1e8
         assert(
-            integerPart != UInt128(UFix64.max) || fractionalPart < MAX_FRACTIONAL_PART,
-            message: "Fractional part \(fractionalPart.toString()) of scaled integer value \(originalValue.toString()) exceeds max UFix64"
+            integerPart != UInt128(UFix64.max) || fractionalPart < MAX_FRAC_PLUS_ONE,
+            message: "Fractional part \(fractionalPart.toString()) of scaled value \(originalValue.toString()) exceeds max UFix64"
         )
     }
 
