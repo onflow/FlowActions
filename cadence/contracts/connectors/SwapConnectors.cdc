@@ -191,8 +191,8 @@ access(all) contract SwapConnectors {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
                 // call the appropriate estimator
                 let estimate = out
-                    ? swapper.quoteOut(forProvided: amount, reverse: true).outAmount
-                    : swapper.quoteIn(forDesired: amount, reverse: true).inAmount
+                    ? swapper.quoteOut(forProvided: amount, reverse: reverse).outAmount
+                    : swapper.quoteIn(forDesired: amount, reverse: reverse).inAmount
                 if (out ? res[1] < estimate : estimate < res[1]) {
                     // take minimum for in, maximum for out
                     res = [UFix64(i), estimate]
