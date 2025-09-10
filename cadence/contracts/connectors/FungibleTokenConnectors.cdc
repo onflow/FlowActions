@@ -264,24 +264,30 @@ access(all) contract FungibleTokenConnectors {
         /// Returns an estimate of how much of the associated Vault can be provided by this Source
         access(all) fun minimumAvailable(): UFix64 {
             if let vault = self.vault.borrow() {
-                return vault.balance < self.minimumBalance ? vault.balance - self.minimumBalance : 0.0
+                return self.minimumBalance < vault.balance ? vault.balance - self.minimumBalance : 0.0
             }
             return 0.0
         }
         /// Deposits up to the Sink's capacity from the provided Vault
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            if let vault = self.vault.borrow() {
-                vault.deposit(from: <-from.withdraw(amount: from.balance))
+            let minimumCapacity = self.minimumCapacity()
+            if !self.vault.check() || minimumCapacity == 0.0 {
+                return
             }
+            // deposit the lesser of the originating vault balance and minimum capacity
+            let capacity = minimumCapacity <= from.balance ? minimumCapacity : from.balance
+            self.vault.borrow()!.deposit(from: <-from.withdraw(amount: capacity))
         }
         /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
         /// returned
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
-            if let vault = self.vault.borrow() {
-                let finalAmount = vault.balance < maxAmount ? vault.balance : maxAmount
-                return <-vault.withdraw(amount: finalAmount)
+            let available = self.minimumAvailable()
+            if !self.vault.check() || available == 0.0 || maxAmount == 0.0 {
+                return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
             }
-            return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
+            // take the lesser between the available and maximum requested amount
+            let withdrawalAmount = available <= maxAmount ? available : maxAmount
+            return <- self.vault.borrow()!.withdraw(amount: withdrawalAmount)
         }
     }
 }
