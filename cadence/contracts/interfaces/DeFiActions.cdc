@@ -100,6 +100,9 @@ access(all) contract DeFiActions {
         uniqueID: UInt64?
     )
 
+    /// Emitted when Liquidator.liquidate is called
+    access(all) event Liquidated()
+
     /* --- CONSTRUCTS --- */
 
     access(all) entitlement Identify
@@ -440,6 +443,7 @@ access(all) contract DeFiActions {
             post {
                 result.getType() == self.getLiquidationType():
                 "Invalid liquidation - expected \(self.getLiquidationType().identifier) but returned \(result.getType().identifier)"
+                emit Liquidated()
             }
         }
     }
