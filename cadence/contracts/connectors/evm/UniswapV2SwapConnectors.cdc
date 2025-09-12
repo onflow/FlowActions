@@ -331,17 +331,6 @@ access(all) contract UniswapV2SwapConnectors {
         }
     }
 
-    /// Converts the given amounts from their ERC20 UInt256 to UFix64 amounts according to the ERC20 defined decimals.
-    /// Assumes each EVM address in path is an ERC20 contract
-    access(self)
-    fun _convertEVMAmountsToCadenceAmounts(_ amounts: [UInt256], path: [EVM.EVMAddress]): [UFix64] {
-        let convertedAmounts: [UFix64]= []
-        for i, amount in amounts {
-            convertedAmounts.append(FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(amount, erc20Address: path[i]))
-        }
-        return convertedAmounts
-    }
-
     /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
     access(self)
     fun _callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
