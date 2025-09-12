@@ -922,16 +922,15 @@ access(all) contract DeFiActions {
         }
         /// Deposits the provided Vault to the nested Vault if it is of the same Type, reverting otherwise. In the
         /// process, the current value of the deposited amount (denominated in unitOfAccount) increments the
-        /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, an average price is
-        /// calculated base on the inner vault balance & valueOfDeposits and valueOfDeposits is incremented by the
-        /// value of the deposited vault on the basis of that average
+        /// AutoBalancer's baseValue. If a price is not available via the internal PriceOracle, the operation reverts.
         access(all) fun deposit(from: @{FungibleToken.Vault}) {
             pre {
                 from.getType() == self.vaultType():
                 "Invalid Vault type \(from.getType().identifier) deposited - this AutoBalancer only accepts \(self.vaultType().identifier)"
             }
-            // if no price available use an average price based on historical value of deposits and inner vault balance
-            let price = self._oracle.price(ofToken: from.getType()) ?? (self.valueOfDeposits() / self.vaultBalance())
+            // assess value & complete deposit - if none available, revert
+            let price = self._oracle.price(ofToken: from.getType())
+                ?? panic("No price available for \(from.getType().identifier) to assess value of deposit")
             self._valueOfDeposits = self._valueOfDeposits + (from.balance * price)
             self._borrowVault().deposit(from: <-from)
         }
