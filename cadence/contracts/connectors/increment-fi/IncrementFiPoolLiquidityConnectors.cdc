@@ -494,50 +494,23 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
             let lpTokenSupply = pairInfo[5] as! UFix64
 
-            var liquidity = 0.0
-            var amount0Added = 0.0
-            var amount1Added = 0.0
-            if (token0Reserve == 0.0 && token1Reserve == 0.0) {
-                var donateLpBalance = 0.0
-                if self.stableMode {
-                    donateLpBalance = 0.0001    // 1e-4
-                } else {
-                    donateLpBalance = 0.000001  // 1e-6
-                }
-                // When adding initial liquidity, the balance should not be below certain minimum amount
-                assert(token0Amount > donateLpBalance && token1Amount > donateLpBalance, message:
-                    "Token0 and token1 amounts must be greater than minimum donation amount"
-                )
-                /// Calculate rootK
-                let e18: UInt256 = SwapConfig.scaleFactor
-                let balance0Scaled = SwapConfig.UFix64ToScaledUInt256(token0Amount)
-                let balance1Scaled = SwapConfig.UFix64ToScaledUInt256(token1Amount)
-                var initialLpAmount = 0.0
-                if self.stableMode {
-                    let _p_scaled: UInt256 = SwapConfig.UFix64ToScaledUInt256(1.0)
-                    let _k_scaled: UInt256 = SwapConfig.k_stable_p(balance0Scaled, balance1Scaled, _p_scaled)
-                    initialLpAmount = SwapConfig.ScaledUInt256ToUFix64(SwapConfig.sqrt(SwapConfig.sqrt(_k_scaled / 2)))
-                } else {
-                    initialLpAmount = SwapConfig.ScaledUInt256ToUFix64(SwapConfig.sqrt(balance0Scaled * balance1Scaled / e18))
-                }
-                liquidity = initialLpAmount - donateLpBalance
-            } else {
-                var lptokenMintAmount0Scaled: UInt256 = 0
-                var lptokenMintAmount1Scaled: UInt256 = 0
+            assert(token0Reserve > 0.0 && token1Reserve > 0.0, message: "Token0 and token1 reserves must be greater than 0.0")
 
-                /// Use UFIx64ToUInt256 in division & multiply to solve precision issues
-                let inAmountAScaled = SwapConfig.UFix64ToScaledUInt256(token0Amount)
-                let inAmountBScaled = SwapConfig.UFix64ToScaledUInt256(token1Amount)
+            var lptokenMintAmount0Scaled: UInt256 = 0
+            var lptokenMintAmount1Scaled: UInt256 = 0
 
-                let totalSupplyScaled = SwapConfig.UFix64ToScaledUInt256(lpTokenSupply)
+            /// Use UFIx64ToUInt256 in division & multiply to solve precision issues
+            let inAmountAScaled = SwapConfig.UFix64ToScaledUInt256(token0Amount)
+            let inAmountBScaled = SwapConfig.UFix64ToScaledUInt256(token1Amount)
 
-                lptokenMintAmount0Scaled = inAmountAScaled * totalSupplyScaled / reserve0LastScaled
-                lptokenMintAmount1Scaled = inAmountBScaled * totalSupplyScaled / reserve1LastScaled
+            let totalSupplyScaled = SwapConfig.UFix64ToScaledUInt256(lpTokenSupply)
 
-                /// Note: User should add proportional liquidity as any extra is added into pool.
-                let mintLptokenAmountScaled = lptokenMintAmount0Scaled < lptokenMintAmount1Scaled ? lptokenMintAmount0Scaled : lptokenMintAmount1Scaled
-                liquidity = SwapConfig.ScaledUInt256ToUFix64(mintLptokenAmountScaled)
-            }
+            lptokenMintAmount0Scaled = inAmountAScaled * totalSupplyScaled / reserve0LastScaled
+            lptokenMintAmount1Scaled = inAmountBScaled * totalSupplyScaled / reserve1LastScaled
+
+            /// Note: User should add proportional liquidity as any extra is added into pool.
+            let mintLptokenAmountScaled = lptokenMintAmount0Scaled < lptokenMintAmount1Scaled ? lptokenMintAmount0Scaled : lptokenMintAmount1Scaled
+            let liquidity = SwapConfig.ScaledUInt256ToUFix64(mintLptokenAmountScaled)
             return liquidity
         }
 
