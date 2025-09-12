@@ -396,7 +396,12 @@ access(all) contract DeFiActions {
         /// Returns the latest price data for a given asset denominated in unitOfAccount() if available, otherwise `nil`
         /// should be returned. Callers should note that although an optional is supported, implementations may choose
         /// to revert.
-        access(all) fun price(ofToken: Type): UFix64?
+        access(all) fun price(ofToken: Type): UFix64? {
+            post {
+                result == nil || result! > 0.0:
+                "PriceOracle must return a price greater than 0.0 if available"
+            }
+        }
     }
 
     /// Flasher
