@@ -408,13 +408,7 @@ access(all) contract SwapConnectors {
                 Burner.burn(<-sourceLiquidity)
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
-            let outVault <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
-            if outVault.balance > quote.outAmount {
-                // TODO - what to do if excess is found?
-                //  - can swapBack() but can't deposit to the inner source and can't return an unsupported Vault type
-                //      -> could make inner {Source} an intersection {Source, Sink}
-            }
-            return <- outVault
+            return <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
         }
     }
 }
