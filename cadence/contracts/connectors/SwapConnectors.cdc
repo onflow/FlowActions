@@ -204,7 +204,7 @@ access(all) contract SwapConnectors {
         /// requested and the current optimal Swapper used to fulfill the swap.
         access(self) fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
             var multiQuote = quote as? MultiSwapperQuote
-            if multiQuote != nil || multiQuote!.swapperIndex > self.swappers.length {
+            if multiQuote == nil || multiQuote!.swapperIndex >= self.swappers.length {
                 multiQuote = self.quoteOut(forProvided: from.balance, reverse: reverse) as! MultiSwapperQuote
             }
             let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DeFiActions.Swapper}
