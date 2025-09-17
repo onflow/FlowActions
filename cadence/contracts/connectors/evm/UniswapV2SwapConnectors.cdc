@@ -157,7 +157,7 @@ access(all) contract UniswapV2SwapConnectors {
         /// @return a Vault of type `outVault` containing the swapped currency.
         ///
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: true).outAmount
+            let amountOutMin = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
         }
 
