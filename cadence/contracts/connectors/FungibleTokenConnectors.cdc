@@ -40,7 +40,7 @@ access(all) contract FungibleTokenConnectors {
                 depositVault.check(): "Provided invalid Capability"
                 DeFiActionsUtils.definingContractIsFungibleToken(depositVault.borrow()!.getType()):
                 "The contract defining Vault \(depositVault.borrow()!.getType().identifier) does not conform to FungibleToken contract interface"
-                max ?? UFix64.max > 0.0:
+                (max ?? UFix64.max) > 0.0:
                 "Maximum balance must be greater than 0.0 if provided"
             }
             self.maximumBalance = max ?? UFix64.max // assume no maximum if none provided
