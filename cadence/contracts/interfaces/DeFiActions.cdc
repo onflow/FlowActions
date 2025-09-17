@@ -864,7 +864,9 @@ access(all) contract DeFiActions {
             let maybeRebalanceSink = &self._rebalanceSink as &{Sink}?
             if isDeficit && maybeRebalanceSource != nil {
                 // rebalance back up to baseline sourcing funds from _rebalanceSource
-                vault.deposit(from:  <- maybeRebalanceSource!.withdrawAvailable(maxAmount: amount))
+                let depositVault <- maybeRebalanceSource!.withdrawAvailable(maxAmount: amount)
+                amount = depositVault.balance // update the rebalanced amount based on actual deposited amount
+                vault.deposit(from: <-depositVault)
                 executed = true
             } else if !isDeficit && maybeRebalanceSink != nil {
                 // rebalance back down to baseline depositing excess to _rebalanceSink
