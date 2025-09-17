@@ -222,7 +222,7 @@ access(all) contract UniswapV2SwapConnectors {
             var res = self.call(to: inTokenAddress,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, evmAmountIn],
-                gasLimit: 15_000_000,
+                gasLimit: 100_000,
                 value: 0,
                 dryCall: false
             )!
@@ -234,7 +234,7 @@ access(all) contract UniswapV2SwapConnectors {
             res = self.call(to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint,uint,address[],address,uint)", // amountIn, amountOutMin, path, to, deadline (timestamp)
                 args: [evmAmountIn, UInt256(0), (reverse ? self.addressPath.reverse() : self.addressPath), coa.address(), UInt256(getCurrentBlock().timestamp)],
-                gasLimit: 15_000_000,
+                gasLimit: 1_000_000,
                 value: 0,
                 dryCall: false
             )!
@@ -276,7 +276,7 @@ access(all) contract UniswapV2SwapConnectors {
             let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
                 args: [amount],
-                gasLimit: 5_000_000,
+                gasLimit: 1_000_000,
                 value: UInt(0),
                 dryCall: true
             )
