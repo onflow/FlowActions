@@ -283,7 +283,7 @@ access(all) contract UniswapV2SwapConnectors {
         access(self) fun getAmount(out: Bool, amount: UInt256, path: [EVM.EVMAddress]): UFix64? {
             let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
-                args: [amount],
+                args: [amount, path],
                 gasLimit: 1_000_000,
                 value: UInt(0),
                 dryCall: true
