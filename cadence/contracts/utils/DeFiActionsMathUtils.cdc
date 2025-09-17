@@ -64,8 +64,7 @@ access(all) contract DeFiActionsMathUtils {
             }
         }
 
-
-        self.assertWithinUFix64Bounds(integerPart, fractionalPart, value)
+        self.assertWithinUFix64Bounds(value)
 
         let scaled = UFix64(integerPart) + UFix64(fractionalPart)/UFix64(self.e8)
 
@@ -94,20 +93,13 @@ access(all) contract DeFiActionsMathUtils {
     }
 
     /// Helper to handle overflow assertion
-    access(self) view fun assertWithinUFix64Bounds(
-        _ integerPart: UInt128, 
-        _ fractionalPart: UInt128, 
-        _ originalValue: UInt128
-    ) {
-        assert(
-            integerPart <= UInt128(UFix64.max),
-            message: "Integer part \(integerPart.toString()) exceeds UFix64 max"
-        )
+    access(all) view fun assertWithinUFix64Bounds(_ value: UInt128) {
+        // UFix64.max at 24-decimals: (UInt64.max) * 10^(24-8)
+        let MAX_1E24: UInt128 = 184_467_440_737_095_516_150_000_000_000_000_000
 
-        let MAX_FRACTIONAL_PART = self.toUInt128(0.09551616)
         assert(
-            integerPart != UInt128(UFix64.max) || fractionalPart < MAX_FRACTIONAL_PART,
-            message: "Fractional part \(fractionalPart.toString()) of scaled integer value \(originalValue.toString()) exceeds max UFix64"
+            value <= MAX_1E24,
+            message: "Value \(value.toString()) exceeds UFix64.max (\(UFix64.max.toString()))"
         )
     }
 
