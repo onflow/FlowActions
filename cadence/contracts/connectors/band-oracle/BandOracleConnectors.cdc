@@ -106,9 +106,6 @@ access(all) contract BandOracleConnectors {
                 assert(now < priceData.baseTimestamp + self.staleThreshold!, 
                     message: "Price data's base timestamp \(priceData.baseTimestamp) exceeds the staleThreshold "
                         .concat("\(priceData.baseTimestamp + self.staleThreshold!) at current timestamp \(now)"))
-                assert(now < priceData.quoteTimestamp + self.staleThreshold!,
-                    message: "Price data's quote timestamp \(priceData.quoteTimestamp) exceeds the staleThreshold "
-                        .concat("\(priceData.quoteTimestamp + self.staleThreshold!) at current timestamp \(now)"))
             }
 
             return priceData.fixedPointRate

@@ -148,7 +148,7 @@ access(all) contract SwapConnectors {
         }
         /// The estimated amount required to provide a Vault with the desired output balance
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let estimate = self._estimate(amount: forDesired, out: true, reverse: reverse)
+            let estimate = self._estimate(amount: forDesired, out: false, reverse: reverse)
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
@@ -191,8 +191,8 @@ access(all) contract SwapConnectors {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
                 // call the appropriate estimator
                 let estimate = out
-                    ? swapper.quoteOut(forProvided: amount, reverse: true).outAmount
-                    : swapper.quoteIn(forDesired: amount, reverse: true).inAmount
+                    ? swapper.quoteOut(forProvided: amount, reverse: reverse).outAmount
+                    : swapper.quoteIn(forDesired: amount, reverse: reverse).inAmount
                 if (out ? res[1] < estimate : estimate < res[1]) {
                     // take minimum for in, maximum for out
                     res = [UFix64(i), estimate]
@@ -204,7 +204,7 @@ access(all) contract SwapConnectors {
         /// requested and the current optimal Swapper used to fulfill the swap.
         access(self) fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
             var multiQuote = quote as? MultiSwapperQuote
-            if multiQuote != nil || multiQuote!.swapperIndex > self.swappers.length {
+            if multiQuote == nil || multiQuote!.swapperIndex >= self.swappers.length {
                 multiQuote = self.quoteOut(forProvided: from.balance, reverse: reverse) as! MultiSwapperQuote
             }
             let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DeFiActions.Swapper}
@@ -408,13 +408,7 @@ access(all) contract SwapConnectors {
                 Burner.burn(<-sourceLiquidity)
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
             }
-            let outVault <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
-            if outVault.balance > quote.outAmount {
-                // TODO - what to do if excess is found?
-                //  - can swapBack() but can't deposit to the inner source and can't return an unsupported Vault type
-                //      -> could make inner {Source} an intersection {Source, Sink}
-            }
-            return <- outVault
+            return <- self.swapper.swap(quote: quote, inVault: <-sourceLiquidity)
         }
     }
 }
