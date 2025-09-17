@@ -148,7 +148,7 @@ access(all) contract SwapConnectors {
         }
         /// The estimated amount required to provide a Vault with the desired output balance
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let estimate = self._estimate(amount: forDesired, out: true, reverse: reverse)
+            let estimate = self._estimate(amount: forDesired, out: false, reverse: reverse)
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
