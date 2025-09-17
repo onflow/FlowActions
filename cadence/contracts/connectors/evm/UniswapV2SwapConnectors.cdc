@@ -115,7 +115,11 @@ access(all) contract UniswapV2SwapConnectors {
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let amountIn = self.getAmount(out: false, amount: forDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
+            let uintDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                    forDesired,
+                    erc20Address: reverse ? self.addressPath[0] : self.addressPath[self.addressPath.length - 1]
+                )
+            let amountIn = self.getAmount(out: false, amount: uintDesired, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
@@ -135,7 +139,11 @@ access(all) contract UniswapV2SwapConnectors {
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let amountOut = self.getAmount(out: true, amount: forProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
+            let uintProvided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                    forProvided,
+                    erc20Address: reverse ? self.addressPath[self.addressPath.length - 1] : self.addressPath[0]
+                )
+            let amountOut = self.getAmount(out: true, amount: uintProvided, path: reverse ? self.addressPath.reverse() : self.addressPath)
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
@@ -272,10 +280,10 @@ access(all) contract UniswapV2SwapConnectors {
         /// @return An estimate of the amounts for each swap along the path. If out is true, the return value contains
         ///     the values in, otherwise the array contains the values out for each swap along the path
         ///
-        access(self) fun getAmount(out: Bool, amount: UFix64, path: [EVM.EVMAddress]): UFix64? {
+        access(self) fun getAmount(out: Bool, amount: UInt256, path: [EVM.EVMAddress]): UFix64? {
             let callRes = self.call(to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
-                args: [amount],
+                args: [amount, path],
                 gasLimit: 1_000_000,
                 value: UInt(0),
                 dryCall: true
