@@ -36,6 +36,14 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"FlowTransactionScheduler": {
+			"source": "cadence/contracts/internal-dependencies/FlowTransactionScheduler.cdc",
+			"aliases": {
+				"emulator": "f8d6e0586b0a20c7",
+				"testing": "0000000000000009",
+				"testnet": "8c5303eaa26202d6"
+			}
+		},
 		"FungibleTokenConnectors": {
 			"source": "cadence/contracts/connectors/FungibleTokenConnectors.cdc",
 			"aliases": {
@@ -273,6 +281,15 @@
 				"mainnet": "1e4aa0b87d10b141",
 				"testing": "0000000000000007",
 				"testnet": "dfc20aee650fcbdf"
+			}
+		},
+		"FlowFees": {
+			"source": "mainnet://f919ee77447b7497.FlowFees",
+			"hash": "d02bc8295c0434cf2b0a96a77d992f49f52e7865debda84e7a21e176e163a680",
+			"aliases": {
+				"emulator": "e5a8b7f23e8b548f",
+				"mainnet": "f919ee77447b7497",
+				"testnet": "912d5440f7e3769e"
 			}
 		},
 		"FlowStorageFees": {
