@@ -1,4 +1,5 @@
 import "FungibleToken"
+import "FlowTransactionScheduler"
 
 import "DeFiActions"
 import "MockOracle"
@@ -27,7 +28,7 @@ transaction(
 ) {
 
     var autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
-    var authCap: Capability<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>?
+    var authCap: Capability<auth(FungibleToken.Withdraw, FlowTransactionScheduler.Execute) &DeFiActions.AutoBalancer>?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         let tokenType = CompositeType(vaultIdentifier) ?? panic("Invalid vaultIdentifier \(vaultIdentifier)")
@@ -48,6 +49,7 @@ transaction(
                 upperThreshold: upperThreshold,
                 rebalanceSink: nil,
                 rebalanceSource: nil,
+                recurringConfig: nil,
                 uniqueID: nil
             )
             signer.storage.save(<-ab, to: storagePath)
@@ -57,7 +59,7 @@ transaction(
             signer.capabilities.publish(cap, at: publicPath)
 
             // issue an authorized Capability on the AutoBalancer
-            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>(storagePath)
+            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw, FlowTransactionScheduler.Execute) &DeFiActions.AutoBalancer>(storagePath)
         }
 
         // ensure proper configuration in storage and via published Capability
