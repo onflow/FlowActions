@@ -989,9 +989,11 @@ access(all) contract DeFiActions {
 
             // if configured as recurring & this transaction is internally managed, schedule the next execution
             // NOTE: externally scheduled transactions will not automatically schedule the next execution
-            let txn = self.borrowScheduledTransaction(id: id)
-            if self._recurringConfig != nil && txn != nil {
-                let err = self.scheduleNextExecution()
+            let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
+            if self._recurringConfig != nil && isInternallyManaged {
+                // clean up internally-managed historical scheduled transactions
+                self._cleanupScheduledTransactions()
+                let err = self.scheduleNextExecution(whileExecuting: id)
                 if err != nil {
                     emit FailedRecurringSchedule(
                         uuid: self.uuid,
@@ -1001,29 +1003,47 @@ access(all) contract DeFiActions {
                     )
                 }
             }
-
-            // clean up internally-managed historical scheduled transactions
-            self._cleanupScheduledTransactions()
         }
-        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such. This method is
-        /// written to fail as gracefully as possible, reporting any failures to schedule the next execution to the
-        /// as an event. This allows `executeTransaction` to continue execution even if the next execution cannot be
-        /// scheduled while still informing of the failure.
+        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not 
+        /// already a scheduled transaction within the desired interval. This method is written to fail as gracefully as
+        /// possible, reporting any failures to schedule the next execution to the as an event. This allows
+        /// `executeTransaction` to continue execution even if the next execution cannot be scheduled while still
+        /// informing of the failure via `FailedRecurringSchedule` event.
         ///
-        /// @return UFix64?: The next execution timestamp, or nil if a recurring rebalance is not configured
+        /// @param whileExecuting: The ID of the transaction that is currently executing or nil if called externally
         ///
-        access(Schedule) fun scheduleNextExecution(): String? {
+        /// @return String?: The error message, or nil if the next execution was scheduled
+        ///
+        access(Schedule) fun scheduleNextExecution(whileExecuting: UInt64?): String? {
             // get the next execution timestamp
             var timestamp = self.calculateNextExecutionTimestampAsConfigured()
             // perform pre-flight checks before estimating the transaction fees
             var errorMessage: String? = nil
-            if timestamp == nil {
+            if self._recurringConfig == nil {
+                return "MISSING_RECURRING_CONFIG"
+            } else if timestamp == nil {
                 errorMessage = "NEXT_EXECUTION_TIMESTAMP_UNAVAILABLE"
             } else if self._selfCap?.check() != true {
                 errorMessage = "INVALID_SELF_CAPABILITY"
             }
             if errorMessage != nil {
                 return errorMessage
+            }
+
+            // check for other scheduled transactions within the desired interval
+            if self._scheduledTransactions.length > 0 {
+                for id in self._scheduledTransactions.keys {
+                    if id == whileExecuting {
+                        continue
+                    }
+                    let scheduledTxn = self.borrowScheduledTransaction(id: id)!
+                    if scheduledTxn.status() == FlowTransactionScheduler.Status.Scheduled {
+                        // found another scheduled transaction within the configured interval
+                        if scheduledTxn.timestamp <= timestamp! {
+                            return nil
+                        }
+                    }
+                }
             }
 
             // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
