@@ -102,6 +102,7 @@ access(all) contract DeFiActions {
     )
     /// Emitted when an AutoBalancer fails to self-schedule a recurring rebalance
     access(all) event FailedRecurringSchedule(
+        whileExecuting: UInt64,
         balancerUUID: UInt64,
         address: Address?,
         error: String,
@@ -602,14 +603,29 @@ access(all) contract DeFiActions {
     access(all) entitlement Configure
     access(all) entitlement Schedule
 
+    /// AutoBalancerRecurringConfig
+    ///
+    /// A struct containing the configuration so that a recurring rebalance of an AutoBalancer can be scheduled
+    ///
     access(all) struct AutoBalancerRecurringConfig {
+        /// How frequently the rebalance will be executed (in seconds)
         access(all) var interval: UInt64
+        /// The priority of the rebalance
         access(all) var priority: FlowTransactionScheduler.Priority
+        /// The execution effort of the rebalance
         access(all) var executionEffort: UInt64
-        access(contract) var forceRebalance: AnyStruct?
+        /// The force rebalance flag
+        access(contract) var forceRebalance: Bool
+        /// The txnFunder used to fund the rebalance - must provide FLOW and accept FLOW
         access(contract) var txnFunder: {Sink, Source}
 
-        init(interval: UInt64, priority: FlowTransactionScheduler.Priority, executionEffort: UInt64, forceRebalance: AnyStruct?, txnFunder: {Sink, Source}) {
+        init(
+            interval: UInt64,
+            priority: FlowTransactionScheduler.Priority,
+            executionEffort: UInt64,
+            forceRebalance: Bool,
+            txnFunder: {Sink, Source}
+        ) {
             pre {
                 UInt64(0) < interval:
                 "Invalid interval: \(interval) - must be greater than 0"
@@ -994,7 +1010,8 @@ access(all) contract DeFiActions {
                 let err = self.scheduleNextExecution(whileExecuting: id)
                 if err != nil {
                     emit FailedRecurringSchedule(
-                        uuid: self.uuid,
+                        whileExecuting: id,
+                        balancerUUID: self.uuid,
                         address: self.owner?.address,
                         error: err!,
                         uniqueID: self.uniqueID?.id
@@ -1029,17 +1046,15 @@ access(all) contract DeFiActions {
             }
 
             // check for other scheduled transactions within the desired interval
-            if self._scheduledTransactions.length > 0 {
-                for id in self._scheduledTransactions.keys {
-                    if id == whileExecuting {
-                        continue
-                    }
-                    let scheduledTxn = self.borrowScheduledTransaction(id: id)!
-                    if scheduledTxn.status() == FlowTransactionScheduler.Status.Scheduled {
-                        // found another scheduled transaction within the configured interval
-                        if scheduledTxn.timestamp <= timestamp! {
-                            return nil
-                        }
+            for id in self._scheduledTransactions.keys {
+                if id == whileExecuting {
+                    continue
+                }
+                let scheduledTxn = self.borrowScheduledTransaction(id: id)!
+                if scheduledTxn.status() == FlowTransactionScheduler.Status.Scheduled {
+                    // found another scheduled transaction within the configured interval
+                    if scheduledTxn.timestamp <= timestamp! {
+                        return nil
                     }
                 }
             }
@@ -1310,6 +1325,13 @@ access(all) contract DeFiActions {
         let id = UniqueIdentifier(self.currentID, self.authTokenCap)
         self.currentID = self.currentID + 1
         return id
+    }
+
+    access(all) view fun deriveAutoBalancerPathIdentifier(vaultType: Type): String? {
+        if !vaultType.isSubtype(of: Type<@{FungibleToken.Vault}>()) {
+            return nil
+        }
+        return "DeFiActionAutoBalancer_".concat(vaultType.identifier)
     }
 
     /// Aligns the UniqueIdentifier of the provided component with the provided component, setting the UniqueIdentifier of
