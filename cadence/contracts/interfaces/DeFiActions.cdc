@@ -98,12 +98,11 @@ access(all) contract DeFiActions {
         vaultUUID: UInt64,
         balancerUUID: UInt64,
         address: Address?,
-        uuid: UInt64,
         uniqueID: UInt64?
     )
     /// Emitted when an AutoBalancer fails to self-schedule a recurring rebalance
     access(all) event FailedRecurringSchedule(
-        uuid: UInt64,
+        balancerUUID: UInt64,
         address: Address?,
         error: String,
         uniqueID: UInt64?
@@ -965,7 +964,6 @@ access(all) contract DeFiActions {
                     vaultUUID: self._borrowVault().uuid,
                     balancerUUID: self.uuid,
                     address: self.owner?.address,
-                    uuid: self.uuid,
                     uniqueID: self.id()
                 )
             }
