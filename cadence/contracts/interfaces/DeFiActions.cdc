@@ -631,9 +631,9 @@ access(all) contract DeFiActions {
                 "Invalid interval: \(interval) - must be greater than 0"
                 interval < UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp):
                 "Invalid interval: \(interval) - must be less than the maximum interval of \(UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp))"
-                txnFunder.getSourceType() == FlowToken.Vault.getType():
+                txnFunder.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid txnFunder: \(txnFunder.getSourceType().identifier) - must provide FLOW but provides \(txnFunder.getSourceType().identifier)"
-                txnFunder.getSinkType() == FlowToken.Vault.getType():
+                txnFunder.getSinkType() == Type<@FlowToken.Vault>():
                 "Invalid txnFunder: \(txnFunder.getSinkType().identifier) - must accept FLOW but accepts \(txnFunder.getSinkType().identifier)"
             }
             let schedulerConfig = FlowTransactionScheduler.getConfig()
@@ -1082,9 +1082,9 @@ access(all) contract DeFiActions {
             // NOTE: low priority estimates always receive non-nil errors but are still valid if fee is also non-nil
             if (estimate.flowFee == nil && estimate.error != nil)
                 || config.txnFunder.minimumAvailable() < estimate.flowFee!
-                || config.txnFunder.getSourceType() != FlowToken.Vault.getType() {
+                || config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
                 var errorMessage = estimate.error!
-                if config.txnFunder.getSourceType() != FlowToken.Vault.getType() {
+                if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
                     errorMessage = "INVALID_FEE_TYPE"
                 } else if config.txnFunder.minimumAvailable() < estimate.flowFee! {
                     errorMessage = "INSUFFICIENT_FEES_AVAILABLE"
@@ -1141,7 +1141,7 @@ access(all) contract DeFiActions {
         access(all) view fun calculateNextExecutionTimestampAsConfigured(): UFix64? {
             if let config = self._recurringConfig {
                 // protect overflow
-                return UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp) >= UInt64(config.interval) ? nil : self._lastRebalanceTimestamp + UFix64(config.interval)
+                return UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp) >= UInt64(config.interval) ? self._lastRebalanceTimestamp + UFix64(config.interval) : nil
             }
             return nil
         }

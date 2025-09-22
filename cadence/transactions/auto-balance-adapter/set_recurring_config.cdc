@@ -20,12 +20,12 @@ transaction(
     executionEffort: UInt64,
     forceRebalance: Bool
 ) {
-    let autoBalancer: auth(DeFiActions.Auto, DeFiActions.Schedule) &DeFiActions.AutoBalancer
+    let autoBalancer: auth(DeFiActions.Schedule, DeFiActions.Configure) &DeFiActions.AutoBalancer
     let config: DeFiActions.AutoBalancerRecurringConfig
 
     prepare(signer: auth(BorrowValue, IssueStorageCapabilityController) &Account) {
         // reference the AutoBalancer
-        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Auto, DeFiActions.Schedule) &DeFiActions.AutoBalancer>(from: storagePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Schedule, DeFiActions.Configure) &DeFiActions.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not found in signer's storage at \(storagePath)")
         
         let fundingVault = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault)
