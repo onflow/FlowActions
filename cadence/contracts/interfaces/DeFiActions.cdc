@@ -1005,8 +1005,6 @@ access(all) contract DeFiActions {
             // NOTE: externally scheduled transactions will not automatically schedule the next execution
             let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
             if self._recurringConfig != nil && isInternallyManaged {
-                // clean up internally-managed historical scheduled transactions
-                self._cleanupScheduledTransactions()
                 let err = self.scheduleNextExecution(whileExecuting: id)
                 if err != nil {
                     emit FailedRecurringSchedule(
@@ -1018,6 +1016,8 @@ access(all) contract DeFiActions {
                     )
                 }
             }
+            // clean up internally-managed historical scheduled transactions
+            self._cleanupScheduledTransactions()
         }
         /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not 
         /// already a scheduled transaction within the desired interval. This method is written to fail as gracefully as
