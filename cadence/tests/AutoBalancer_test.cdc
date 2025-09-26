@@ -603,11 +603,6 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
 
     Test.moveTime(by: 11.0)
 
-    // execute the scheduled transaction as the protocol
-    // TODO: Remove once FTS is integrated into test framework
-    // processScheduledTransactions()
-    // executeScheduledTransaction(id: txnID)
-
     // get schedule transaction executed event
     var execEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Executed>())
     Test.assertEqual(1, execEvts.length)
@@ -645,13 +640,13 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
     Test.assertEqual(Type<@DeFiActions.AutoBalancer>().identifier, schedEvt.transactionHandlerTypeIdentifier)
     Test.assertEqual(executionEffort, schedEvt.executionEffort)
     Test.assertEqual(priority, schedEvt.priority)
-    let newTxID = schedEvt.id
-    Test.assert(txnID != newTxID)
+    let newTxnID = schedEvt.id
+    Test.assert(txnID != newTxnID)
 
     // get the scheduled transaction IDs - should have cleaned up the first one
     scheduledTransactionIDs = getAutoBalancerScheduledTransactionIDs(address: user.address, publicPath: autoBalancerPublicPath)!
     Test.assertEqual(1, scheduledTransactionIDs.length)
-    Test.assert(scheduledTransactionIDs[0] == newTxID)
+    Test.assert(scheduledTransactionIDs[0] == newTxnID)
 }
 
 access(all) fun test_AttemptToSetRecurringConfigForDifferentAutoBalancerFails() {
@@ -717,22 +712,4 @@ access(all) fun equalWithinVariance(_ expected: UFix64, _ actual: UFix64): Bool 
         return expected == actual - varianceThreshold
     }
     return false
-}
-
-access(all) fun processScheduledTransactions() {
-    let res = executeTransaction(
-        "./transactions/flow-transaction-scheduler/process_transactions.cdc",
-        [],
-        serviceAccount
-    )
-    Test.expect(res, Test.beSucceeded())
-}
-
-access(all) fun executeScheduledTransaction(id: UInt64) {
-    let res = executeTransaction(
-        "./transactions/flow-transaction-scheduler/execute_transaction.cdc",
-        [id],
-        serviceAccount
-    )
-    Test.expect(res, Test.beSucceeded())
 }
