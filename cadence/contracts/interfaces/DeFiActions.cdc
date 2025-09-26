@@ -628,7 +628,7 @@ access(all) contract DeFiActions {
             txnFunder: {Sink, Source}
         ) {
             pre {
-                UInt64(0) < interval:
+                interval > UInt64(0):
                 "Invalid interval: \(interval) - must be greater than 0"
                 interval < UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp):
                 "Invalid interval: \(interval) - must be less than the maximum interval of \(UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp))"
