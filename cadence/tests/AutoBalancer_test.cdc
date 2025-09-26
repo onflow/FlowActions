@@ -605,8 +605,8 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
 
     // execute the scheduled transaction as the protocol
     // TODO: Remove once FTS is integrated into test framework
-    processScheduledTransactions()
-    executeScheduledTransaction(id: txnID)
+    // processScheduledTransactions()
+    // executeScheduledTransaction(id: txnID)
 
     // get schedule transaction executed event
     var execEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Executed>())
@@ -652,6 +652,59 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
     scheduledTransactionIDs = getAutoBalancerScheduledTransactionIDs(address: user.address, publicPath: autoBalancerPublicPath)!
     Test.assertEqual(1, scheduledTransactionIDs.length)
     Test.assert(scheduledTransactionIDs[0] == newTxID)
+}
+
+access(all) fun test_AttemptToSetRecurringConfigForDifferentAutoBalancerFails() {
+    Test.reset(to: snapshot)
+    let user = Test.createAccount()
+    transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
+
+    let mintAmount = 100.0
+    let priceIncrease = 1.25
+
+    // setup the AutoBalancer
+    let setupRes = executeTransaction(
+            "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+            [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+    // set the rebalanceSink targetting the TokenB Vault
+    let setRes = executeTransaction(
+            "../transactions/auto-balance-adapter/set_rebalance_sink_as_token_sink.cdc",
+            [tokenBIdentifier, nil, autoBalancerStoragePath],
+            user
+        )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    let interval: UInt64 = 10
+    let executionEffort: UInt64 = 1_000
+    let priority: UInt8 = 2 // High
+    let forceRebalance = true
+    // set the recurring config which also schedules the next execution based on the configured interval
+    let configRes = executeTransaction(
+            "../transactions/auto-balance-adapter/set_recurring_config.cdc",
+            [autoBalancerStoragePath, interval, priority, executionEffort, forceRebalance],
+            user
+        )
+    Test.expect(configRes, Test.beSucceeded())
+
+    let attacker = Test.createAccount()
+    let attackerSetupRes = executeTransaction(
+        "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+        [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+        attacker
+    )
+    Test.expect(attackerSetupRes, Test.beSucceeded())
+
+    let attackerConfigRes = executeTransaction(
+        "./transactions/attempt_copy_auto_balancer_config.cdc",
+        [user.address, autoBalancerPublicPath, autoBalancerStoragePath],
+        attacker
+    )
+    Test.expect(attackerConfigRes, Test.beFailed())
 }
 
 

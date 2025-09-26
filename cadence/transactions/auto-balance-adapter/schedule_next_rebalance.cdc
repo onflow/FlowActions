@@ -13,7 +13,7 @@ transaction(storagePath: StoragePath) {
     }
 
     execute {
-        let err = self.autoBalancer.scheduleNextExecution(whileExecuting: nil)
+        let err = self.autoBalancer.scheduleNextRebalance(whileExecuting: nil)
         if err != nil {
             panic("Failed to schedule next rebalance: \(err!)")
         }

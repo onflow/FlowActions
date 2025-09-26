@@ -373,7 +373,6 @@ access(all) contract DeFiActions {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        // TODO: Impl detail - accept quote that was just used by swap() but reverse the direction assuming swap() was just called
         access(all) fun swapBack(quote: {Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre {
                 residual.getType() == self.outType():
@@ -609,13 +608,15 @@ access(all) contract DeFiActions {
     ///
     access(all) struct AutoBalancerRecurringConfig {
         /// How frequently the rebalance will be executed (in seconds)
-        access(all) var interval: UInt64
+        access(all) let interval: UInt64
         /// The priority of the rebalance
-        access(all) var priority: FlowTransactionScheduler.Priority
+        access(all) let priority: FlowTransactionScheduler.Priority
         /// The execution effort of the rebalance
-        access(all) var executionEffort: UInt64
+        access(all) let executionEffort: UInt64
+        /// The AutoBalancer UUID that this config is assigned to
+        access(all) var assignedAutoBalancer: UInt64?
         /// The force rebalance flag
-        access(contract) var forceRebalance: Bool
+        access(contract) let forceRebalance: Bool
         /// The txnFunder used to fund the rebalance - must provide FLOW and accept FLOW
         access(contract) var txnFunder: {Sink, Source}
 
@@ -648,6 +649,16 @@ access(all) contract DeFiActions {
             self.executionEffort = executionEffort
             self.forceRebalance = forceRebalance
             self.txnFunder = txnFunder
+            self.assignedAutoBalancer = nil
+        }
+
+        /// Sets the AutoBalancer's UUID that this config is assigned to when this AutoBalancerRecurringConfig is set
+        access(contract) fun setAssignedAutoBalancer(_ uuid: UInt64) {
+            pre {
+                self.assignedAutoBalancer == nil || self.assignedAutoBalancer == uuid:
+                "Invalid AutoBalancer UUID \(uuid): AutoBalancerConfig.assignedAutoBalancer is already set to \(self.assignedAutoBalancer!)"
+            }
+            self.assignedAutoBalancer = uuid
         }
     }
 
@@ -687,7 +698,7 @@ access(all) contract DeFiActions {
         /// Capability on this AutoBalancer instance
         access(self) var _selfCap: Capability<auth(FungibleToken.Withdraw, FlowTransactionScheduler.Execute) &AutoBalancer>?
         /// The timestamp of the last rebalance
-        access(self) var _lastRebalanceTimestamp: UFix64 // TODO: implement this usage
+        access(self) var _lastRebalanceTimestamp: UFix64
         /// An optional recurring config for the AutoBalancer
         access(self) var _recurringConfig: AutoBalancerRecurringConfig?
         /// ScheduledTransaction objects used to manage automated rebalances
@@ -718,6 +729,8 @@ access(all) contract DeFiActions {
                 "Invalid rebalanceRange [lower, upper]: [\(lower), \(upper)] - thresholds must be set such that 0.01 <= lower < 1.0 and 1.0 < upper < 2.0 relative to value of deposits"
                 DeFiActionsUtils.definingContractIsFungibleToken(vaultType):
                 "The contract defining Vault \(vaultType.identifier) does not conform to FungibleToken contract interface"
+                recurringConfig?.assignedAutoBalancer == nil || recurringConfig?.assignedAutoBalancer == self.uuid:
+                "Invalid recurringConfig: \(recurringConfig!.assignedAutoBalancer!) - must be assigned to this AutoBalancer"
             }
             assert(oracle.price(ofToken: vaultType) != nil,
                 message: "Provided Oracle \(oracle.getType().identifier) could not provide a price for vault \(vaultType.identifier)")
@@ -732,6 +745,7 @@ access(all) contract DeFiActions {
             self._selfCap = nil
             self._lastRebalanceTimestamp = getCurrentBlock().timestamp
             self._recurringConfig = recurringConfig
+            self._recurringConfig?.setAssignedAutoBalancer(self.uuid)
             self._scheduledTransactions <- {}
             self.uniqueID = uniqueID
 
@@ -1005,7 +1019,7 @@ access(all) contract DeFiActions {
             // NOTE: externally scheduled transactions will not automatically schedule the next execution
             let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
             if self._recurringConfig != nil && isInternallyManaged {
-                let err = self.scheduleNextExecution(whileExecuting: id)
+                let err = self.scheduleNextRebalance(whileExecuting: id)
                 if err != nil {
                     emit FailedRecurringSchedule(
                         whileExecuting: id,
@@ -1029,13 +1043,13 @@ access(all) contract DeFiActions {
         ///
         /// @return String?: The error message, or nil if the next execution was scheduled
         ///
-        access(Schedule) fun scheduleNextExecution(whileExecuting: UInt64?): String? {
+        access(Schedule) fun scheduleNextRebalance(whileExecuting: UInt64?): String? {
             // get the next execution timestamp
             var timestamp = self.calculateNextExecutionTimestampAsConfigured()
             // perform pre-flight checks before estimating the transaction fees
             var errorMessage: String? = nil
             if self._recurringConfig == nil {
-                return "MISSING_RECURRING_CONFIG"
+                errorMessage = "MISSING_RECURRING_CONFIG"
             } else if timestamp == nil {
                 errorMessage = "NEXT_EXECUTION_TIMESTAMP_UNAVAILABLE"
             } else if self._selfCap?.check() != true {
@@ -1157,6 +1171,13 @@ access(all) contract DeFiActions {
         /// @param config: The recurring config to set, or nil to disable recurring rebalancing
         ///
         access(Configure) fun setRecurringConfig(_ config: AutoBalancerRecurringConfig?) {
+            pre {
+                config?.assignedAutoBalancer == nil || config?.assignedAutoBalancer == self.uuid:
+                "Invalid recurring config - must be assigned to this AutoBalancer"
+            }
+            if config != nil {
+                config!.setAssignedAutoBalancer(self.uuid)
+            }
             self._recurringConfig = config
         }
         /// Cancels a scheduled transaction returning nil if a scheduled transaction is not found. Refunds are deposited
@@ -1327,6 +1348,7 @@ access(all) contract DeFiActions {
         return id
     }
 
+    /// Derives the path identifier for an AutoBalancer for a given vault type
     access(all) view fun deriveAutoBalancerPathIdentifier(vaultType: Type): String? {
         if !vaultType.isSubtype(of: Type<@{FungibleToken.Vault}>()) {
             return nil
