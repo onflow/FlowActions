@@ -1,4 +1,5 @@
 import "FungibleToken"
+import "FlowTransactionScheduler"
 
 import "DeFiActions"
 import "MockOracle"
@@ -13,8 +14,10 @@ import "FungibleTokenConnectors"
 /// @param lowerThreshold: the relative lower bound value ratio (>= 0.01 && < 1.0) where a rebalance will occur
 /// @param upperThreshold: the relative upper bound value ratio (> 1.0 && < 2.0) where a rebalance will occur
 /// @param vaultIdentifier: the Vault type which the AutoBalancer will contain
-/// @param storagePath: the storage path at which to save the AutoBalancer
-/// @param publicPath: the public path at which the AutoBalancer's public Capability should be published
+/// @param storagePath: the storage path at which to save the AutoBalancer. If nil, a default path will be derived from 
+///     the vaultIdentifier
+/// @param publicPath: the public path at which the AutoBalancer's public Capability should be published. If nil, a 
+///     default path will be derived from the vaultIdentifier
 ///
 transaction(
     unitOfAccount: String,
@@ -22,15 +25,17 @@ transaction(
     lowerThreshold: UFix64,
     upperThreshold: UFix64,
     vaultIdentifier: String,
-    storagePath: StoragePath,
-    publicPath: PublicPath
+    storagePath: StoragePath?,
+    publicPath: PublicPath?
 ) {
 
     var autoBalancer: auth(DeFiActions.Set) &DeFiActions.AutoBalancer
-    var authCap: Capability<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>?
+    var authCap: Capability<auth(FungibleToken.Withdraw, FlowTransactionScheduler.Execute) &DeFiActions.AutoBalancer>?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
         let tokenType = CompositeType(vaultIdentifier) ?? panic("Invalid vaultIdentifier \(vaultIdentifier)")
+        let storagePath = storagePath ?? StoragePath(identifier: DeFiActions.deriveAutoBalancerPathIdentifier(vaultType: tokenType) ?? panic("Invalid storagePath")) ?? panic("Invalid storagePath")
+        let publicPath = publicPath ?? PublicPath(identifier: DeFiActions.deriveAutoBalancerPathIdentifier(vaultType: tokenType) ?? panic("Invalid publicPath")) ?? panic("Invalid publicPath")
         self.authCap = nil
         if signer.storage.type(at: storagePath) == nil {
             // construct the AutoBalancer's oracle
@@ -48,6 +53,7 @@ transaction(
                 upperThreshold: upperThreshold,
                 rebalanceSink: nil,
                 rebalanceSource: nil,
+                recurringConfig: nil,
                 uniqueID: nil
             )
             signer.storage.save(<-ab, to: storagePath)
@@ -57,7 +63,7 @@ transaction(
             signer.capabilities.publish(cap, at: publicPath)
 
             // issue an authorized Capability on the AutoBalancer
-            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &DeFiActions.AutoBalancer>(storagePath)
+            self.authCap = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw, FlowTransactionScheduler.Execute) &DeFiActions.AutoBalancer>(storagePath)
         }
 
         // ensure proper configuration in storage and via published Capability

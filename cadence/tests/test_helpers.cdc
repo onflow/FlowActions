@@ -92,6 +92,13 @@ fun getAutoBalancerValueOfDeposits(address: Address, publicPath: PublicPath): UF
 }
 
 access(all)
+fun getAutoBalancerScheduledTransactionIDs(address: Address, publicPath: PublicPath): [UInt64]? {
+    let res = _executeScript("../scripts/auto-balance-adapter/get_scheduled_transaction_ids.cdc", [address, publicPath])
+    Test.expect(res, Test.beSucceeded())
+    return res.returnValue as! [UInt64]?
+}
+
+access(all)
 fun getEVMAddressAssociated(withType: String): String? {
     let res = _executeScript("./scripts/get_evm_address_associated_with_type.cdc", [withType])
     Test.expect(res, Test.beSucceeded())
