@@ -18,7 +18,7 @@ access(all) contract DeFiActionsMathUtils {
     /// UFix64 decimal precision for internal calculations
     access(self) let ufix64Decimals: UInt8
     /// Scale factor for UInt128 <-> UFix64 conversions
-    access(self) let scaleFactor: UInt128 
+    access(self) let scaleFactor: UInt128
 
     access(all) enum RoundingMode: UInt8 {
         /// Rounds down to the nearest decimal
@@ -56,11 +56,11 @@ access(all) contract DeFiActionsMathUtils {
         let remainder = (value % self.e24) % self.scaleFactor
 
         if self.shouldRoundUp(roundingMode, fractionalPart, remainder) {
-            fractionalPart = fractionalPart + UInt128(1)
+            fractionalPart = fractionalPart + 1
 
             if fractionalPart >= self.e8 {
                 fractionalPart = fractionalPart - self.e8
-                integerPart = integerPart + UInt128(1)
+                integerPart = integerPart + 1
             }
         }
 
@@ -74,20 +74,20 @@ access(all) contract DeFiActionsMathUtils {
 
     /// Helper to determine rounding condition
     access(self) view fun shouldRoundUp(
-        _ roundingMode: RoundingMode, 
-        _ fractionalPart: UInt128, 
-        _ remainder: UInt128, 
+        _ roundingMode: RoundingMode,
+        _ fractionalPart: UInt128,
+        _ remainder: UInt128,
     ): Bool {
         switch roundingMode {
         case self.RoundingMode.RoundUp:
-            return remainder > UInt128(0)
+            return remainder > 0
 
         case self.RoundingMode.RoundHalfUp:
-            return remainder >= self.scaleFactor / UInt128(2)
+            return remainder >= self.scaleFactor / 2
 
         case self.RoundingMode.RoundEven:
-            return remainder > self.scaleFactor / UInt128(2) ||
-            (remainder == self.scaleFactor / UInt128(2) && fractionalPart % UInt128(2) != UInt128(0))
+            return remainder > self.scaleFactor / 2
+                || (remainder == self.scaleFactor / 2 && fractionalPart % 2 != 0)
         }
         return false
     }
@@ -144,9 +144,7 @@ access(all) contract DeFiActionsMathUtils {
         let uintX: UInt128 = self.toUInt128(x)
         let uintY: UInt128 = self.toUInt128(y)
         let uintResult = self.div(uintX, uintY)
-        let result = self.toUFix64(uintResult, roundingMode)
-
-        return result
+        return self.toUFix64(uintResult, roundingMode)
     }
 
     /// Divide two UFix64 values and round to the nearest (ties go up).
@@ -187,7 +185,7 @@ access(all) contract DeFiActionsMathUtils {
     access(all) view fun toUFix64Round(_ value: UInt128): UFix64 {
         // Use standard round-half-up (nearest neighbor; ties round away from zero)
         return self.toUFix64(value, self.RoundingMode.RoundHalfUp)
-    } 
+    }
 
     /// Rounds a UInt128 value (24 decimals) to UFix64 (8 decimals), always rounding down (truncate).
     ///
@@ -234,4 +232,4 @@ access(all) contract DeFiActionsMathUtils {
         self.ufix64Decimals = 8
         self.scaleFactor = self.pow(10, to: self.decimals - self.ufix64Decimals)
     }
-} 
+}
