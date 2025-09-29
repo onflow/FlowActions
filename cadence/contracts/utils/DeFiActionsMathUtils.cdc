@@ -86,8 +86,8 @@ access(all) contract DeFiActionsMathUtils {
             return remainder >= self.scaleFactor / 2
 
         case self.RoundingMode.RoundEven:
-            return remainder > self.scaleFactor / 2 ||
-            (remainder == self.scaleFactor / 2 && fractionalPart % 2 != 0)
+            return remainder > self.scaleFactor / 2
+                || (remainder == self.scaleFactor / 2 && fractionalPart % 2 != 0)
         }
         return false
     }
@@ -144,9 +144,7 @@ access(all) contract DeFiActionsMathUtils {
         let uintX: UInt128 = self.toUInt128(x)
         let uintY: UInt128 = self.toUInt128(y)
         let uintResult = self.div(uintX, uintY)
-        let result = self.toUFix64(uintResult, roundingMode)
-
-        return result
+        return self.toUFix64(uintResult, roundingMode)
     }
 
     /// Divide two UFix64 values and round to the nearest (ties go up).
