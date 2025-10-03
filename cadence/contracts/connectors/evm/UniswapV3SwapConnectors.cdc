@@ -190,32 +190,16 @@ access(all) contract UniswapV3SwapConnectors {
             var callSig: String = ""
             var args: [AnyStruct] = [] as [AnyStruct]
 
-            if singleHop {
-                // Single hop uses *Single variants with uint24 fee
-                let tokenIn = reverse ? self.tokenPath[1] : self.tokenPath[0]
-                let tokenOut = reverse ? self.tokenPath[0] : self.tokenPath[1]
-                let fee = UInt256(UInt(self.feePath[0]))
+            let pathBytes = self._buildPathBytes(reverse: reverse)
 
-                if out {
-                    // quoteExactInputSingle(address,address,uint24,uint256,uint160)
-                    callSig = "quoteExactInputSingle(address,address,uint24,uint256,uint160)"
-                    args = [tokenIn, tokenOut, fee, amount, UInt256(0)]
-                } else {
-                    // quoteExactOutputSingle(address,address,uint24,uint256,uint160)
-                    callSig = "quoteExactOutputSingle(address,address,uint24,uint256,uint160)"
-                    args = [tokenIn, tokenOut, fee, amount, UInt256(0)]
-                }
+            if out {
+                // quoteExactInput(bytes,uint256) → amountOut
+                callSig = "quoteExactInput(bytes,uint256)"
+                args = [pathBytes, amount]
             } else {
-                // Multi-hop uses bytes path
-                let pathBytes = self._buildPathBytes(reverse: reverse)
-                if out {
-                    // Some quoters accept (bytes) only; this variant is widely supported
-                    callSig = "quoteExactInput(bytes)"
-                    args = [pathBytes]
-                } else {
-                    callSig = "quoteExactOutput(bytes,uint256)"
-                    args = [pathBytes, amount]
-                }
+                // quoteExactOutput(bytes,uint256) → amountIn
+                callSig = "quoteExactOutput(bytes,uint256)"
+                args = [pathBytes, amount]
             }
 
             let res = self._dryCall(self.quoterAddress, callSig, args, 1_000_000)
@@ -255,6 +239,25 @@ access(all) contract UniswapV3SwapConnectors {
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
+            let pathBytes = self._buildPathBytes(reverse: true)
+            let qc = self._dryCall(
+                self.quoterAddress,
+                "quoteExactInput(bytes,uint256)",
+                [pathBytes, evmAmountIn],
+                1_000_000
+            )
+            if qc == nil || qc!.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError(
+                    "quoteExactInput(bytes,uint256)",
+                    qc ?? panic("quoter dryCall returned nil"),
+                    self.quoterAddress, idType, id, self.getType()
+                )
+            }
+            let quotedOut = self._firstUint256(qc!.data)
+            if quotedOut == UInt256(0) {
+                panic("UniswapV3: quoteExactInput returned 0. Check path/fee tiers and pool liquidity.")
+            }
+
             // Approve
             var res = self._call(
                 to: inToken,
@@ -267,53 +270,55 @@ access(all) contract UniswapV3SwapConnectors {
                 UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
             }
 
-            // Perform the swap
-            let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountOutMin, erc20Address: outToken)
-            let deadline = UInt256(UInt(getCurrentBlock().timestamp)) // simple “now” deadline
 
-            if self.tokenPath.length == 2 {
-                // exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))
-                let feeTier = UInt256(UInt(self.feePath[0]))
-                res = self._call(
-                    to: self.routerAddress,
-                    signature: "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))",
-                    args: [[
-                        inToken,
-                        outToken,
-                        feeTier,
-                        coa.address(),
-                        deadline,
-                        evmAmountIn,
-                        minOutUint,
-                        UInt256(0) // sqrtPriceLimitX96
-                    ]],
-                    gasLimit: 1_500_000,
-                    value: 0
-                )!
-            } else {
-                // exactInput((bytes,address,uint256,uint256,uint256))
-                let pathBytes = self._buildPathBytes(reverse: reverse)
-                res = self._call(
-                    to: self.routerAddress,
-                    signature: "exactInput((bytes,address,uint256,uint256,uint256))",
-                    args: [[
-                        pathBytes,
-                        coa.address(),
-                        deadline,
-                        evmAmountIn,
-                        minOutUint
-                    ]],
-                    gasLimit: 2_000_000,
-                    value: 0
-                )!
-            }
+            let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                amountOutMin * 0.001,
+                erc20Address: outToken
+            )
 
-            if res.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError("exactInput*", res, self.routerAddress, idType, id, self.getType())
+            // Uniswap requires deadline >= block.timestamp. To avoid UFix64→UInt casts here,
+            // just use a large constant deadline (e.g. ~Sat Nov 20 2286)
+            let deadline = UInt256(9999999999)
+
+            // exactInput((bytes,address,uint256,uint256,uint256))
+            var swapRes = self._call(
+                to: self.routerAddress,
+                signature: "exactInput((bytes,address,uint256,uint256,uint256))",
+                args: [pathBytes, self.borrowCOA()!.address(), deadline, evmAmountIn, minOutUint],
+                gasLimit: 2_000_000,
+                value: 0
+            )!
+            if swapRes.status != EVM.Status.successful {
+fun stringify(_ v: AnyStruct): String {
+    if let s = v as? String {
+        return s
+    }
+    if let i = v as? Int {
+        return i.toString()
+    }
+    if let u = v as? UInt256 {
+        return u.toString()
+    }
+    if let f = v as? UFix64 {
+        return f.toString()
+    }
+    if let a = v as? Address {
+        return a.toString()
+    }
+    return "<unknown AnyStruct>"
+}
+                let maybeReason = EVM.decodeABI(types: [Type<String>()], data: swapRes.data)
+                let maybeReasonString = maybeReason.map(fun (x: AnyStruct): String { return stringify(x) })
+                panic(maybeReasonString[0])
+
+                // UniswapV3SwapConnectors._callError(
+                //     "exactInput((bytes,address,uint256,uint256,uint256))",
+                //     swapRes, self.routerAddress, idType, id, self.getType()
+                // )
             }
 
             // Withdraw output back to Flow
-            let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(res.data), feeProvider: feeVaultRef)
+            let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(swapRes.data), feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
