@@ -137,25 +137,44 @@ access(all) contract UniswapV3SwapConnectors {
         /* --- Core swap / quote internals --- */
 
         /// Build Uniswap V3 path bytes: address(20) + fee(uint24) + address(20) + ...
-        access(self) view fun _buildPathBytes(reverse: Bool): [UInt8] {
-            let pathTokens = reverse ? self.tokenPath.reverse() : self.tokenPath
-            let pathFees = reverse ? self.feePath.reverse() : self.feePath
-
+        /// NOTE: avoid .reverse() in expressions; compute indices instead.
+        access(self) fun _buildPathBytes(reverse: Bool): [UInt8] {
             var bytes: [UInt8] = []
+
             var i: Int = 0
-            while i < pathTokens.length - 1 {
-                let a0 = pathTokens[i]
-                let a1 = pathTokens[i+1]
-                let fee = pathFees[i]
-                // push token0 (20 bytes)
-                bytes.appendAll(a0.bytes())
-                // push fee as 3 bytes big-endian (uint24)
+            let last = self.tokenPath.length - 1
+
+            while i < self.tokenPath.length - 1 {
+                let idx0 = reverse ? (last - i) : i
+                let idx1 = reverse ? (last - (i + 1)) : (i + 1)
+
+                let a0 = self.tokenPath[idx0]
+                let a1 = self.tokenPath[idx1]
+
+                let feeIdx = reverse ? (self.feePath.length - 1 - i) : i
+                let fee = self.feePath[feeIdx]
+
+                // Append 20 bytes from fixed-size arrays to dynamic `bytes`
+                let a0Fixed: [UInt8; 20] = a0.bytes
+                var k: Int = 0
+                while k < 20 {
+                    bytes.append(a0Fixed[k])
+                    k = k + 1
+                }
+
+                // fee as 3 bytes big-endian (uint24)
                 let f: UInt32 = fee
                 bytes.append(UInt8((f >> 16) & 0xFF))
                 bytes.append(UInt8((f >> 8) & 0xFF))
                 bytes.append(UInt8(f & 0xFF))
-                // push token1 (20 bytes)
-                bytes.appendAll(a1.bytes())
+
+                let a1Fixed: [UInt8; 20] = a1.bytes
+                k = 0
+                while k < 20 {
+                    bytes.append(a1Fixed[k])
+                    k = k + 1
+                }
+
                 i = i + 1
             }
             return bytes
@@ -166,17 +185,21 @@ access(all) contract UniswapV3SwapConnectors {
         /// - If out==false: quoteExactOutput (amount desired -> amount in)
         access(self) fun getV3Quote(out: Bool, amount: UInt256, reverse: Bool): UFix64? {
             let singleHop: Bool = self.tokenPath.length == 2
-            let callSig: String
-            let args: [AnyStruct]
+
+            // Cadence requires initialization at declaration
+            var callSig: String = ""
+            var args: [AnyStruct] = [] as [AnyStruct]
+
             if singleHop {
                 // Single hop uses *Single variants with uint24 fee
                 let tokenIn = reverse ? self.tokenPath[1] : self.tokenPath[0]
                 let tokenOut = reverse ? self.tokenPath[0] : self.tokenPath[1]
-                let fee = UInt256(UInt(self.feePath[reverse ? 0 : 0])) // same index as only hop
+                let fee = UInt256(UInt(self.feePath[0]))
+
                 if out {
                     // quoteExactInputSingle(address,address,uint24,uint256,uint160)
                     callSig = "quoteExactInputSingle(address,address,uint24,uint256,uint160)"
-                    args = [tokenIn, tokenOut, fee, amount, UInt256(0)] // no price limit
+                    args = [tokenIn, tokenOut, fee, amount, UInt256(0)]
                 } else {
                     // quoteExactOutputSingle(address,address,uint24,uint256,uint160)
                     callSig = "quoteExactOutputSingle(address,address,uint24,uint256,uint160)"
@@ -186,12 +209,10 @@ access(all) contract UniswapV3SwapConnectors {
                 // Multi-hop uses bytes path
                 let pathBytes = self._buildPathBytes(reverse: reverse)
                 if out {
-                    // quoteExactInput(bytes,uint256) in some quoter versions it's (bytes) only; using V2 signature with amount
-                    // Use signature with (bytes,uint256) if supported; fallback is (bytes)
-                    callSig = "quoteExactInput(bytes,uint256)"
-                    args = [pathBytes, amount]
+                    // Some quoters accept (bytes) only; this variant is widely supported
+                    callSig = "quoteExactInput(bytes)"
+                    args = [pathBytes]
                 } else {
-                    // quoteExactOutput(bytes,uint256)
                     callSig = "quoteExactOutput(bytes,uint256)"
                     args = [pathBytes, amount]
                 }
@@ -201,40 +222,40 @@ access(all) contract UniswapV3SwapConnectors {
             if res == nil || res!.status != EVM.Status.successful {
                 return nil
             }
-            // Quoter returns (uint256 amount), possibly with additional fields in some versions; decode first uint256
+
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
             if decoded.length == 0 { return nil }
             let uintAmt = decoded[0] as! UInt256
 
-            // convert amount to UFix64 depending on direction
             let ercAddr = reverse
-            ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
-            : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
+                ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
+                : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
+
             return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmt, erc20Address: ercAddr)
         }
 
-        /// Executes exact input swap via router (exactInputSingle for single-hop, exactInput for multi-hop)
+        /// Executes exact input swap via router
         access(self) fun _swapExactIn(exactVaultIn: @{FungibleToken.Vault}, amountOutMin: UFix64, reverse: Bool): @{FungibleToken.Vault} {
             let id = self.uniqueID?.id?.toString() ?? "UNASSIGNED"
             let idType = self.uniqueID?.getType()?.identifier ?? "UNASSIGNED"
             let coa = self.borrowCOA()
-            ?? panic("Invalid COA Capability in V3 Swapper \(self.getType().identifier) ID \(idType)#\(id)")
+                ?? panic("Invalid COA Capability in V3 Swapper \(self.getType().identifier) ID \(idType)#\(id)")
 
-            // Prepare bridge fees (bridge to EVM then bridge back)
+            // Prepare bridge fees
             let bridgeFeeBalance = EVM.Balance(attoflow: 0)
             bridgeFeeBalance.setFLOW(flow: 2.0 * FlowEVMBridgeUtils.calculateBridgeFee(bytes: 256))
             let feeVault <- coa.withdraw(balance: bridgeFeeBalance)
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
-            // Determine input token based on direction
+            // Determine I/O tokens
             let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
             let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
 
-            // Convert and deposit tokens to COA (bridges to EVM)
+            // Bridge input to EVM
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
-            // Approve router to spend the input token
+            // Approve
             var res = self._call(
                 to: inToken,
                 signature: "approve(address,uint256)",
@@ -248,25 +269,40 @@ access(all) contract UniswapV3SwapConnectors {
 
             // Perform the swap
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountOutMin, erc20Address: outToken)
+            let deadline = UInt256(UInt(getCurrentBlock().timestamp)) // simple “now” deadline
 
             if self.tokenPath.length == 2 {
-                // exactInputSingle((address,address,uint24,address,uint,uint,uint,uint))
-                // params: tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96
+                // exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))
                 let feeTier = UInt256(UInt(self.feePath[0]))
                 res = self._call(
                     to: self.routerAddress,
-                    signature: "exactInputSingle((address,address,uint24,address,uint256,uint256,uint160))",
-                    args: [[inToken, outToken, feeTier, coa.address(), UInt256(getCurrentBlock().timestamp), evmAmountIn, minOutUint, UInt256(0)]],
+                    signature: "exactInputSingle((address,address,uint24,address,uint256,uint256,uint256,uint160))",
+                    args: [[
+                        inToken,
+                        outToken,
+                        feeTier,
+                        coa.address(),
+                        deadline,
+                        evmAmountIn,
+                        minOutUint,
+                        UInt256(0) // sqrtPriceLimitX96
+                    ]],
                     gasLimit: 1_500_000,
                     value: 0
                 )!
             } else {
-                // exactInput((bytes,address,uint256,uint256))
+                // exactInput((bytes,address,uint256,uint256,uint256))
                 let pathBytes = self._buildPathBytes(reverse: reverse)
                 res = self._call(
                     to: self.routerAddress,
-                    signature: "exactInput((bytes,address,uint256,uint256))",
-                    args: [[pathBytes, coa.address(), evmAmountIn, minOutUint]],
+                    signature: "exactInput((bytes,address,uint256,uint256,uint256))",
+                    args: [[
+                        pathBytes,
+                        coa.address(),
+                        deadline,
+                        evmAmountIn,
+                        minOutUint
+                    ]],
                     gasLimit: 2_000_000,
                     value: 0
                 )!
@@ -276,10 +312,10 @@ access(all) contract UniswapV3SwapConnectors {
                 UniswapV3SwapConnectors._callError("exactInput*", res, self.routerAddress, idType, id, self.getType())
             }
 
-            // Withdraw output tokens back to Flow
+            // Withdraw output back to Flow
             let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(res.data), feeProvider: feeVaultRef)
 
-            // Clean up bridge fee vault
+            // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
             return <- outVault
         }
@@ -322,13 +358,29 @@ access(all) contract UniswapV3SwapConnectors {
         }
     }
 
-    /// Revert helper mirroring V2 connector style
+    /// Revert helper: fix concat parentheses so whole message is inside panic(...)
     access(self)
-    fun _callError(_ signature: String, _ res: EVM.Result, _ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
-        panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) "
-        .concat("with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\t")
-        .concat("Status value: \(res.status.rawValue)\n\t"))
-        .concat("Error code: \(res.errorCode)\n\t")
-        .concat("ErrorMessage: \(res.errorMessage)\n"))
-    }
-}
+    fun _callError(
+        _ signature: String,
+        _ res: EVM.Result,
+        _ target: EVM.EVMAddress,
+        _ uniqueIDType: String,
+        _ id: String,
+        _ swapperType: Type
+    ) {
+        panic(
+            ("Call to ".concat(target.toString())
+                .concat(".")
+                .concat(signature)
+                .concat(" from Swapper ")
+                .concat(swapperType.identifier)
+                .concat(" with UniqueIdentifier ")
+                .concat(uniqueIDType)
+                .concat(" ID ")
+                .concat(id)
+                .concat(" failed:\n\t"))
+            .concat("Status value: ".concat(res.status.rawValue.toString()).concat("\n\t"))
+            .concat("Error code: ".concat(res.errorCode.toString()).concat("\n\t"))
+            .concat("ErrorMessage: ".concat(res.errorMessage).concat("\n"))
+        )
+    }}
