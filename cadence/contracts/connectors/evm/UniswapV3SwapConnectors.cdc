@@ -138,7 +138,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Build Uniswap V3 path bytes: address(20) + fee(uint24) + address(20) + ...
         /// NOTE: avoid .reverse() in expressions; compute indices instead.
-        access(self) fun _buildPathBytes(reverse: Bool): [UInt8] {
+        access(self) fun _buildPathBytes(reverse: Bool): EVM.EVMBytes {
             var bytes: [UInt8] = []
 
             var i: Int = 0
@@ -177,7 +177,7 @@ access(all) contract UniswapV3SwapConnectors {
 
                 i = i + 1
             }
-            return bytes
+            return EVM.EVMBytes(value: bytes)
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
@@ -239,24 +239,7 @@ access(all) contract UniswapV3SwapConnectors {
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
-            let pathBytes = self._buildPathBytes(reverse: true)
-            let qc = self._dryCall(
-                self.quoterAddress,
-                "quoteExactInput(bytes,uint256)",
-                [pathBytes, evmAmountIn],
-                1_000_000
-            )
-            if qc == nil || qc!.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError(
-                    "quoteExactInput(bytes,uint256)",
-                    qc ?? panic("quoter dryCall returned nil"),
-                    self.quoterAddress, idType, id, self.getType()
-                )
-            }
-            let quotedOut = self._firstUint256(qc!.data)
-            if quotedOut == UInt256(0) {
-                panic("UniswapV3: quoteExactInput returned 0. Check path/fee tiers and pool liquidity.")
-            }
+            let pathBytes = self._buildPathBytes(reverse: reverse)
 
             // Approve
             var res = self._call(
@@ -280,45 +263,37 @@ access(all) contract UniswapV3SwapConnectors {
             // just use a large constant deadline (e.g. ~Sat Nov 20 2286)
             let deadline = UInt256(9999999999)
 
-            // exactInput((bytes,address,uint256,uint256,uint256))
+            //exactInput((bytes,address,uint256,uint256,uint256))
             var swapRes = self._call(
                 to: self.routerAddress,
-                signature: "exactInput((bytes,address,uint256,uint256,uint256))",
-                args: [pathBytes, self.borrowCOA()!.address(), deadline, evmAmountIn, minOutUint],
+                signature: "exactInputShim(bytes,address,uint256,uint256)",
+                args: [pathBytes, self.borrowCOA()!.address(), evmAmountIn, minOutUint],
                 gasLimit: 2_000_000,
                 value: 0
             )!
-            if swapRes.status != EVM.Status.successful {
-fun stringify(_ v: AnyStruct): String {
-    if let s = v as? String {
-        return s
-    }
-    if let i = v as? Int {
-        return i.toString()
-    }
-    if let u = v as? UInt256 {
-        return u.toString()
-    }
-    if let f = v as? UFix64 {
-        return f.toString()
-    }
-    if let a = v as? Address {
-        return a.toString()
-    }
-    return "<unknown AnyStruct>"
-}
-                let maybeReason = EVM.decodeABI(types: [Type<String>()], data: swapRes.data)
-                let maybeReasonString = maybeReason.map(fun (x: AnyStruct): String { return stringify(x) })
-                panic(maybeReasonString[0])
 
-                // UniswapV3SwapConnectors._callError(
-                //     "exactInput((bytes,address,uint256,uint256,uint256))",
-                //     swapRes, self.routerAddress, idType, id, self.getType()
-                // )
+            // var swapRes = self._call(
+            //     to: self.routerAddress,
+            //     signature: "exactInputSingleShim(address,address,uint24,address,uint256,uint256,uint160)",
+            //     args: [inToken, outToken, 3000, self.borrowCOA()!.address(), evmAmountIn, minOutUint, 0],
+            //     gasLimit: 2_000_000,
+            //     value: 0
+            // )!
+
+
+            if swapRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError(
+                    "exactInput((bytes,address,uint256,uint256,uint256))",
+                    swapRes, self.routerAddress, idType, id, self.getType()
+                )
             }
 
+            log(swapRes.status)
+            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
+            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
             // Withdraw output back to Flow
-            let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(swapRes.data), feeProvider: feeVaultRef)
+            // let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(swapRes.data), feeProvider: feeVaultRef)
+            let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
