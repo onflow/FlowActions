@@ -184,33 +184,25 @@ access(all) contract UniswapV3SwapConnectors {
         /// - If out==true: quoteExactInput (amount provided -> amount out)
         /// - If out==false: quoteExactOutput (amount desired -> amount in)
         access(self) fun getV3Quote(out: Bool, amount: UInt256, reverse: Bool): UFix64? {
-            let singleHop: Bool = self.tokenPath.length == 2
+            // For exactOutput, Uniswap V3 expects the path reversed (tokenOut -> ... -> tokenIn)
+            let pathReverse = out ? reverse : !reverse
 
-            // Cadence requires initialization at declaration
-            var callSig: String = ""
-            var args: [AnyStruct] = [] as [AnyStruct]
+            let pathBytes = self._buildPathBytes(reverse: pathReverse)
 
-            let pathBytes = self._buildPathBytes(reverse: reverse)
+            let callSig = out
+                ? "quoteExactInput(bytes,uint256)"
+                : "quoteExactOutput(bytes,uint256)"
 
-            if out {
-                // quoteExactInput(bytes,uint256) → amountOut
-                callSig = "quoteExactInput(bytes,uint256)"
-                args = [pathBytes, amount]
-            } else {
-                // quoteExactOutput(bytes,uint256) → amountIn
-                callSig = "quoteExactOutput(bytes,uint256)"
-                args = [pathBytes, amount]
-            }
+            let args: [AnyStruct] = [pathBytes, amount]
 
             let res = self._dryCall(self.quoterAddress, callSig, args, 1_000_000)
-            if res == nil || res!.status != EVM.Status.successful {
-                return nil
-            }
+            if res == nil || res!.status != EVM.Status.successful { return nil }
 
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
             if decoded.length == 0 { return nil }
             let uintAmt = decoded[0] as! UInt256
 
+            // Which token to convert is still based on what value we’re returning
             let ercAddr = reverse
                 ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
                 : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
