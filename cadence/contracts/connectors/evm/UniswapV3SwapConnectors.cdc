@@ -252,7 +252,7 @@ access(all) contract UniswapV3SwapConnectors {
             // Slippage/min out on EVM units (adjust factor to your policy)
             let slippage = 0.001 // 0.1%
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                amountOutMin * (1 - slipppage),
+                amountOutMin * (1.0 - slippage),
                 erc20Address: outToken
             )
 
