@@ -246,7 +246,7 @@ access(all) contract UniswapV3SwapConnectors {
                 value: 0
             )!
             if res.status != EVM.Status.successful {
-                UniswapV3SwapConnectors3._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
             }
 
             // Slippage/min out on EVM units (adjust factor to your policy)
@@ -269,7 +269,7 @@ access(all) contract UniswapV3SwapConnectors {
             assert(_chkMin.length == 32, message: "amountOutMin not 32 bytes")
 
             // 1) Build the tuple blob (you already have this)
-            let argsBlob: [UInt8] = UniswapV3SwapConnectors3.encodeTuple_bytes_addr_u256_u256(
+            let argsBlob: [UInt8] = UniswapV3SwapConnectors.encodeTuple_bytes_addr_u256_u256(
                 path: pathBytes.value,
                 recipient: recipient,
                 amountOne: evmAmountIn,
@@ -291,7 +291,7 @@ access(all) contract UniswapV3SwapConnectors {
                 value: 0
             )!
             if swapRes.status != EVM.Status.successful {
-                UniswapV3SwapConnectors3._callError(
+                UniswapV3SwapConnectors._callError(
                     EVMAbiHelpers.toHex(calldata),
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
