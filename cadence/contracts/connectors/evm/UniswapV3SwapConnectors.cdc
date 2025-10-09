@@ -8,6 +8,7 @@ import "FlowEVMBridge"
 
 import "DeFiActions"
 import "SwapConnectors"
+import "EVMAbiHelpers"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -19,31 +20,45 @@ import "SwapConnectors"
 /// Supports single-hop and multi-hop swaps using exactInput / exactInputSingle and Quoter for estimates.
 ///
 access(all) contract UniswapV3SwapConnectors {
+    // (bytes,address,uint256,uint256)
+    access(all) fun encodeTuple_bytes_addr_u256_u256(
+        path: [UInt8],
+        recipient: EVM.EVMAddress,
+        amountOne: UInt256,
+        amountTwo: UInt256
+    ): [UInt8] {
+        let tupleHeadSize = 32 * 4
+
+        var head: [[UInt8]] = []
+        var tail: [[UInt8]] = []
+
+        // 1) bytes path (dynamic) -> pointer to tail, relative to start of this tuple blob
+        head.append(EVMAbiHelpers.abiWord(UInt256(tupleHeadSize)))
+        tail.append(EVMAbiHelpers.abiDynamicBytes(path))
+
+        head.append(EVMAbiHelpers.abiAddress(recipient))
+
+        head.append(EVMAbiHelpers.abiUInt256(amountOne))
+
+        head.append(EVMAbiHelpers.abiUInt256(amountTwo))
+
+        return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
+    }
+
 
     /// Swapper
-    ///
-    /// A DeFiActions connector that swaps between tokens using a Uniswap V3 Router
-    ///
     access(all) struct Swapper: DeFiActions.Swapper {
-        /// Uniswap V3 Router EVM address
         access(all) let routerAddress: EVM.EVMAddress
-        /// Uniswap V3 Quoter EVM address (for on-chain price quotes via dry calls)
         access(all) let quoterAddress: EVM.EVMAddress
 
-        /// Ordered list of token addresses (token0 -> ... -> tokenN)
         access(all) let tokenPath: [EVM.EVMAddress]
-        /// Fee tier per hop (basis points in Uniswap V3 uint24, e.g. 500, 3000, 10000)
-        /// Length must be tokenPath.length - 1
         access(all) let feePath: [UInt32]
 
-        /// Optional ID to help align this component in a DeFiActions stack
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        /// Input and output Vault types on Flow
         access(self) let inVault: Type
         access(self) let outVault: Type
 
-        /// COA capability for EVM calls and token custody
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
         init(
@@ -54,17 +69,17 @@ access(all) contract UniswapV3SwapConnectors {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?,
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
                 feePath.length == tokenPath.length - 1: "feePath length must be tokenPath.length - 1"
                 FlowEVMBridgeConfig.getTypeAssociated(with: tokenPath[0]) == inVault:
-                "Provided inVault \(inVault.identifier) is not associated with ERC20 at tokenPath[0]"
+                    "Provided inVault \(inVault.identifier) is not associated with ERC20 at tokenPath[0]"
                 FlowEVMBridgeConfig.getTypeAssociated(with: tokenPath[tokenPath.length - 1]) == outVault:
-                "Provided outVault \(outVault.identifier) is not associated with ERC20 at tokenPath[last]"
+                    "Provided outVault \(outVault.identifier) is not associated with ERC20 at tokenPath[last]"
                 coaCapability.check():
-                "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
+                    "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
             }
             self.routerAddress = routerAddress
             self.quoterAddress = quoterAddress
@@ -137,10 +152,8 @@ access(all) contract UniswapV3SwapConnectors {
         /* --- Core swap / quote internals --- */
 
         /// Build Uniswap V3 path bytes: address(20) + fee(uint24) + address(20) + ...
-        /// NOTE: avoid .reverse() in expressions; compute indices instead.
         access(self) fun _buildPathBytes(reverse: Bool): EVM.EVMBytes {
             var bytes: [UInt8] = []
-
             var i: Int = 0
             let last = self.tokenPath.length - 1
 
@@ -152,28 +165,22 @@ access(all) contract UniswapV3SwapConnectors {
                 let a1 = self.tokenPath[idx1]
 
                 let feeIdx = reverse ? (self.feePath.length - 1 - i) : i
-                let fee = self.feePath[feeIdx]
+                let f: UInt32 = self.feePath[feeIdx]
 
-                // Append 20 bytes from fixed-size arrays to dynamic `bytes`
+                // address 0
                 let a0Fixed: [UInt8; 20] = a0.bytes
                 var k: Int = 0
-                while k < 20 {
-                    bytes.append(a0Fixed[k])
-                    k = k + 1
-                }
+                while k < 20 { bytes.append(a0Fixed[k]); k = k + 1 }
 
-                // fee as 3 bytes big-endian (uint24)
-                let f: UInt32 = fee
+                // fee uint24 big-endian
                 bytes.append(UInt8((f >> 16) & 0xFF))
                 bytes.append(UInt8((f >> 8) & 0xFF))
                 bytes.append(UInt8(f & 0xFF))
 
+                // address 1
                 let a1Fixed: [UInt8; 20] = a1.bytes
                 k = 0
-                while k < 20 {
-                    bytes.append(a1Fixed[k])
-                    k = k + 1
-                }
+                while k < 20 { bytes.append(a1Fixed[k]); k = k + 1 }
 
                 i = i + 1
             }
@@ -181,12 +188,9 @@ access(all) contract UniswapV3SwapConnectors {
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
-        /// - If out==true: quoteExactInput (amount provided -> amount out)
-        /// - If out==false: quoteExactOutput (amount desired -> amount in)
         access(self) fun getV3Quote(out: Bool, amount: UInt256, reverse: Bool): UFix64? {
-            // For exactOutput, Uniswap V3 expects the path reversed (tokenOut -> ... -> tokenIn)
+            // For exactOutput, the path must be reversed (tokenOut -> ... -> tokenIn)
             let pathReverse = out ? reverse : !reverse
-
             let pathBytes = self._buildPathBytes(reverse: pathReverse)
 
             let callSig = out
@@ -202,7 +206,6 @@ access(all) contract UniswapV3SwapConnectors {
             if decoded.length == 0 { return nil }
             let uintAmt = decoded[0] as! UInt256
 
-            // Which token to convert is still based on what value we’re returning
             let ercAddr = reverse
                 ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
                 : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
@@ -217,13 +220,13 @@ access(all) contract UniswapV3SwapConnectors {
             let coa = self.borrowCOA()
                 ?? panic("Invalid COA Capability in V3 Swapper \(self.getType().identifier) ID \(idType)#\(id)")
 
-            // Prepare bridge fees
+            // Bridge fee
             let bridgeFeeBalance = EVM.Balance(attoflow: 0)
             bridgeFeeBalance.setFLOW(flow: 2.0 * FlowEVMBridgeUtils.calculateBridgeFee(bytes: 256))
             let feeVault <- coa.withdraw(balance: bridgeFeeBalance)
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
-            // Determine I/O tokens
+            // I/O tokens
             let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
             let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
 
@@ -231,6 +234,7 @@ access(all) contract UniswapV3SwapConnectors {
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
+            // Build path
             let pathBytes = self._buildPathBytes(reverse: reverse)
 
             // Approve
@@ -242,57 +246,67 @@ access(all) contract UniswapV3SwapConnectors {
                 value: 0
             )!
             if res.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
+                UniswapV3SwapConnectors3._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
             }
 
-
+            // Slippage/min out on EVM units (adjust factor to your policy)
+            let slippage = 0.001 // 0.1%
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                amountOutMin * 0.001,
+                amountOutMin * (1 - slipppage),
                 erc20Address: outToken
             )
 
-            // Uniswap requires deadline >= block.timestamp. To avoid UFix64→UInt casts here,
-            // just use a large constant deadline (e.g. ~Sat Nov 20 2286)
-            let deadline = UInt256(9999999999)
+            // exactInput((bytes,address,uint256,uint256)) selector = 0xb858183f
+            let selector: [UInt8] = [0xb8, 0x58, 0x18, 0x3f]
 
-            //exactInput((bytes,address,uint256,uint256,uint256))
-            var swapRes = self._call(
+            let coaRef = self.borrowCOA()!
+            let recipient: EVM.EVMAddress = coaRef.address()
+
+            // optional dev guards
+            let _chkIn  = EVMAbiHelpers.abiUInt256(evmAmountIn)
+            let _chkMin = EVMAbiHelpers.abiUInt256(minOutUint)
+            assert(_chkIn.length == 32,  message: "amountIn not 32 bytes")
+            assert(_chkMin.length == 32, message: "amountOutMin not 32 bytes")
+
+            // 1) Build the tuple blob (you already have this)
+            let argsBlob: [UInt8] = UniswapV3SwapConnectors3.encodeTuple_bytes_addr_u256_u256(
+                path: pathBytes.value,
+                recipient: recipient,
+                amountOne: evmAmountIn,
+                amountTwo: minOutUint
+            )
+
+            // 2) Head for a single dynamic arg is always 32
+            let head: [UInt8] = EVMAbiHelpers.abiWord(UInt256(32))
+
+            // 3) Final calldata = selector || head || tuple
+            let calldata: [UInt8] = selector.concat(head).concat(argsBlob)
+
+
+            // Call the router with raw calldata
+            let swapRes = self._callRaw(
                 to: self.routerAddress,
-                signature: "exactInputShim(bytes,address,uint256,uint256)",
-                args: [pathBytes, self.borrowCOA()!.address(), evmAmountIn, minOutUint],
+                calldata: calldata,
                 gasLimit: 2_000_000,
                 value: 0
             )!
-
-            // var swapRes = self._call(
-            //     to: self.routerAddress,
-            //     signature: "exactInputSingleShim(address,address,uint24,address,uint256,uint256,uint160)",
-            //     args: [inToken, outToken, 3000, self.borrowCOA()!.address(), evmAmountIn, minOutUint, 0],
-            //     gasLimit: 2_000_000,
-            //     value: 0
-            // )!
-
-
             if swapRes.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError(
-                    "exactInput((bytes,address,uint256,uint256,uint256))",
+                UniswapV3SwapConnectors3._callError(
+                    EVMAbiHelpers.toHex(calldata),
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
             }
+             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
+             let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
 
-            log(swapRes.status)
-            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
-            // Withdraw output back to Flow
-            // let outVault <- coa.withdrawTokens(type: self.outType(), amount: self._firstUint256(swapRes.data), feeProvider: feeVaultRef)
-            let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
+             // Withdraw output back to Flow
+             let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
 
-            // Handle leftover fee vault
-            self._handleRemainingFeeVault(<-feeVault)
-            return <- outVault
+             // Handle leftover fee vault
+             self._handleRemainingFeeVault(<-feeVault)
+             return <- outVault
         }
 
-        /// Extract the first uint256 from an EVM call result; fall back to re-quoting if decoding differs by router version
         access(self) fun _firstUint256(_ data: [UInt8]): UInt256 {
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: data)
             if decoded.length > 0 { return decoded[0] as! UInt256 }
@@ -321,6 +335,14 @@ access(all) contract UniswapV3SwapConnectors {
             return nil
         }
 
+        access(self) fun _callRaw(to: EVM.EVMAddress, calldata: [UInt8], gasLimit: UInt64, value: UInt): EVM.Result? {
+            let valueBalance = EVM.Balance(attoflow: value)
+            if let coa = self.borrowCOA() {
+                return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+            }
+            return nil
+        }
+
         access(self) fun _handleRemainingFeeVault(_ vault: @FlowToken.Vault) {
             if vault.balance > 0.0 {
                 self.borrowCOA()!.deposit(from: <-vault)
@@ -330,7 +352,7 @@ access(all) contract UniswapV3SwapConnectors {
         }
     }
 
-    /// Revert helper: fix concat parentheses so whole message is inside panic(...)
+    /// Revert helper
     access(self)
     fun _callError(
         _ signature: String,
@@ -355,4 +377,5 @@ access(all) contract UniswapV3SwapConnectors {
             .concat("Error code: ".concat(res.errorCode.toString()).concat("\n\t"))
             .concat("ErrorMessage: ".concat(res.errorMessage).concat("\n"))
         )
-    }}
+    }
+}
