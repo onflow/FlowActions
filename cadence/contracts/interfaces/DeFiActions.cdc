@@ -349,6 +349,8 @@ access(all) contract DeFiActions {
                 "Quote.inType type \(quote!.inType.identifier) does not match the provided inVault \(inVault.getType().identifier)"
             }
             post {
+                result.getType() == self.outType():
+                "Invalid swap() result - \(result.getType().identifier) is not \(self.outType().identifier)"
                 emit Swapped(
                     inVault: before(inVault.getType().identifier),
                     outVault: result.getType().identifier,
@@ -371,6 +373,8 @@ access(all) contract DeFiActions {
                 "Invalid vault provided for swapBack - \(residual.getType().identifier) is not \(self.outType().identifier)"
             }
             post {
+                result.getType() == self.inType():
+                "Invalid swapBack() result - \(result.getType().identifier) is not \(self.inType().identifier)"
                 emit Swapped(
                     inVault: before(residual.getType().identifier),
                     outVault: result.getType().identifier,
