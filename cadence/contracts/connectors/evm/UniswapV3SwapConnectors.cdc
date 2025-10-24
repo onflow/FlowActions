@@ -50,7 +50,7 @@ access(all) contract UniswapV3SwapConnectors {
     access(all) struct Swapper: DeFiActions.Swapper {
         access(all) let routerAddress: EVM.EVMAddress
         access(all) let quoterAddress: EVM.EVMAddress
-        // access(self) let factoryAddress: EVM.EVMAddress
+        access(self) let factoryAddress: EVM.EVMAddress
 
         access(all) let tokenPath: [EVM.EVMAddress]
         access(all) let feePath: [UInt32]
@@ -63,6 +63,7 @@ access(all) contract UniswapV3SwapConnectors {
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
         init(
+            factoryAddress: EVM.EVMAddress,
             routerAddress: EVM.EVMAddress,
             quoterAddress: EVM.EVMAddress,
             tokenPath: [EVM.EVMAddress],
@@ -82,6 +83,7 @@ access(all) contract UniswapV3SwapConnectors {
                 coaCapability.check():
                     "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
             }
+            self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
             self.quoterAddress = quoterAddress
             self.tokenPath = tokenPath
@@ -90,7 +92,6 @@ access(all) contract UniswapV3SwapConnectors {
             self.outVault = outVault
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
-            //self.factoryAddress = EVM.addressFromString("0x92657b195e22b69E4779BBD09Fa3CD46F0CF8e39")
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -229,8 +230,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) fun getPoolAddress(): EVM.EVMAddress {
             let res = self._call(
-                to: EVM.addressFromString("0x92657b195e22b69E4779BBD09Fa3CD46F0CF8e39"),
-                //to: self.factoryAddress,
+                to: self.factoryAddress,
                 signature: "getPool(address,address,uint24)",
                 args: [ self.tokenPath[0], self.tokenPath[1], UInt256(3000) ],
                 gasLimit: 120_000,
