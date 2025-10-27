@@ -1155,7 +1155,9 @@ access(all) contract DeFiActions {
         access(all) view fun calculateNextExecutionTimestampAsConfigured(): UFix64? {
             if let config = self._recurringConfig {
                 // protect overflow
-                return UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp) >= UInt64(config.interval) ? self._lastRebalanceTimestamp + UFix64(config.interval) : nil
+                return (UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp)) >= UInt64(config.interval)
+                    ? self._lastRebalanceTimestamp + UFix64(config.interval)
+                    : nil
             }
             return nil
         }
@@ -1175,9 +1177,7 @@ access(all) contract DeFiActions {
                 config?.assignedAutoBalancer == nil || config?.assignedAutoBalancer == self.uuid:
                 "Invalid recurring config - must be assigned to this AutoBalancer"
             }
-            if config != nil {
-                config!.setAssignedAutoBalancer(self.uuid)
-            }
+            config?.setAssignedAutoBalancer(self.uuid)
             self._recurringConfig = config
         }
         /// Cancels a scheduled transaction returning nil if a scheduled transaction is not found. Refunds are deposited
@@ -1219,13 +1219,17 @@ access(all) contract DeFiActions {
 
         /* ViewResolver.Resolver conformance */
 
-        /// Passthrough to inner Vault's view Types
+        /// Passthrough to inner Vault's view Types adding also the AutoBalancerRecurringConfig type
         access(all) view fun getViews(): [Type] {
-            return self._borrowVault().getViews()
+            return [Type<AutoBalancerRecurringConfig>()].concat(self._borrowVault().getViews())
         }
-        /// Passthrough to inner Vault's view resolution
+        /// Passthrough to inner Vault's view resolution serving also the AutoBalancerRecurringConfig type
         access(all) fun resolveView(_ view: Type): AnyStruct? {
-            return self._borrowVault().resolveView(view)
+            if view == Type<AutoBalancerRecurringConfig>() {
+                return self._recurringConfig
+            } else {
+                return self._borrowVault().resolveView(view)
+            }
         }
 
         /* FungibleToken.Receiver & .Provider conformance */
@@ -1267,6 +1271,7 @@ access(all) contract DeFiActions {
             if amount == 0.0 {
                 return <- self._borrowVault().createEmptyVault()
             }
+
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
             // self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
             let proportion: UFix64 = 1.0 - DeFiActionsMathUtils.divUFix64WithRounding(amount, self.vaultBalance())
@@ -1300,7 +1305,7 @@ access(all) contract DeFiActions {
         }
         /// Returns a reference to the inner Source
         access(self) view fun _borrowSource(): auth(FungibleToken.Withdraw) &{Source}? {
-            return &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
+            return &self._rebalanceSource
         }
     }
 
