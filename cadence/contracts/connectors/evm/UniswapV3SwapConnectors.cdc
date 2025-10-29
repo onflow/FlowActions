@@ -253,7 +253,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
-            let wordRadius = 12
+            let wordRadius = 2
 
             let coa = self.borrowCOA()
             //
