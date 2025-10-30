@@ -33,7 +33,6 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 | Contract | Testnet | Mainnet |
 |----------|---------|---------|
 | DeFiActions | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
-| DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
 | DeFiActionsUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
 | FungibleTokenConnectors | 0x5a7b9cee9aaf4e4e | 0x1d9a619393e9fb53 |
 | EVMNativeFLOWConnectors | 0xb88ba0e976146cd1 | 0xcc15a0c9c656b648 |
