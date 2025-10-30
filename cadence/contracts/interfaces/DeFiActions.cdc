@@ -1016,7 +1016,8 @@ access(all) contract DeFiActions {
         ///
         access(FlowTransactionScheduler.Execute) fun executeTransaction(id: UInt64, data: AnyStruct?) {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
-            let force = data as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
+            let dataDict = data as? {String: AnyStruct} ?? {}
+            let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
             self.rebalance(force: force)
 
             // if configured as recurring & this transaction is internally managed, schedule the next execution
@@ -1120,7 +1121,7 @@ access(all) contract DeFiActions {
                 // all checks passed - schedule the transaction & capture the scheduled transaction
                 let txn <- FlowTransactionScheduler.schedule(
                         handlerCap: self._selfCap!,
-                        data: config.forceRebalance,
+                        data: { "force": config.forceRebalance },
                         timestamp: timestamp!,
                         priority: config.priority,
                         executionEffort: config.executionEffort,
