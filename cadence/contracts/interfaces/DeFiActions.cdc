@@ -960,7 +960,7 @@ access(all) contract DeFiActions {
             }
 
             let vault = self._borrowVault()
-            var amount = DeFiActionsMathUtils.divUFix64WithRounding(valueDiff, currentPrice!)
+            var amount = self.toUFix64(UFix128(valueDiff) / UFix128(currentPrice!))
             var executed = false
             let maybeRebalanceSource = &self._rebalanceSource as auth(FungibleToken.Withdraw) &{Source}?
             let maybeRebalanceSink = &self._rebalanceSink as &{Sink}?
@@ -1276,8 +1276,9 @@ access(all) contract DeFiActions {
             }
 
             // adjust historical value of deposits proportionate to the amount withdrawn & return withdrawn vault
-            // self._valueOfDeposits = (1.0 - amount / self.vaultBalance()) * self._valueOfDeposits
-            let proportion: UFix64 = 1.0 - DeFiActionsMathUtils.divUFix64WithRounding(amount, self.vaultBalance())
+            let amount128 = UFix128(amount)
+            let vaultBalance128 = UFix128(self.vaultBalance())
+            let proportion: UFix64 = 1.0 - self.toUFix64(amount128 / vaultBalance128)
             let newValue = self._valueOfDeposits * proportion
             self._valueOfDeposits = newValue
             return <- self._borrowVault().withdraw(amount: amount)
@@ -1309,6 +1310,25 @@ access(all) contract DeFiActions {
         /// Returns a reference to the inner Source
         access(self) view fun _borrowSource(): auth(FungibleToken.Withdraw) &{Source}? {
             return &self._rebalanceSource
+        }
+        /// Converts a UFix128 to a UFix64, rounding up if the remainder is greater than or equal to 0.5
+        access(all) view fun toUFix64(_ value: UFix128): UFix64 {
+            let truncated: UFix64 = UFix64(value)
+            let truncatedAs128: UFix128 = UFix128(truncated)
+            let remainder: UFix128 = value - truncatedAs128
+            let ufix64Step: UFix128 = 0.00000001
+            let ufix64HalfStep: UFix128 = ufix64Step / UFix128(2.0)
+
+            if remainder == UFix128(0.0) {
+                return truncated
+            }
+
+            view fun roundUp(_ base: UFix64): UFix64 {
+                let increment: UFix64 = 0.00000001
+                return base >= UFix64.max - increment ? UFix64.max : base + increment
+            }
+
+            return remainder >= ufix64HalfStep ? roundUp(truncated) : truncated
         }
     }
 
