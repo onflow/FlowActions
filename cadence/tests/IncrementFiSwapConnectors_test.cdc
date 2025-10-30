@@ -29,12 +29,6 @@ fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
-        name: "DeFiActionsMathUtils",
-        path: "../contracts/utils/DeFiActionsMathUtils.cdc",
-        arguments: [],
-    )
-    Test.expect(err, Test.beNil())
-    err = Test.deployContract(
         name: "DeFiActions",
         path: "../contracts/interfaces/DeFiActions.cdc",
         arguments: []

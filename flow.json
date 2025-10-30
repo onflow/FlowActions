@@ -12,12 +12,6 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"DeFiActionsMathUtils": {
-			"source": "cadence/contracts/utils/DeFiActionsMathUtils.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
-		},
 		"DeFiActionsUtils": {
 			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
@@ -696,7 +690,6 @@
 				"SwapConfig",
 				"SwapInterfaces",
 				"StableSwapFactory",
-				"DeFiActionsMathUtils",
 				"DeFiActions",
 				"DeFiActionsUtils",
 				"SwapConnectors",
@@ -744,7 +737,6 @@
 			],
 			"mainnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActionsMathUtils",
 				"DeFiActions"
 			],
 			"mainnet-evm-token-connectors": [
@@ -773,7 +765,6 @@
 			],
 			"testnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActionsMathUtils",
 				"DeFiActions"
 			],
 			"testnet-evm-token-connectors": [
