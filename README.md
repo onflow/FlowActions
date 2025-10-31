@@ -144,7 +144,8 @@ To understand DeFiActions, start with these key files:
 **Protocol Connectors:**
 - [`IncrementFiSwapper`](cadence/contracts/connectors/increment-fi/IncrementFiSwapConnectors.cdc) - DEX integration for token swapping via IncrementFi
 - [`BandPriceOracle`](cadence/contracts/connectors/bande-oracle/BandOracleConnectors.cdc) - Price feed integration with Band Protocol oracle
-- [`EVMSwapper`](cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc) - UniswapV2-style swapping on Flow EVM
+- [`EVMSwapperV2`](cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc) - UniswapV2-style swapping on Flow EVM
+- [`EVMSwapperV3`](cadence/contracts/connectors/evm/UniswapV3SwapConnectors.cdc) - UniswapV3-style swapping on Flow EVM
 
 ### Usage Patterns
 

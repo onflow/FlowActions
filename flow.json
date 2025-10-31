@@ -18,6 +18,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"EVMAbiHelpers": {
+			"source": "./cadence/contracts/utils/EVMAbiHelpers.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"EVMNativeFLOWConnectors": {
 			"source": "cadence/contracts/connectors/evm/EVMNativeFLOWConnectors.cdc",
 			"aliases": {
@@ -92,6 +98,12 @@
 		},
 		"UniswapV2SwapConnectors": {
 			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"UniswapV3SwapConnectors": {
+			"source": "cadence/contracts/connectors/evm/UniswapV3SwapConnectors.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
