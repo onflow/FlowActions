@@ -562,7 +562,7 @@
 			}
 		},
 		"mainnet-band-oracle-connectors": {
-			"address": "f627b5c89141ed99",
+			"address": "e36ef556b8b5d955",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -570,7 +570,7 @@
 			}
 		},
 		"mainnet-defi-actions": {
-			"address": "92195d814edf9cb0",
+			"address": "6d888f175c158410",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -578,7 +578,7 @@
 			}
 		},
 		"mainnet-evm-token-connectors": {
-			"address": "cc15a0c9c656b648",
+			"address": "1a771b21fcceadc2",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -586,7 +586,7 @@
 			}
 		},
 		"mainnet-fungible-token-connectors": {
-			"address": "1d9a619393e9fb53",
+			"address": "0c237e1265caa7a3",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -594,7 +594,7 @@
 			}
 		},
 		"mainnet-increment-fi-connectors": {
-			"address": "efa9bd7d1b17f1ed",
+			"address": "e844c7cf7430a77c",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -609,7 +609,7 @@
 			}
 		},
 		"mainnet-swap-connectors": {
-			"address": "0bce04a00aedf132",
+			"address": "e1a479f0cb911df9",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -617,7 +617,7 @@
 			}
 		},
 		"mainnet-uniswapv2-swap-connectors": {
-			"address": "0e5b1dececaca3a8",
+			"address": "f94f371678513b2b",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -625,7 +625,7 @@
 			}
 		},
 		"testnet-band-oracle-connectors": {
-			"address": "1a9f5d18d096cd7a",
+			"address": "bb76ea2f8aad74a0",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -633,7 +633,7 @@
 			}
 		},
 		"testnet-defi-actions": {
-			"address": "4c2ff9dd03ab442f",
+			"address": "0b11b1848a8aa2c0",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -641,7 +641,7 @@
 			}
 		},
 		"testnet-evm-token-connectors": {
-			"address": "b88ba0e976146cd1",
+			"address": "bee3f3636cec263a",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -649,7 +649,7 @@
 			}
 		},
 		"testnet-fungible-token-connectors": {
-			"address": "5a7b9cee9aaf4e4e",
+			"address": "4cd02f8de4122c84",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -657,7 +657,7 @@
 			}
 		},
 		"testnet-increment-fi-connectors": {
-			"address": "49bae091e5ea16b5",
+			"address": "494536c102537e1e",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -665,7 +665,7 @@
 			}
 		},
 		"testnet-swap-connectors": {
-			"address": "addd594cf410166a",
+			"address": "ad228f1c13a97ec1",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -673,7 +673,7 @@
 			}
 		},
 		"testnet-uniswapv2-swap-connectors": {
-			"address": "fef8e4c5c16ccda5",
+			"address": "5f1153f29b57747f",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
