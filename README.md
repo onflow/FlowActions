@@ -32,19 +32,18 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 
 | Contract | Testnet | Mainnet |
 |----------|---------|---------|
-| DeFiActions | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
-| DeFiActionsMathUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
-| DeFiActionsUtils | 0x4c2ff9dd03ab442f | 0x92195d814edf9cb0 |
-| FungibleTokenConnectors | 0x5a7b9cee9aaf4e4e | 0x1d9a619393e9fb53 |
-| EVMNativeFLOWConnectors | 0xb88ba0e976146cd1 | 0xcc15a0c9c656b648 |
-| EVMTokenConnectors | 0xb88ba0e976146cd1 | 0xcc15a0c9c656b648 |
-| SwapConnectors | 0xaddd594cf410166a | 0x0bce04a00aedf132 |
-| IncrementFiSwapConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
-| IncrementFiFlashloanConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
-| IncrementFiPoolLiquidityConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
-| IncrementFiStakingConnectors | 0x49bae091e5ea16b5 | 0xefa9bd7d1b17f1ed |
-| BandOracleConnectors | 0x1a9f5d18d096cd7a | 0xf627b5c89141ed99 |
-| UniswapV2Connectors | 0xfef8e4c5c16ccda5 | 0x0e5b1dececaca3a8 |
+| DeFiActions | 0x0b11b1848a8aa2c0 | 0x6d888f175c158410 |
+| DeFiActionsUtils | 0x0b11b1848a8aa2c0 | 0x6d888f175c158410 |
+| FungibleTokenConnectors | 0x4cd02f8de4122c84 | 0x0c237e1265caa7a3 |
+| EVMNativeFLOWConnectors | 0xbee3f3636cec263a | 0x1a771b21fcceadc2 |
+| EVMTokenConnectors | 0xbee3f3636cec263a | 0x1a771b21fcceadc2 |
+| SwapConnectors | 0xaddd594cf410166a | 0xe1a479f0cb911df9 |
+| IncrementFiSwapConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
+| IncrementFiFlashloanConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
+| IncrementFiPoolLiquidityConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
+| IncrementFiStakingConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
+| BandOracleConnectors | 0xbb76ea2f8aad74a0 | 0xe36ef556b8b5d955 |
+| UniswapV2Connectors | 0x5f1153f29b57747f | 0xf94f371678513b2b |
 
 ## Core Interfaces
 
