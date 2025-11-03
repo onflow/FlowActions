@@ -62,6 +62,9 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
+        // NEW: Configurable max price impact in basis points (500 = 5%, 100 = 1%, 1000 = 10%)
+        access(self) let maxPriceImpactBps: UInt
+
         init(
             factoryAddress: EVM.EVMAddress,
             routerAddress: EVM.EVMAddress,
@@ -72,6 +75,7 @@ access(all) contract UniswapV3SwapConnectors {
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
             uniqueID: DeFiActions.UniqueIdentifier?,
+            maxPriceImpactBps: UInt?  // NEW: Optional parameter, defaults to 500 (5%)
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
@@ -82,6 +86,8 @@ access(all) contract UniswapV3SwapConnectors {
                     "Provided outVault \(outVault.identifier) is not associated with ERC20 at tokenPath[last]"
                 coaCapability.check():
                     "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
+                maxPriceImpactBps == nil || (maxPriceImpactBps! > 0 && maxPriceImpactBps! <= 5000):
+                    "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
             }
             self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
@@ -92,6 +98,7 @@ access(all) contract UniswapV3SwapConnectors {
             self.outVault = outVault
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
+            self.maxPriceImpactBps = maxPriceImpactBps ?? 500  // Default to 5%
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -251,14 +258,13 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
+        /// Simplified getMaxAmount using configurable price impact
+        /// Uses current liquidity as proxy for max swappable amount
+        /// Price impact is configurable via maxPriceImpactBps (in basis points)
         access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
-            let wordRadius = 2
-
-            let coa = self.borrowCOA()
-            //
-            // --- Helpers (kept inside prepare to avoid top-level decls) ---
-            //
+            
+            // Helper functions
             fun wordToUInt(_ w: [UInt8]): UInt {
                 var acc: UInt = 0
                 var i = 0
@@ -271,17 +277,6 @@ access(all) contract UniswapV3SwapConnectors {
                 let mask: UInt = (UInt(1) << UInt(nBits)) - UInt(1)
                 return full & mask
             }
-            fun wordToIntN(_ w: [UInt8], _ nBits: Int): Int {
-                let u = wordToUIntN(w, nBits)
-                let signBit: UInt = UInt(1) << UInt(nBits - 1)
-                if (u & signBit) != 0 {
-                    let twoN: UInt = UInt(1) << UInt(nBits)
-                    // Signed value = u - 2^n (do it in Int space to avoid UInt underflow)
-                    return Int(u) - Int(twoN)
-                }
-                return Int(u)
-            }
-
             fun words(_ data: [UInt8]): [[UInt8]] {
                 let n = data.length / 32
                 var out: [[UInt8]] = []
@@ -292,297 +287,53 @@ access(all) contract UniswapV3SwapConnectors {
                 }
                 return out
             }
-            fun encode1Int(_ selector: [UInt8], _ v: Int, _ bits: Int): [UInt8] {
-                var word: [UInt8] = []
-                if v < 0 {
-                    let twoN: UInt = UInt(1) << UInt(bits)
-                    let uv: UInt = UInt(-v)
-                    let comp: UInt = (twoN - uv) & (twoN - 1)
-                    word = EVMAbiHelpers.abiWord(UInt256(comp))
-                } else {
-                    word = EVMAbiHelpers.abiWord(UInt256(UInt(v)))
-                }
-                return EVMAbiHelpers.buildCalldata(selector: selector, args: [EVMAbiHelpers.staticArg(word)])
-            }
-            fun amount0DeltaUp(_ sqrtA: UInt, _ sqrtB: UInt, _ L: UInt): UInt {
-                // ceil( L * (sqrtB - sqrtA) * Q96 / (sqrtB*sqrtA) )
-                let Q96: UInt = 0x1000000000000000000000000
-                var lo: UInt = sqrtA
-                var hi: UInt = sqrtB
-                if lo > hi { lo = sqrtB; hi = sqrtA }
-                let num1: UInt = L * Q96
-                let num2: UInt = hi - lo
-                let den:  UInt = hi * lo
-                let prod: UInt = num1 * num2
-                let q: UInt = prod / den
-                let r: UInt = prod % den
-                if r == 0 { return q }
-                return q + 1
-            }
-            fun amount1DeltaUp(_ sqrtA: UInt, _ sqrtB: UInt, _ L: UInt): UInt {
-                // ceil( L * (sqrtB - sqrtA) / Q96 )
-                let Q96: UInt = 0x1000000000000000000000000
-                var lo: UInt = sqrtA
-                var hi: UInt = sqrtB
-                if lo > hi { lo = sqrtB; hi = sqrtA }
-                let diff: UInt = hi - lo
-                let prod: UInt = L * diff
-                let q: UInt = prod / Q96
-                let r: UInt = prod % Q96
-                if r == 0 { return q }
-                return q + 1
-            }
-            fun tickToSqrtPriceX96(_ tick: Int): UInt {
-                pre { tick >= -887272 && tick <= 887272: "tick out of bounds" }
-
-                var atAbs: Int = tick
-                if atAbs < 0 { atAbs = -atAbs }
-                fun mulShift(_ x: UInt, _ c: UInt): UInt { return (x * c) >> 128 }
-                var ratio: UInt = 0x100000000000000000000000000000000
-                var at: UInt = UInt(atAbs)
-                if (at & 0x1)     != 0 { ratio = mulShift(ratio, 0xfffcb933bd6fad37aa2d162d1a594001) }
-                if (at & 0x2)     != 0 { ratio = mulShift(ratio, 0xfff97272373d413259a46990580e213a) }
-                if (at & 0x4)     != 0 { ratio = mulShift(ratio, 0xfff2e50f5f656932ef12357cf3c7fdcc) }
-                if (at & 0x8)     != 0 { ratio = mulShift(ratio, 0xffe5caca7e10e4e61c3624eaa0941cd0) }
-                if (at & 0x10)    != 0 { ratio = mulShift(ratio, 0xffcb9843d60f6159c9db58835c926644) }
-                if (at & 0x20)    != 0 { ratio = mulShift(ratio, 0xff973b41fa98c081472e6896dfb254c0) }
-                if (at & 0x40)    != 0 { ratio = mulShift(ratio, 0xff2ea16466c96a3843ec78b326b52861) }
-                if (at & 0x80)    != 0 { ratio = mulShift(ratio, 0xfe5dee046a99a2a811c461f1969c3053) }
-                if (at & 0x100)   != 0 { ratio = mulShift(ratio, 0xfcbe86c7900a88aedcffc83b479aa3a4) }
-                if (at & 0x200)   != 0 { ratio = mulShift(ratio, 0xf987a7253ac413176f2b074cf7815e54) }
-                if (at & 0x400)   != 0 { ratio = mulShift(ratio, 0xf3392b0822b70005940c7a398e4b70f3) }
-                if (at & 0x800)   != 0 { ratio = mulShift(ratio, 0xe7159475a2c29b7443b29c7fa6e889d9) }
-                if (at & 0x1000)  != 0 { ratio = mulShift(ratio, 0xd097f3bdfd2022b8845ad8f792aa5825) }
-                if (at & 0x2000)  != 0 { ratio = mulShift(ratio, 0xa9f746462d870fdf8a65dc1f90e061e5) }
-                if (at & 0x4000)  != 0 { ratio = mulShift(ratio, 0x70d869a156d2a1b890bb3df62baf32f7) }
-                if (at & 0x8000)  != 0 { ratio = mulShift(ratio, 0x31be135f97d08fd981231505542fcfa6) }
-                if (at & 0x10000) != 0 { ratio = mulShift(ratio, 0x9aa508b5b7a84e1c677de54f3e99bc9) }
-                if (at & 0x20000) != 0 { ratio = mulShift(ratio, 0x5d6af8dedb81196699c329225ee604) }
-                if (at & 0x40000) != 0 { ratio = mulShift(ratio, 0x2216e584f5fa1ea926041bedfe98) }
-                if (at & 0x80000) != 0 { ratio = mulShift(ratio, 0x48a170391f7dc42444e8fa2) }
-                if tick > 0 {
-                    let MAX256: UInt = 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-                    ratio = MAX256 / ratio
-                }
-                let hi: UInt = ratio >> 32
-                let remMask: UInt = (UInt(1) << 32) - 1
-                let hasRem: Bool = (ratio & remMask) != 0
-                if hasRem { return hi + 1 }
-                return hi
-            }
-
-            // ticks: array of {"tick": Int, "liqNet": Int}
-            fun maxInputBeforeDryNoStruct(
-                _ sqrtPriceX96Raw: UInt,
-                _ currentTick: Int,
-                _ L0: UInt,
-                _ feePpm: UInt,
-                _ ticks: [{String: Int}],
-                _ zeroForOne: Bool
-            ): UInt {
-                var sqrtP: UInt = sqrtPriceX96Raw
-                var L: UInt = L0
-                let oneMillion: UInt = 1_000_000
-
-                if ticks.length == 0 || L == 0 { return 0 }
-
-                // find first tick to cross
-                var idx: Int = -1
-                var i: Int = 0
-                if zeroForOne {
-                    var best: Int? = nil
-                    while i < ticks.length {
-                        let t = ticks[i]
-                        let tTick = t["tick"]!
-                        if tTick < currentTick && (best == nil || tTick > best!) { best = tTick; idx = i }
-                        i = i + 1
-                    }
-                } else {
-                    var best: Int? = nil
-                    while i < ticks.length {
-                        let t = ticks[i]
-                        let tTick = t["tick"]!
-                        if tTick > currentTick && (best == nil || tTick < best!) { best = tTick; idx = i }
-                        i = i + 1
-                    }
-                }
-                if idx < 0 { return 0 }
-
-                var grossInSum: UInt = 0
-                var steps: Int = 0
-
-                while idx >= 0 && idx < ticks.length {
-                    let t = ticks[idx]
-                    let tTick = t["tick"]!
-                    let liqNet = t["liqNet"]!
-                    let sqrtNext: UInt = tickToSqrtPriceX96(tTick)
-
-                    if zeroForOne {
-                        if !(sqrtNext < sqrtP) { idx = idx - 1; continue }
-                        let netIn: UInt = amount0DeltaUp(sqrtNext, sqrtP, L)
-                        let grossIn: UInt = (netIn * oneMillion + (oneMillion - feePpm - 1)) / (oneMillion - feePpm)
-                        grossInSum = grossInSum + grossIn
-                        sqrtP = sqrtNext
-                        if liqNet > 0 { L = L - UInt(liqNet) } else if liqNet < 0 { L = L + UInt(-liqNet) }
-                        if L == 0 { break }
-                        idx = idx - 1
-                    } else {
-                        if !(sqrtNext > sqrtP) { idx = idx + 1; continue }
-                        let netIn: UInt = amount1DeltaUp(sqrtP, sqrtNext, L)
-                        let grossIn: UInt = (netIn * oneMillion + (oneMillion - feePpm - 1)) / (oneMillion - feePpm)
-                        grossInSum = grossInSum + grossIn
-                        sqrtP = sqrtNext
-                        if liqNet > 0 { L = L + UInt(liqNet) } else if liqNet < 0 { L = L - UInt(-liqNet) }
-                        if L == 0 { break }
-                        idx = idx + 1
-                    }
-
-                    steps = steps + 1
-                    if steps > 100_000 { break }
-                }
-
-                return grossInSum
-            }
-
-            // discover initialized ticks via tickBitmap/ticks around current word
-            fun getPopulatedTicksViaBitmap(
-                _ pool: EVM.EVMAddress,
-                _ currentTick: Int,
-                _ tickSpacing: Int,
-                _ wordRadius: Int,
-                _ SEL_TICK_BITMAP: [UInt8],
-                _ SEL_TICKS: [UInt8]
-            ): [{String: Int}] {
-
-                fun compressed(_ t: Int, _ spacing: Int): Int {
-                    let q = t / spacing
-                    if t >= 0 || t % spacing == 0 { return q }
-                    return q - 1 // floor toward -inf
-                }
-                fun evmCallBytes(_ to: EVM.EVMAddress, _ data: [UInt8]): [UInt8] {
-                    let res: EVM.Result? = self._callRaw(
-                        to: to,
-                        calldata: data,
-                        gasLimit: 1_500_000,
-                        value: 0
-                    )
-                    return res!.data
-                }
-
-                let comp: Int = compressed(currentTick, tickSpacing)
-                let baseWord: Int = comp >> 8 // 256 ticks per word
-
-                var result: [{String: Int}] = []
-                var w = -wordRadius
-                while w <= wordRadius {
-                    let wordIndex = baseWord + w
-
-                    // tickBitmap(int16)
-                    let tbData = evmCallBytes(pool, encode1Int(SEL_TICK_BITMAP, wordIndex, 16))
-                    let tbWord = wordToUInt(words(tbData)[0])
-                    if tbWord != 0 {
-                        var bit: Int = 0
-                        while bit < 256 {
-                            let mask: UInt = UInt(1) << UInt(bit)
-                            if (tbWord & mask) != 0 {
-                                let tickIndex: Int = (wordIndex << 8) + bit
-                                let popped: Int = tickIndex * tickSpacing
-
-                                // ticks(int24)
-                                let txBytes = evmCallBytes(pool, encode1Int(SEL_TICKS, popped, 24))
-                                let ws = words(txBytes)
-                                let liqGross = wordToUIntN(ws[0], 128)
-                                let liqNet   = wordToIntN(ws[1], 128)
-                                if liqGross != 0 {
-                                    result.append({ "tick": popped, "liqNet": liqNet })
-                                }
-                            }
-                            bit = bit + 1
-                        }
-                    }
-                    w = w + 1
-                }
-
-                // insertion sort by tick ASC
-                var i = 1
-                while i < result.length {
-                    let key = result[i]
-                    var j = i - 1
-                    while j >= 0 && result[j]["tick"]! > key["tick"]! {
-                        result[j + 1] = result[j]
-                        j = j - 1
-                    }
-                    result[j + 1] = key
-                    i = i + 1
-                }
-
-                return result
-            }
-
-            //
-            // --- Selectors (locals, not top-level) ---
-            //
-            let SEL_SLOT0: [UInt8]        = [0x38, 0x50, 0xc7, 0xbd]
-            let SEL_LIQUIDITY: [UInt8]    = [0x1a, 0x68, 0x65, 0x02]
-            let SEL_FEE: [UInt8]          = [0xdd, 0xca, 0x3f, 0x43]
-            let SEL_TICK_BITMAP: [UInt8]  = [0x53, 0x39, 0xc2, 0x96]
-            let SEL_TICKS: [UInt8]        = [0xf3, 0x0d, 0xba, 0x93]
-            let SEL_TICK_SPACING: [UInt8] = [0xd0, 0xc9, 0x3a, 0x7c]
-
-            //
-            // --- Borrow COA & make calls ---
-            //
-
-            // slot0()
-            let s0Res: EVM.Result? = self._callRaw(
+            
+            // Selectors
+            let SEL_SLOT0: [UInt8] = [0x38, 0x50, 0xc7, 0xbd]
+            let SEL_LIQUIDITY: [UInt8] = [0x1a, 0x68, 0x65, 0x02]
+            
+            // Get slot0 (sqrtPriceX96, tick, etc.)
+            let slot0Res: EVM.Result? = self._callRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_SLOT0, args: []),
                 gasLimit: 1_000_000,
                 value: 0
             )
-            let s0w = words(s0Res!.data)
+            let s0w = words(slot0Res!.data)
             let sqrtPriceX96 = wordToUIntN(s0w[0], 160)
-            let tick         = wordToIntN(s0w[1], 24)
-
-            // liquidity()
+            
+            // Get current active liquidity
             let liqRes: EVM.Result? = self._callRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_LIQUIDITY, args: []),
                 gasLimit: 300_000,
                 value: 0
             )
-            let L  = wordToUIntN(words(liqRes!.data)[0], 128)
-
-            // fee() (ppm)
-            let feeRes: EVM.Result? = self._callRaw(
-                to: poolEVMAddress,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_FEE, args: []),
-                gasLimit: 300_000,
-                value: 0
-            )
-            let feePpm = wordToUIntN(words(feeRes!.data)[0], 24)
-
-            // tickSpacing()
-            let tsRes: EVM.Result? = self._callRaw(
-                to: poolEVMAddress,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TICK_SPACING, args: []),
-                gasLimit: 300_000,
-                value: 0
-            )
-            let tickSpacing = Int(wordToIntN(words(tsRes!.data)[0], 24))
-
-            // Collect initialized ticks (±wordRadius words)
-            let ticks = getPopulatedTicksViaBitmap(
-                poolEVMAddress, tick, tickSpacing, wordRadius,
-                SEL_TICK_BITMAP, SEL_TICKS
-            )
-
-            // Compute amount
-            let amount = maxInputBeforeDryNoStruct(
-                sqrtPriceX96, tick, L, feePpm, ticks, zeroForOne
-            )
-
-            return UInt256(amount / 10 * 9)
+            let L = wordToUIntN(words(liqRes!.data)[0], 128)
+            
+            // Calculate price multiplier based on maxPriceImpactBps
+            let bps: UInt = self.maxPriceImpactBps
+            let Q96: UInt = 0x1000000000000000000000000
+            
+            var maxAmount: UInt = 0
+            if zeroForOne {
+                // Swapping token0 -> token1 (price decreases by maxPriceImpactBps)
+                // Approximation: sqrt(1 - x) ≈ 1 - x/2 for small x
+                let sqrtMultiplier = 10000 as UInt - UInt(UFix64(bps) / 2.0)
+                let sqrtPriceNew = sqrtPriceX96 * sqrtMultiplier / 10000
+                let deltaSqrt = sqrtPriceX96 - sqrtPriceNew
+                maxAmount = (L * deltaSqrt * Q96) / (sqrtPriceX96 * sqrtPriceNew)
+            } else {
+                // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
+                // Approximation: sqrt(1 + x) ≈ 1 + x/2 for small x
+                let sqrtMultiplier = 10000 as UInt + UInt(UFix64(bps) / 2.0)
+                let sqrtPriceNew = sqrtPriceX96 * sqrtMultiplier / 10000
+                let deltaSqrt = sqrtPriceNew - sqrtPriceX96
+                maxAmount = (L * deltaSqrt) / Q96
+            }
+            
+            // Return 80% of calculated max for additional safety margin
+            return UInt256(maxAmount * 4 / 5)
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
@@ -694,21 +445,15 @@ access(all) contract UniswapV3SwapConnectors {
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
             }
-             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-             let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
+            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
+            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
 
-             // Withdraw output back to Flow
-             let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
+            // Withdraw output back to Flow
+            let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
 
-             // Handle leftover fee vault
-             self._handleRemainingFeeVault(<-feeVault)
-             return <- outVault
-        }
-
-        access(self) fun _firstUint256(_ data: [UInt8]): UInt256 {
-            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: data)
-            if decoded.length > 0 { return decoded[0] as! UInt256 }
-            return UInt256(0)
+            // Handle leftover fee vault
+            self._handleRemainingFeeVault(<-feeVault)
+            return <- outVault
         }
 
         /* --- Helpers --- */
