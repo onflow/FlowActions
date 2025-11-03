@@ -293,13 +293,13 @@ access(all) contract UniswapV3SwapConnectors {
             let SEL_LIQUIDITY: [UInt8] = [0x1a, 0x68, 0x65, 0x02]
             
             // Get slot0 (sqrtPriceX96, tick, etc.)
-            let slot0Res: EVM.Result? = self._callRaw(
+            let s0Res: EVM.Result? = self._callRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_SLOT0, args: []),
                 gasLimit: 1_000_000,
                 value: 0
             )
-            let s0w = words(slot0Res!.data)
+            let s0w = words(s0Res!.data)
             let sqrtPriceX96 = wordToUIntN(s0w[0], 160)
             
             // Get current active liquidity
