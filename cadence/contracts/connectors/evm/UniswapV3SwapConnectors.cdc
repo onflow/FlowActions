@@ -315,25 +315,25 @@ access(all) contract UniswapV3SwapConnectors {
             let bps: UInt = self.maxPriceImpactBps
             let Q96: UInt = 0x1000000000000000000000000
             
-            var maxAmount: UInt = 0
+            var maxAmount: UFix128 = 0.0
             if zeroForOne {
                 // Swapping token0 -> token1 (price decreases by maxPriceImpactBps)
                 // Approximation: sqrt(1 - x) ≈ 1 - x/2 for small x
                 let sqrtMultiplier = 10000 as UInt - UInt(UFix64(bps) / 2.0)
-                let sqrtPriceNew = sqrtPriceX96 * sqrtMultiplier / 10000
+                let sqrtPriceNew = UInt(UFix64(sqrtPriceX96) * UFix64(sqrtMultiplier) / 10000.0)
                 let deltaSqrt = sqrtPriceX96 - sqrtPriceNew
-                maxAmount = (L * deltaSqrt * Q96) / (sqrtPriceX96 * sqrtPriceNew)
+                maxAmount = UFix128(L * deltaSqrt * Q96) / UFix128(sqrtPriceX96 * sqrtPriceNew)
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
                 // Approximation: sqrt(1 + x) ≈ 1 + x/2 for small x
                 let sqrtMultiplier = 10000 as UInt + UInt(UFix64(bps) / 2.0)
-                let sqrtPriceNew = sqrtPriceX96 * sqrtMultiplier / 10000
+                let sqrtPriceNew = UInt(UFix64(sqrtPriceX96) * UFix64(sqrtMultiplier) / 10000.0)
                 let deltaSqrt = sqrtPriceNew - sqrtPriceX96
-                maxAmount = (L * deltaSqrt) / Q96
+                maxAmount = UFix128(L * deltaSqrt) / UFix128(Q96)
             }
             
             // Return 80% of calculated max for additional safety margin
-            return UInt256(maxAmount * 4 / 5)
+            return UInt256(maxAmount * 4.0 / 5.0)
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
