@@ -909,7 +909,7 @@ access(all) struct MoreVaultsFacetCut {
     }
 
     access(all) fun encodedBytes(): [UInt8] {
-        var selectorsEncoding = EVMAbiHelpers.abiUInt256(UInt256(self.functionSelectors.length))
+        var selectorsEncoding = EVM.encodeABI([UInt256(self.functionSelectors.length)])
         for selector in self.functionSelectors {
             var selectorBytes: [UInt8] = []
             var i = 0
@@ -928,11 +928,11 @@ access(all) struct MoreVaultsFacetCut {
         let selectorsOffset = headSize
         let initDataOffset = headSize + UInt256(selectorsEncoding.length)
 
-        let head = EVMAbiHelpers.concat([
-            EVMAbiHelpers.abiAddress(self.facetAddress),
-            EVMAbiHelpers.abiUInt256(UInt256(self.action)),
-            EVMAbiHelpers.abiUInt256(selectorsOffset),
-            EVMAbiHelpers.abiUInt256(initDataOffset)
+        let head = EVM.encodeABI([
+            self.facetAddress,
+            UInt8(self.action),
+            selectorsOffset,
+            initDataOffset
         ])
 
         return EVMAbiHelpers.concat([head, selectorsEncoding, initDataEncoding])
@@ -948,24 +948,19 @@ access(all) struct MoreVaultsFacetCuts {
 
     access(all) fun encodedBytes(): [UInt8] {
         let count = self.cuts.length
-        var header = EVMAbiHelpers.abiUInt256(UInt256(count))
+        var headerChunks: [[UInt8]] = [EVM.encodeABI([UInt256(count)])]
         var bodies: [[UInt8]] = []
         var cumulative = UInt256(32 * count)
 
         for cut in self.cuts {
             let body = cut.encodedBytes()
             bodies.append(body)
-            header = EVMAbiHelpers.concat([
-                header,
-                EVMAbiHelpers.abiUInt256(cumulative)
-            ])
+            headerChunks.append(EVM.encodeABI([UInt256(cumulative)]))
             cumulative = cumulative + UInt256(body.length)
         }
 
-        var chunks: [[UInt8]] = [header]
-        for body in bodies {
-            chunks.append(body)
-        }
+        var chunks = headerChunks
+        for body in bodies { chunks.append(body) }
 
         return EVMAbiHelpers.concat(chunks)
     }
@@ -977,16 +972,15 @@ access(all) fun encodeABIForMoreVaultsDiamondConstructor(
     wflow: EVM.EVMAddress,
     cuts: MoreVaultsFacetCuts
 ): String {
-    let facetCutsBytes = cuts.encodedBytes()
     let headOffset = UInt256(32 * 4)
-    let head = EVMAbiHelpers.concat([
-        EVMAbiHelpers.abiAddress(diamondCutFacet),
-        EVMAbiHelpers.abiAddress(registry),
-        EVMAbiHelpers.abiAddress(wflow),
-        EVMAbiHelpers.abiUInt256(headOffset)
-    ])
+    let encoded = EVM.encodeABI([
+        diamondCutFacet,
+        registry,
+        wflow,
+        headOffset
+    ]).concat(cuts.encodedBytes())
 
-    return EVMAbiHelpers.toHex(EVMAbiHelpers.concat([head, facetCutsBytes]))
+    return String.encodeHex(encoded)
 }
 
 access(all)
