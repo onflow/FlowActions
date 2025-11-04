@@ -908,13 +908,34 @@ access(all) struct MoreVaultsFacetCut {
         self.initData = initData
     }
 
-    access(all) fun encodeABI(): String {
-        return String.encodeHex(EVM.encodeABI([
-            self.facetAddress,
-            self.action,
-            self.functionSelectors,
-            self.initData
-        ]))
+    access(all) fun encodedBytes(): [UInt8] {
+        var selectorsEncoding = EVMAbiHelpers.abiUInt256(UInt256(self.functionSelectors.length))
+        for selector in self.functionSelectors {
+            var selectorBytes: [UInt8] = []
+            var i = 0
+            while i < 4 {
+                selectorBytes.append(selector.value[i])
+                i = i + 1
+            }
+            selectorsEncoding = EVMAbiHelpers.concat([
+                selectorsEncoding,
+                EVMAbiHelpers.rightPadTo32(selectorBytes)
+            ])
+        }
+        let initDataEncoding = EVMAbiHelpers.abiDynamicBytes(self.initData.value)
+
+        let headSize: UInt256 = UInt256(32 * 4)
+        let selectorsOffset = headSize
+        let initDataOffset = headSize + UInt256(selectorsEncoding.length)
+
+        let head = EVMAbiHelpers.concat([
+            EVMAbiHelpers.abiAddress(self.facetAddress),
+            EVMAbiHelpers.abiUInt256(UInt256(self.action)),
+            EVMAbiHelpers.abiUInt256(selectorsOffset),
+            EVMAbiHelpers.abiUInt256(initDataOffset)
+        ])
+
+        return EVMAbiHelpers.concat([head, selectorsEncoding, initDataEncoding])
     }
 }
 
@@ -925,17 +946,53 @@ access(all) struct MoreVaultsFacetCuts {
         self.cuts = cuts
     }
 
-    access(all) fun encodeABI(): String {
-        var encodedCuts = ""
+    access(all) fun encodedBytes(): [UInt8] {
+        let count = self.cuts.length
+        var header = EVMAbiHelpers.abiUInt256(UInt256(count))
+        var bodies: [[UInt8]] = []
+        var cumulative = UInt256(32 * count)
+
         for cut in self.cuts {
-            encodedCuts = encodedCuts.concat(cut.encodeABI())
+            let body = cut.encodedBytes()
+            bodies.append(body)
+            header = EVMAbiHelpers.concat([
+                header,
+                EVMAbiHelpers.abiUInt256(cumulative)
+            ])
+            cumulative = cumulative + UInt256(body.length)
         }
-        return String.encodeHex(EVM.encodeABI([self.cuts.length])).concat(encodedCuts)
+
+        var chunks: [[UInt8]] = [header]
+        for body in bodies {
+            chunks.append(body)
+        }
+
+        return EVMAbiHelpers.concat(chunks)
     }
 }
 
+access(all) fun encodeABIForMoreVaultsDiamondConstructor(
+    diamondCutFacet: EVM.EVMAddress,
+    registry: EVM.EVMAddress,
+    wflow: EVM.EVMAddress,
+    cuts: MoreVaultsFacetCuts
+): String {
+    let facetCutsBytes = cuts.encodedBytes()
+    let headOffset = UInt256(32 * 4)
+    let head = EVMAbiHelpers.concat([
+        EVMAbiHelpers.abiAddress(diamondCutFacet),
+        EVMAbiHelpers.abiAddress(registry),
+        EVMAbiHelpers.abiAddress(wflow),
+        EVMAbiHelpers.abiUInt256(headOffset)
+    ])
+
+    return EVMAbiHelpers.toHex(EVMAbiHelpers.concat([head, facetCutsBytes]))
+}
+
 access(all)
-fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress?, initialAssets: UInt256): MoreVaultDeploymentResult { // returns address(vault)
+fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress?, initialAssets: UInt256): MoreVaultDeploymentResult {
+    let deployerCOAAddress = EVM.addressFromString(getCOAAddressHex(atFlowAddress: deployer.address))
+
     // deploy WFLOW if not defined
     let _wflow = wflow == nil ? EVM.addressFromString(deployWFLOW(deployer)) : wflow!
     
@@ -1090,7 +1147,7 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress?, initia
                 "Test More Vault",
                 "tmMORE",
                 underlying,
-                EVM.addressFromString("0x0000000000000000000000000000000000000000"),
+                deployerCOAAddress,
                 UInt128(0),
                 1_000_000_000_000_000_000_000_000
             ])
@@ -1102,75 +1159,36 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress?, initia
     //     address(wrappedNative),
     //     cuts
     // );
-    var moreVaultsDiamondBytecodeFinal = moreVaultsDiamondBytecode.concat(String.encodeHex(
-            EVM.encodeABI([
-                diamondCutFacet,
-                registry,
-                _wflow
-            ])
-        )).concat(cuts.encodeABI()) // TODO: validate encoding pattern - IDiamondCut.FacetCut[] == array of tuples
+    let diamondConstructorData = encodeABIForMoreVaultsDiamondConstructor(
+        diamondCutFacet: diamondCutFacet,
+        registry: registry,
+        wflow: _wflow,
+        cuts: cuts
+    )
+    var moreVaultsDiamondBytecodeFinal = moreVaultsDiamondBytecode.concat(diamondConstructorData)
 
     let diamond = EVM.addressFromString(evmDeploy(deployer,
         bytecode: moreVaultsDiamondBytecodeFinal,
         gasLimit: 15_000_000,
         value: 0
     ))
-    panic("TODO")
 
-    // // vault = IVaultFacet(address(diamond));
-    // let vault = diamond
+    // vault = IVaultFacet(address(diamond));
+    let vault = diamond
 
-    // // underlying.mint(user, INITIAL_ASSETS);
-    // evmCall(deployer,
-    //     target: underlying.toString(),
-    //     calldata: String.encodeHex(EVM.encodeABIWithSignature("mint(address,uint256)", [deployer.address, initialAssets])),
-    //     gasLimit: 15_000_000,
-    //     value: 0,
-    //     beFailed: false
-    // )
+    // underlying.mint(user, INITIAL_ASSETS);
+    evmCall(deployer,
+        target: underlying.toString(),
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("mint(address,uint256)", [deployerCOAAddress, initialAssets])),
+        gasLimit: 15_000_000,
+        value: 0,
+        beFailed: false
+    )
 
-    // return MoreVaultDeploymentResult(
-    //     wflow: _wflow,
-    //     underlying: underlying,
-    //     stable: usdStable,
-    //     vault: vault
-    // )
-}
-
-access(all) struct MoreVaultsFacetAddresses {
-    access(all) var diamondLoupe: EVM.EVMAddress
-    access(all) var accessControl: EVM.EVMAddress
-    access(all) var configuration: EVM.EVMAddress
-    access(all) var multicall: EVM.EVMAddress
-    access(all) var vault: EVM.EVMAddress
-    access(all) var uniswapV2: EVM.EVMAddress
-    access(all) var origami: EVM.EVMAddress
-    access(all) var moreMarkets: EVM.EVMAddress
-    access(all) var izumiSwap: EVM.EVMAddress
-    access(all) var aggroKittySwap: EVM.EVMAddress
-    access(all) var curve: EVM.EVMAddress
-    access(all) var uniswapV3: EVM.EVMAddress
-    access(all) var multiRewards: EVM.EVMAddress
-    access(all) var curveGaugeV6: EVM.EVMAddress
-
-    init() {
-        self.diamondLoupe = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.accessControl = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.configuration = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.multicall = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.vault = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.uniswapV2 = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.origami = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.moreMarkets = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.izumiSwap = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.aggroKittySwap = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.curve = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.uniswapV3 = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.multiRewards = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-        self.curveGaugeV6 = EVM.addressFromString("0x0000000000000000000000000000000000000000")
-    }
-
-    access(all) fun getCuts(): [MoreVaultsFacetCut] {
-        panic("TODO")
-    }
+    return MoreVaultDeploymentResult(
+        wflow: _wflow,
+        underlying: underlying,
+        stable: usdStable,
+        vault: vault
+    )
 }
