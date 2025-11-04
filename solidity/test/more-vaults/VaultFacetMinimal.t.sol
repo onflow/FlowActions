@@ -43,7 +43,7 @@ contract VaultFacetMinimalTest is Test {
         usdStable = new BasicERC20("USD Stable", "USDS");
 
         oracle = new MockAaveOracle();
-        underlyingFeed = new MockAggregatorV2V3(8, "Underlying");
+        underlyingFeed = new MockAggregatorV2V3(18, "Underlying");
         underlyingFeed.updateAnswer(int256(1e8), 0);
 
         oracle.setAssetSource(address(underlying), address(underlyingFeed));
