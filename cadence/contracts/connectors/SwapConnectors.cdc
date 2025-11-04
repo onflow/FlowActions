@@ -296,8 +296,8 @@ access(all) contract SwapConnectors {
             let swapVault <- from.createEmptyVault()
             if from.balance <= quote.inAmount  {
                 // sink can accept all of the available tokens, so we swap everything
-                swapVault.deposit(from: <-from.withdraw(amount: from.balance))
                 quote = self.swapper.quoteIn(forDesired: from.balance, reverse: false)
+                swapVault.deposit(from: <-from.withdraw(amount: from.balance))
             } else {
                 // sink is limited to fewer tokens than we have available - swap the amount we need to meet the limit
                 swapVault.deposit(from: <-from.withdraw(amount: quote.inAmount))
