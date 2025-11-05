@@ -648,7 +648,7 @@ access(all) contract UniswapV3SwapConnectors {
             }
 
             // Slippage/min out on EVM units (adjust factor to your policy)
-            let slippage = 0.001 // 0.1%
+            let slippage = 0.01 // 1%
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 amountOutMin * (1.0 - slippage),
                 erc20Address: outToken
@@ -663,6 +663,7 @@ access(all) contract UniswapV3SwapConnectors {
             // optional dev guards
             let _chkIn  = EVMAbiHelpers.abiUInt256(evmAmountIn)
             let _chkMin = EVMAbiHelpers.abiUInt256(minOutUint)
+            //panic("path: \(EVMAbiHelpers.toHex(pathBytes.value)), amountIn: \(evmAmountIn.toString()), amountOutMin: \(minOutUint.toString())")
             assert(_chkIn.length == 32,  message: "amountIn not 32 bytes")
             assert(_chkMin.length == 32, message: "amountOutMin not 32 bytes")
 
