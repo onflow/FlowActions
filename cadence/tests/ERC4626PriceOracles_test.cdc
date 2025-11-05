@@ -4,6 +4,7 @@ import "test_helpers.cdc"
 
 import "DeFiActions"
 import "EVM"
+import "ERC4626Utils"
 import "ERC4626PriceOracles"
 
 access(all) let serviceAccount = Test.serviceAccount()
@@ -11,8 +12,18 @@ access(all) let bridgeAccount = Test.getAccount(0x0000000000000007)
 access(all) let deployerAccount = Test.createAccount()
 
 access(all) var wflowHex = ""
+access(all) var underlyingIdentifier = ""
+access(all) var vaultIdentifier = ""
 
 access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000
+
+access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
+    wflow: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
+    underlying: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
+    stable: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
+    factory: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
+    vault: EVM.addressFromString("0x0000000000000000000000000000000000000000")
+)
 
 access(all) fun setup() {
     // setup VM Bridge & configure WFLOW handler
@@ -33,8 +44,16 @@ access(all) fun setup() {
     Test.expect(err, Test.beNil())
 
     // setup More Vaults & create a Minimal Vault
-    setupMoreVaults(deployerAccount, wflow: EVM.addressFromString(wflowHex), initialAssets: initialAssets)
-    
+    vaultDeploymentInfo = setupMoreVaults(deployerAccount, wflow: EVM.addressFromString(wflowHex), initialAssets: initialAssets)
+
+    // onboard the underlying and vault EVM addresses to the bridge
+    onboardByEVMAddress(deployerAccount, evmAddress: vaultDeploymentInfo.underlying.toString())
+    onboardByEVMAddress(deployerAccount, evmAddress: vaultDeploymentInfo.vault.toString())
+
+    // assign the identifiers of Cadence types associated with the underlying and vault EVM addresses
+    underlyingIdentifier = getTypeAssociated(withEVMAddress: vaultDeploymentInfo.underlying.toString())!.identifier
+    vaultIdentifier = getTypeAssociated(withEVMAddress: vaultDeploymentInfo.vault.toString())!.identifier
+
     // deploy DeFiActionsUtils & DeFiActions
     err = Test.deployContract(
         name: "DeFiActionsUtils",
@@ -60,8 +79,19 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+
+    // let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultDeploymentInfo.vault)
+    // log(actualUnderlyingAddress?.toString() ?? "nil")
+    // log(vaultDeploymentInfo.underlying.toString())
 }
 
 access(all) fun testSetupSuccess() {
-    log("ERC4626PriceOracles deployment success")
+    let price = executeScript(
+        "../scripts/erc4626-price-oracles/price.cdc",
+        [vaultDeploymentInfo.vault.toString(), underlyingIdentifier]
+    )
+    Test.expect(price, Test.beSucceeded())
+    let priceValue = price.returnValue as! UFix64
+    Test.assert(priceValue > 0.0, message: "Price is not greater than 0.0")
+    log("[TEST] price: \(priceValue)")
 }
