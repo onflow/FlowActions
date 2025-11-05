@@ -16,8 +16,8 @@ access(all) var underlyingIdentifier = ""
 access(all) var vaultIdentifier = ""
 
 access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000 // 1_000.0 tokens at 18 decimals
-access(all) var expectedInitialShares: UInt256 = 100_000_0000000000_0000000000 // 100_000.0 tokens at 20 decimals
-access(all) let uintDepositAmount: UInt256 = 100_000_000_000_000_000_000 // 100.0 tokens at 18 decimals
+access(all) var expectedInitialShares: UInt256 = initialAssets * 100 // 1_000.0 tokens at 20 decimals - decimals offset of 2
+access(all) let uintDepositAmount: UInt256 = 10_000_000_000_000_000_000 // 100.0 tokens at 18 decimals
 access(all) let ufixDepositAmount: UFix64 = 10.0
 
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(

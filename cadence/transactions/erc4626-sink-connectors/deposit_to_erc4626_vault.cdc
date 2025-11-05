@@ -9,7 +9,7 @@ import "DeFiActions"
 import "FungibleTokenConnectors"
 import "ERC4626SinkConnectors"
 
-/// Deposits the given amount of the deposit token type to the given EVM address via a ERC4626SinkConnectors.AssetSink
+/// Deposits the given amount of the asset token type to the given ERC4626 vault
 ///
 /// @param amount: The amount of the deposit token type to deposit
 /// @param assetVaultIdentifier: The identifier of the asset token type - must be the underlying token type of the
