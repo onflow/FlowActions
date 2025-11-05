@@ -18,12 +18,6 @@ import "ERC4626SinkConnectors"
 ///     ERC4626 vault
 ///
 transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddressHex: String) {
-    /// the type of the deposit token
-    let assetVaultType: Type
-    /// the EVM address associated with the deposit token type
-    let assetEVMAddress: EVM.EVMAddress
-    /// the EVM address of the ERC4626 vault
-    let erc4626VaultEVMAddress: EVM.EVMAddress
     /// the funds to deposit to the recipient via the Sink
     let assets: @{FungibleToken.Vault}
     /// the Sink to deposit the funds to
@@ -32,27 +26,24 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
     let capacity: UFix64
 
     prepare(signer: auth(BorrowValue, IssueStorageCapabilityController, SaveValue, PublishCapability, UnpublishCapability) &Account) {
-        // get the EVM address associated with the asset token type
-        self.assetVaultType = CompositeType(assetVaultIdentifier)
+        // init the runtime type from the identifier & the ERC4626 EVM address from the hex string
+        let assetVaultType = CompositeType(assetVaultIdentifier)
             ?? panic("Invalid deposit token identifier: \(assetVaultIdentifier)")
-        self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.assetVaultType)
-            ?? panic("Deposit token type \(self.assetVaultType.identifier) has not been onboarded to the VM bridge - "
-                .concat("Ensure the Cadence token type is associated with an EVM contract via the VM bridge"))
-        self.erc4626VaultEVMAddress = EVM.addressFromString(erc4626VaultEVMAddressHex)
+        let erc4626VaultEVMAddress = EVM.addressFromString(erc4626VaultEVMAddressHex)
 
         // get the signer's asset token Vault
-        let vaultData = MetadataViews.resolveContractViewFromTypeIdentifier(
+        let assetVaultData = MetadataViews.resolveContractViewFromTypeIdentifier(
                 resourceTypeIdentifier: assetVaultIdentifier,
                 viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
             ) as? FungibleTokenMetadataViews.FTVaultData
-            ?? panic("Could not resolve FTVaultData for \(self.assetVaultType.identifier)")
-        let assetVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: vaultData.storagePath)
-            ?? panic("Could not find FlowToken Vault in signer's storage at path \(vaultData.storagePath)")
+            ?? panic("Could not resolve FTVaultData for \(assetVaultType.identifier)")
+        let assetVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: assetVaultData.storagePath)
+            ?? panic("Could not find FlowToken Vault in signer's storage at path \(assetVaultData.storagePath)")
 
         // get the COA capability to use for the AssetSink
         let coaPath = /storage/evm
         if signer.storage.type(at: coaPath) == nil {    
-            // COA not found in standard path - create and publish a public unentitledcapability
+            // COA not found in standard path - create and publish a public unentitled capability
             signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
             let coaCapability = signer.capabilities.storage.issue<&EVM.CadenceOwnedAccount>(coaPath)
             signer.capabilities.unpublish(/public/evm)
@@ -74,8 +65,8 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
         
         // create the asset Sink
         self.sink = ERC4626SinkConnectors.AssetSink(
-            asset: self.assetVaultType,
-            vault: self.erc4626VaultEVMAddress,
+            asset: assetVaultType,
+            vault: erc4626VaultEVMAddress,
             coa: coa,
             feeSource: feeSource,
             uniqueID: DeFiActions.createUniqueIdentifier()
