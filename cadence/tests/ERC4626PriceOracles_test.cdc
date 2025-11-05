@@ -15,7 +15,7 @@ access(all) var underlyingIdentifier = ""
 access(all) var vaultIdentifier = ""
 
 access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000 // 1_000.0 tokens at 18 decimals
-access(all) var expectedInitialShares: UInt256 = 100_000_0000000000_0000000000 // 100_000.0 tokens at 20 decimals
+access(all) var expectedInitialShares: UInt256 = initialAssets * 100 // 1_000.0 tokens at 20 decimals - decimals offset of 2
 
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
     wflow: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
@@ -88,7 +88,7 @@ access(all) fun testSetupSuccess() {
     )
     Test.expect(price, Test.beSucceeded())
     let priceValue = price.returnValue as! UFix64
-    // For initial deposit: assets = 1e24, shares = 1e24 * 100 = 1e26, price = assets/shares = 0.01
-    let expectedPrice = 0.01
-    Test.assert(priceValue == expectedPrice, message: "Price should be \(expectedPrice) for initial deposit")
+    // For initial deposit: assets = 1e18, shares = 1e18 * 100 = 1e20, price = assets/shares = 0.01
+    let expectedPrice = 1.0
+    Test.assertEqual(expectedPrice, priceValue)
 }

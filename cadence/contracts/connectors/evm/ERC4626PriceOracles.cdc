@@ -75,7 +75,7 @@ access(all) contract ERC4626PriceOracles {
                     targetDecimals: 18
                 )
             let totalSharesNorm = ERC4626Utils.normalizeDecimals(amount: totalShares!,
-                    originalDecimals: FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress),
+                    originalDecimals: FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.vault),
                     targetDecimals: 18
                 )
             
