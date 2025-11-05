@@ -20,6 +20,8 @@ access(all) var expectedInitialShares: UInt256 = initialAssets * 100 // 100_000.
 access(all) let uintDepositAmount: UInt256 = 10_000_000_000_000_000_000 // 100.0 tokens at 18 decimals
 access(all) let ufixDepositAmount: UFix64 = 10.0
 
+access(all) var snapshot: UInt64 = 0
+
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
     wflow: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
     underlying: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
@@ -127,18 +129,44 @@ access(all) fun setup() {
         deployerAccount
     )
     Test.expect(bridgeRes, Test.beSucceeded())
+
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testSwapAssetsInForSharesSucceeds() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
     let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
     let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
     Test.assertEqual(beforeTotalShares, expectedInitialShares)
     Test.assertEqual(beforeTotalAssets, initialAssets)
 
     let swapRes = executeTransaction(
-        "../transactions/erc4626-swap-connectors/swap_assets_in_for_shares.cdc",
-        [ufixDepositAmount, 0.01, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
-        deployerAccount    )
+            "../transactions/erc4626-swap-connectors/swap_assets_in_for_shares.cdc",
+            [ufixDepositAmount, 0.01, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
+            deployerAccount
+        )
+    Test.expect(swapRes, Test.beSucceeded())
+
+    let afterTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let afterTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(afterTotalShares, expectedInitialShares + uintDepositAmount * 100) // increase by 100x due to decimals offset
+    Test.assertEqual(afterTotalAssets, initialAssets + uintDepositAmount)
+}
+
+access(all) fun testSwapAssetsForSharesOutSucceeds() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(beforeTotalShares, expectedInitialShares)
+    Test.assertEqual(beforeTotalAssets, initialAssets)
+
+    let swapRes = executeTransaction(
+            "../transactions/erc4626-swap-connectors/swap_assets_for_shares_out.cdc",
+            [ufixDepositAmount, 10.0, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
+            deployerAccount
+        )
     Test.expect(swapRes, Test.beSucceeded())
 
     let afterTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())

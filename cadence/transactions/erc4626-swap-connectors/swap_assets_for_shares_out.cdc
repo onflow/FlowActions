@@ -9,16 +9,16 @@ import "DeFiActions"
 import "FungibleTokenConnectors"
 import "ERC4626SwapConnectors"
 
-/// Swaps the given amount of the asset token type to the shares of the ERC4626 vault via a ERC4626SwapConnectors.Swapper
+/// Swaps the the asset token type via a ERC4626SwapConnectors.Swapper for the given amount of shares
 ///
 /// @param amountIn: The amount of the asset token type to swap
-/// @param minOut: The minimum amount of shares to receive
+/// @param maxIn: The maximum amount of shares to receive
 /// @param assetVaultIdentifier: The identifier of the asset token type - must be the underlying token type of the
 ///     ERC4626 vault
 /// @param erc4626VaultEVMAddressHex: The EVM address of the ERC4626 vault as a hex string - must be the address of the
 ///     ERC4626 vault
 ///
-transaction(amountIn: UFix64, minOut: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddressHex: String) {
+transaction(amountOut: UFix64, maxIn: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddressHex: String) {
     /// the funds to deposit to the recipient via the Sink
     let assets: @{FungibleToken.Vault}
     /// the Cadence type of the bridged ERC4626 shares
@@ -97,19 +97,24 @@ transaction(amountIn: UFix64, minOut: UFix64, assetVaultIdentifier: String, erc4
             feeSource: feeSource,
             uniqueID: DeFiActions.createUniqueIdentifier()
         )
-        // get the quote for the swap given the exact amount in
-        self.quote = self.swapper.quoteOut(forProvided: amountIn, reverse: false)
-        let amount = self.quote.inAmount < amountIn ? self.quote.inAmount : amountIn
+        // get the quote for the swap given the exact amount out
+        self.quote = self.swapper.quoteIn(forDesired: amountOut, reverse: false)
+        let amount = self.quote.inAmount <= maxIn
+            ? self.quote.inAmount
+            : panic("Quoted in amount \(self.quote.inAmount) is greater than the maximum allowed \(maxIn)")
 
         // withdraw the funds from the signer's FlowToken Vault
         self.assets <- assetVault.withdraw(amount: amount)
+        log("amount: \(amount)")
+        log("self.quote.inAmount: \(self.quote.inAmount)")
+        log("self.quote.outAmount: \(self.quote.outAmount)")
     }
 
     pre {
         self.assets.getType().identifier == assetVaultIdentifier:
         "Invalid asset type of \(self.assets.getType().identifier) - expected \(assetVaultIdentifier)"
-        self.assets.balance == amountIn || (self.quote.inAmount <= amountIn && self.assets.balance == self.quote.inAmount):
-        "Invalid asset balance of \(self.assets.balance) - expected \(amountIn) or \(self.quote.inAmount) (if quote.inAmount is less than requested amount)"
+        self.assets.balance <= maxIn:
+        "Invalid asset balance of \(self.assets.balance) - expected to be less than or equal to \(maxIn)"
         self.swapper.inType() == self.assets.getType():
         "Invalid swapper inType of \(self.swapper.inType().identifier) - expected \(self.assets.getType().identifier)"
         self.swapper.outType() == self.sharesType:
@@ -120,8 +125,8 @@ transaction(amountIn: UFix64, minOut: UFix64, assetVaultIdentifier: String, erc4
 
     execute {
         let shares <- self.swapper.swap(quote: self.quote, inVault: <-self.assets)
-        assert(shares.balance >= minOut,
-            message: "Expected \(self.sharesType.identifier) shares to be at least \(minOut) but found \(shares.balance)")
+        assert(shares.balance >= amountOut,
+            message: "Expected \(self.sharesType.identifier) shares to be at least \(amountOut) but found \(shares.balance)")
         self.sharesReceiver.deposit(from: <-shares)
     }
 }
