@@ -19,7 +19,7 @@ access(all) contract ERC4626PriceOracles {
     /// PriceOracle
     ///
     /// An implementation of the DeFiActions.PriceOracle interface to get share prices of ERC4626 vaults denominated in
-    /// the underlying asset type. The calculated price is normalized to 24 decimals and represents the current net 
+    /// the underlying asset type. The calculated price is normalized to 18 decimals and represents the current net 
     /// asset value (NAV) per share.
     ///
     access(all) struct PriceOracle : DeFiActions.PriceOracle {
@@ -69,7 +69,7 @@ access(all) contract ERC4626PriceOracles {
                 return nil
             }
 
-            // normalize the total assets and total shares to 24 decimals
+            // normalize the total assets and total shares to 18 decimals
             let totalAssetsNorm = ERC4626Utils.normalizeDecimals(amount: totalAssets!,
                     originalDecimals: FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress),
                     targetDecimals: 18
