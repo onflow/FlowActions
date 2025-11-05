@@ -15,7 +15,8 @@ access(all) var wflowHex = ""
 access(all) var underlyingIdentifier = ""
 access(all) var vaultIdentifier = ""
 
-access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000
+access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000 // 1_000.0 tokens at 18 decimals
+access(all) var expectedInitialShares: UInt256 = 100_000_0000000000_0000000000 // 100_000.0 tokens at 20 decimals
 
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
     wflow: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
@@ -79,10 +80,6 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
-
-    // let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultDeploymentInfo.vault)
-    // log(actualUnderlyingAddress?.toString() ?? "nil")
-    // log(vaultDeploymentInfo.underlying.toString())
 }
 
 access(all) fun testSetupSuccess() {
@@ -92,6 +89,7 @@ access(all) fun testSetupSuccess() {
     )
     Test.expect(price, Test.beSucceeded())
     let priceValue = price.returnValue as! UFix64
-    Test.assert(priceValue > 0.0, message: "Price is not greater than 0.0")
-    log("[TEST] price: \(priceValue)")
+    // For initial deposit: assets = 1e24, shares = 1e24 * 100 = 1e26, price = assets/shares = 0.01
+    let expectedPrice = 0.01
+    Test.assert(priceValue == expectedPrice, message: "Price should be \(expectedPrice) for initial deposit")
 }

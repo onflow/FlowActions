@@ -23,7 +23,7 @@ access(all) contract ERC4626Utils {
     /// @param targetDecimals The target decimals to normalize to
     ///
     /// @return The normalized amount
-    access(all) view fun normalizeDecimals(amount: UInt256, originalDecimals: UInt8, targetDecimals: UInt8): UInt256 {
+    access(all) fun normalizeDecimals(amount: UInt256, originalDecimals: UInt8, targetDecimals: UInt8): UInt256 {
         var res = amount
         if originalDecimals > targetDecimals {
             // decimals is greater than targetDecimals - truncate the fractional part

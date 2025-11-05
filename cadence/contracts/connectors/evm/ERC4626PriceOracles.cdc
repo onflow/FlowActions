@@ -27,24 +27,25 @@ access(all) contract ERC4626PriceOracles {
         access(all) let vault: EVM.EVMAddress
         /// The asset type serving as the price basis in the ERC4626 vault
         access(self) let asset: Type
+        /// The EVM address of the asset ERC20 asset underlying the ERC4626 vault
+        access(self) let assetEVMAddress: EVM.EVMAddress
         /// The UniqueIdentifier of this component
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
-        init(asset: Type, vault: EVM.EVMAddress, uniqueID: DeFiActions.UniqueIdentifier?) {
+        init(vault: EVM.EVMAddress, asset: Type, uniqueID: DeFiActions.UniqueIdentifier?) {
             pre {
                 asset.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Provided asset \(asset.identifier) is not a Vault type"
-                FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset) != nil:
-                "Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge"
             }
+            let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
             assert(
-                ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
-                    ?.equals(FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)!)
-                    ?? false,
-                message: "Provided asset \(asset.identifier) does not underly vault \(vault.toString())"
+                actualUnderlyingAddress?.equals(FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)!) ?? false,
+                message: "Provided asset \(asset.identifier) does not underly ERC4626 vault \(vault.toString()) - found \(actualUnderlyingAddress?.toString() ?? "nil") but expected \(FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)?.toString() ?? "nil")"
             )
 
             self.asset = asset
+            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
+                ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
             self.vault = vault
             self.uniqueID = uniqueID
         }
@@ -67,10 +68,22 @@ access(all) contract ERC4626PriceOracles {
             if totalAssets == nil || totalShares == nil || totalShares == UInt256(0) {
                 return nil
             }
-            var price = totalAssets! / totalShares!
 
-            price = ERC4626Utils.normalizeDecimals(amount: price, originalDecimals: 0, targetDecimals: 24)
-            return FlowEVMBridgeUtils.uint256ToUFix64(value: price, decimals: 24)
+            // normalize the total assets and total shares to 24 decimals
+            let totalAssetsNorm = ERC4626Utils.normalizeDecimals(amount: totalAssets!,
+                    originalDecimals: FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress),
+                    targetDecimals: 18
+                )
+            let totalSharesNorm = ERC4626Utils.normalizeDecimals(amount: totalShares!,
+                    originalDecimals: FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress),
+                    targetDecimals: 18
+                )
+            
+            // perform uint256 division to get the price
+            let factor = FlowEVMBridgeUtils.pow(base: 10, exponent: 18)
+            let price = (totalAssetsNorm * factor) / totalSharesNorm
+
+            return FlowEVMBridgeUtils.uint256ToUFix64(value: price, decimals: 18)
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
         /// each inner component in the stack.
