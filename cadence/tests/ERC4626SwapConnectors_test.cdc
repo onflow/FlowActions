@@ -16,8 +16,8 @@ access(all) var underlyingIdentifier = ""
 access(all) var vaultIdentifier = ""
 
 access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000 // 1_000.0 tokens at 18 decimals
-access(all) var expectedInitialShares: UInt256 = 100_000_0000000000_0000000000 // 100_000.0 tokens at 20 decimals
-access(all) let uintDepositAmount: UInt256 = 100_000_000_000_000_000_000 // 100.0 tokens at 18 decimals
+access(all) var expectedInitialShares: UInt256 = initialAssets * 100 // 100_000.0 tokens at 20 decimals - decimals offset of 2
+access(all) let uintDepositAmount: UInt256 = 10_000_000_000_000_000_000 // 100.0 tokens at 18 decimals
 access(all) let ufixDepositAmount: UFix64 = 10.0
 
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
@@ -73,6 +73,12 @@ access(all) fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
+        name: "SwapConnectors",
+        path: "../contracts/connectors/SwapConnectors.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "FungibleTokenConnectors",
         path: "../contracts/connectors/FungibleTokenConnectors.cdc",
         arguments: [],
@@ -93,6 +99,12 @@ access(all) fun setup() {
     err = Test.deployContract(
         name: "ERC4626SinkConnectors",
         path: "../contracts/connectors/evm/ERC4626SinkConnectors.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "ERC4626SwapConnectors",
+        path: "../contracts/connectors/evm/ERC4626SwapConnectors.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -117,16 +129,20 @@ access(all) fun setup() {
     Test.expect(bridgeRes, Test.beSucceeded())
 }
 
-access(all) fun testDepositToERC4626ViaSinkSucceeds() {
-    let beforeShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+access(all) fun testSwapAssetsInForSharesSucceeds() {
+    let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(beforeTotalShares, expectedInitialShares)
+    Test.assertEqual(beforeTotalAssets, initialAssets)
 
-    let depositRes = executeTransaction(
-        "../transactions/erc4626-sink-connectors/deposit_to_erc4626_vault.cdc",
-        [ufixDepositAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
-        deployerAccount
-    )
-    Test.expect(depositRes, Test.beSucceeded())
+    let swapRes = executeTransaction(
+        "../transactions/erc4626-swap-connectors/swap_assets_in_for_shares.cdc",
+        [ufixDepositAmount, 0.01, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
+        deployerAccount    )
+    Test.expect(swapRes, Test.beSucceeded())
 
-    let afterShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
-    Test.assert(afterShares > beforeShares)
+    let afterTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let afterTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(afterTotalShares, expectedInitialShares + uintDepositAmount * 100) // increase by 100x due to decimals offset
+    Test.assertEqual(afterTotalAssets, initialAssets + uintDepositAmount)
 }

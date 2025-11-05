@@ -65,6 +65,38 @@ fun getEVMTokenBalance(of: String, erc20Address: String): UFix64 {
 }
 
 access(all)
+fun getEVMTotalSupply(callAs: String, erc20Address: String): UInt256 {
+    let res = evmScriptCallRaw(
+        fromAddress: callAs,
+        toAddress: erc20Address,
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("totalSupply()", [])),
+        gasLimit: 1000000,
+        value: 0
+    )
+    Test.assertEqual(res.status, EVM.Status.successful)
+    let decoded = res.data.length > 0
+        ? EVM.decodeABI(types: [Type<UInt256>()], data: res.data)
+        : panic("Failed to get total shares")
+    return decoded[0] as! UInt256
+}
+
+access(all)
+fun getERC4626TotalAssets(callAs: String, erc4626Address: String): UInt256 {
+    let res = evmScriptCallRaw(
+        fromAddress: callAs,
+        toAddress: erc4626Address,
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("totalAssets()", [])),
+        gasLimit: 1000000,
+        value: 0
+    )
+    Test.assertEqual(res.status, EVM.Status.successful)
+    let decoded = res.data.length > 0
+        ? EVM.decodeABI(types: [Type<UInt256>()], data: res.data)
+        : panic("Failed to get total assets")
+    return decoded[0] as! UInt256
+}
+
+access(all)
 fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
     let res = _executeScript("../scripts/tokens/get_balance.cdc", [address, vaultPublicPath])
     Test.expect(res, Test.beSucceeded())
