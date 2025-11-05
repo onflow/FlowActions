@@ -88,14 +88,21 @@ access(all) contract ERC4626SinkConnectors {
 
             // withdraw the appropriate amount from the referenced vault & deposit to the EVMTokenConnectors Sink
             var amount = capacity <= from.balance ? capacity : from.balance
+
+            // TODO: pass from through and skip the intermediary withdrawal
             let deposit <- from.withdraw(amount: amount)
             self.tokenSink.depositCapacity(from: &deposit as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-            if deposit.balance > 0.0 {
+            if deposit.balance == amount {
+                // nothing was deposited to the EVMTokenConnectors Sink
+                Burner.burn(<-deposit)
+                return
+            } else if deposit.balance > 0.0 {
                 // update deposit amount & deposit the residual
                 amount = amount - deposit.balance
                 from.deposit(from: <-deposit)
             } else {
-                Burner.burn(<-deposit) // nothing left - burn & execute vault's burnCallback()
+                // nothing left - burn & execute vault's burnCallback()
+                Burner.burn(<-deposit)
             }
 
             // approve the ERC4626 vault to spend the assets on deposit
@@ -116,14 +123,14 @@ access(all) contract ERC4626SinkConnectors {
             let depositRes = self._call(
                 dry: false,
                 to: self.vault,
-                signature: "deposit(address,uint256)",
-                args: [self.assetEVMAddress, uintAmount],
+                signature: "deposit(uint256,address)",
+                args: [uintAmount, self.coa.borrow()!.address()],
                 gasLimit: 250_000
             )
             if depositRes?.status != EVM.Status.successful {
                 // TODO: Consider unwinding the deposit & returning to the from vault
                 //      - would require {Sink, Source} instead of just Sink
-                return
+                panic("Failed to deposit \(amount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString())")
             }
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
