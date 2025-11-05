@@ -48,11 +48,7 @@ contract MockAggregatorV2V3 is IAggregatorV2V3Interface {
 
         uint256 appliedTimestamp = timestamp == 0 ? block.timestamp : timestamp;
         uint80 newRoundId = _latestRoundId + 1;
-        _rounds[newRoundId] = RoundData({
-            answer: answer,
-            startedAt: appliedTimestamp,
-            updatedAt: appliedTimestamp
-        });
+        _rounds[newRoundId] = RoundData({answer: answer, startedAt: appliedTimestamp, updatedAt: appliedTimestamp});
         _latestRoundId = newRoundId;
 
         emit AnswerUpdated(answer, newRoundId, appliedTimestamp);
@@ -95,22 +91,12 @@ contract MockAggregatorV2V3 is IAggregatorV2V3Interface {
         return _getRound(uint80(roundId)).updatedAt;
     }
 
-    function getRoundData(uint80 roundId)
-        external
-        view
-        override
-        returns (uint80, int256, uint256, uint256, uint80)
-    {
+    function getRoundData(uint80 roundId) external view override returns (uint80, int256, uint256, uint256, uint80) {
         RoundData memory round = _getRound(roundId);
         return (roundId, round.answer, round.startedAt, round.updatedAt, roundId);
     }
 
-    function latestRoundData()
-        external
-        view
-        override
-        returns (uint80, int256, uint256, uint256, uint80)
-    {
+    function latestRoundData() external view override returns (uint80, int256, uint256, uint256, uint80) {
         uint80 roundId = _latestRoundId;
         RoundData memory round = _getRound(roundId);
         return (roundId, round.answer, round.startedAt, round.updatedAt, roundId);
@@ -126,4 +112,3 @@ contract MockAggregatorV2V3 is IAggregatorV2V3Interface {
         return round;
     }
 }
-

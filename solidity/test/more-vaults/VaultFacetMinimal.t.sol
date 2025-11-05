@@ -64,21 +64,11 @@ contract VaultFacetMinimalTest is Test {
             action: IDiamondCut.FacetCutAction.Add,
             functionSelectors: _vaultFacetSelectors(),
             initData: abi.encode(
-                "Test More Vault",
-                "tmMORE",
-                address(underlying),
-                feeRecipient,
-                uint96(0),
-                DEPOSIT_CAPACITY
+                "Test More Vault", "tmMORE", address(underlying), feeRecipient, uint96(0), DEPOSIT_CAPACITY
             )
         });
 
-        diamond = new MoreVaultsDiamond(
-            address(diamondCutFacet),
-            address(registry),
-            address(wrappedNative),
-            cuts
-        );
+        diamond = new MoreVaultsDiamond(address(diamondCutFacet), address(registry), address(wrappedNative), cuts);
 
         vault = IVaultFacet(address(diamond));
 
@@ -169,4 +159,3 @@ contract VaultFacetMinimalTest is Test {
         selectors[28] = IVaultFacet.unpause.selector;
     }
 }
-

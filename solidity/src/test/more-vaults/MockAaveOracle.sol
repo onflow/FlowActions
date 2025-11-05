@@ -13,6 +13,7 @@ import {IPoolAddressesProvider} from "@aave-v3-core/contracts/interfaces/IPoolAd
  *  - Call {setAssetSource} for each asset you plan to interact with (registry validation relies on it).
  *  - Set the desired price with {setAssetPrice} before invoking vault flows that query NAV or conversions.
  */
+
 contract MockAaveOracle is IAaveOracle {
     error InvalidInput();
     error InvalidPrice();
@@ -91,7 +92,7 @@ contract MockAaveOracle is IAaveOracle {
     /// @return prices Array of prices denominated in the configured base currency unit.
     function getAssetsPrices(address[] calldata assets) external view override returns (uint256[] memory prices) {
         prices = new uint256[](assets.length);
-        for (uint256 i = 0; i < assets.length; ) {
+        for (uint256 i = 0; i < assets.length;) {
             prices[i] = getAssetPrice(assets[i]);
             unchecked {
                 ++i;
@@ -126,7 +127,7 @@ contract MockAaveOracle is IAaveOracle {
     /// @dev Internal utility shared between single and batched setters. Stores the mapping and emits updates.
     function _setAssetSources(address[] memory assets, address[] memory sources) internal {
         if (assets.length != sources.length) revert InvalidInput();
-        for (uint256 i = 0; i < assets.length; ) {
+        for (uint256 i = 0; i < assets.length;) {
             _assetSources[assets[i]] = sources[i];
             emit AssetSourceUpdated(assets[i], sources[i]);
             unchecked {
