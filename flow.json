@@ -18,6 +18,30 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"ERC4626SinkConnectors": {
+			"source": "./cadence/contracts/connectors/evm/ERC4626SinkConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"ERC4626SwapConnectors": {
+			"source": "./cadence/contracts/connectors/evm/ERC4626SwapConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"ERC4626PriceOracles": {
+			"source": "./cadence/contracts/connectors/evm/ERC4626PriceOracles.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
+		"ERC4626Utils": {
+			"source": "./cadence/contracts/utils/ERC4626Utils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"EVMAbiHelpers": {
 			"source": "./cadence/contracts/utils/EVMAbiHelpers.cdc",
 			"aliases": {
@@ -708,6 +732,10 @@
 				"FungibleTokenConnectors",
 				"EVMNativeFLOWConnectors",
 				"EVMTokenConnectors",
+				"ERC4626Utils",
+				"ERC4626SwapConnectors",
+				"ERC4626SinkConnectors",
+				"ERC4626PriceOracles",
 				"IncrementFiSwapConnectors",
 				"IncrementFiFlashloanConnectors",
 				"SwapPair",
