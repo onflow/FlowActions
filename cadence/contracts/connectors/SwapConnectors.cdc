@@ -317,6 +317,182 @@ access(all) contract SwapConnectors {
         }
     }
 
+    /// SequentialSwapper
+    ///
+    /// A Swapper implementation routing swap requests to a sequence of Swappers. This may be helpful when a single
+    /// path is not sufficient to meet the desired swap requirements - e.g. swapping from one token to the underlying
+    /// asset of an ERC4626 vault to then swap to the ERC4626 vault shares.
+    ///
+    access(all) struct SequentialSwapper : DeFiActions.Swapper {
+        access(all) let swappers: [{DeFiActions.Swapper}]
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
+        access(self) let inVault: Type
+        access(self) let outVault: Type
+
+        init(swappers: [{DeFiActions.Swapper}], uniqueID: DeFiActions.UniqueIdentifier?) {
+            pre {
+                swappers.length > 1:
+                "Provided swappers must have a length of at least 2 - provided \(swappers.length) swappers"
+            }
+            // ensure each swapper's inType matches the previous swapper's outType
+            for i in InclusiveRange(0, swappers.length - 1) {
+                let swapper = &swappers[i] as &{DeFiActions.Swapper}
+                if i < swappers.length - 1 {
+                    let nextSwapper = &swappers[i + 1] as &{DeFiActions.Swapper}
+                    assert(swapper.outType() == nextSwapper.inType(),
+                        message: "Mismatched inType \(nextSwapper.inType().identifier) - Swapper \(swapper.getType().identifier) accepts \(swapper.outType().identifier)")
+                    }
+            }
+            self.inVault = swappers[0].inType()
+            self.outVault = swappers[swappers.length - 1].outType()
+            self.swappers = swappers
+            self.uniqueID = uniqueID
+        }
+
+        /// Returns a ComponentInfo struct containing information about this SequentialSwapper and its inner DFA components
+        ///
+        /// @return a ComponentInfo struct containing information about this component and a list of ComponentInfo for
+        ///     each inner component in the stack.
+        ///
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            let inner: [DeFiActions.ComponentInfo] = []
+            for i in InclusiveRange(0, self.swappers.length - 1) {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
+                inner.append(swapper.getComponentInfo())
+            }
+            return DeFiActions.ComponentInfo(type: self.getType(), id: self.id(), innerComponents: inner)
+        }
+        /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
+        /// a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @return a copy of the struct's UniqueIdentifier
+        ///
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
+        /// identify another connector in a DeFiActions stack. See DeFiActions.align() for more information.
+        ///
+        /// @param id: the UniqueIdentifier to set for this component
+        ///
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
+        /// The type of Vault this Swapper accepts when performing a swap
+        access(all) view fun inType(): Type {
+            return self.inVault
+        }
+        /// The type of Vault this Swapper provides when performing a swap
+        access(all) view fun outType(): Type {
+            return self.outVault
+        }
+        /// The estimated amount required to provide a Vault with the desired output balance
+        ///
+        /// @param forDesired: The amount in desired of the pre-conversion currency as a result of the swap
+        /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
+        ///     in the opposite direction, outVault -> inVault
+        ///
+        /// @return a DeFiActions.Quote containing estimate data. In order to prevent upstream reversion,
+        ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
+        ///
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            var inAmount = forDesired
+            let range = reverse
+                ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
+                : InclusiveRange(0, self.swappers.length - 1)
+            for i in range {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
+                inAmount = swapper.quoteIn(forDesired: inAmount, reverse: reverse).inAmount
+            }
+            return BasicQuote(
+                inType: self.inVault,
+                outType: self.outVault,
+                inAmount: inAmount,
+                outAmount: forDesired
+            )
+        }
+        /// The estimated amount delivered out for a provided input balance
+        ///
+        /// @param forProvided: The amount in provided of the pre-conversion currency as a result of the swap
+        /// @param reverse: If false, the default inVault -> outVault is used, otherwise, the method estimates a swap
+        ///     in the opposite direction, outVault -> inVault
+        ///
+        /// @return a DeFiActions.Quote containing estimate data. In order to prevent upstream reversion,
+        ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
+        ///
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            log("SequentialSwapper quoteOut: \(forProvided) | reverse: \(reverse)")
+            var outAmount = forProvided
+            let range = reverse
+                ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
+                : InclusiveRange(0, self.swappers.length - 1)
+            for i in range {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
+                outAmount = swapper.quoteOut(forProvided: outAmount, reverse: reverse).outAmount
+            }
+            return BasicQuote(
+                inType: self.outVault,
+                outType: self.inVault,
+                inAmount: forProvided,
+                outAmount: outAmount
+            )
+        }
+        /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Callers should be careful
+        /// to ensure the resulting output meets their expectations given the provided inVault.balance.
+        /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
+        ///
+        /// @param quote: A `DeFiActions.Quote` data structure. This implementation ignores the quote parameter so callers
+        ///     should be sure to enforce outputs against the expected outVault.balance
+        /// @param inVault: The Vault to swap from
+        ///
+        /// @return a Vault of type `outVault` containing the swapped currency.
+        ///
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            return <- self._swap(quote: quote, from: <-inVault, reverse: false)
+        }
+        /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Callers should be careful
+        /// to ensure the resulting output meets their expectations given the provided residual.balance.
+        /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
+        ///
+        /// @param quote: A `DeFiActions.Quote` data structure. This implementation ignores the quote parameter so callers
+        ///     should be sure to enforce outputs against the expected inVault.balance
+        /// @param residual: The Vault to swap back from
+        ///
+        /// @return a Vault of type `inVault` containing the swapped currency.
+        ///
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            return <- self._swap(quote: quote, from: <-residual, reverse: true)
+        }
+        /// Internal swap function performing the swap along the defined path.
+        ///
+        /// @param quote: A `DeFiActions.Quote` data structure. If provided, quote.outAmount is used as the minimum amount out
+        ///     desired otherwise a new quote is generated from current state
+        /// @param from: The Vault to swap from
+        /// @param reverse: Whether to swap in the reverse direction
+        ///
+        /// @return a Vault of type `outVault` containing the swapped currency.
+        ///
+        access(self)
+        fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
+            let range = reverse
+                ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
+                : InclusiveRange(0, self.swappers.length - 1)
+            var vault <- from.withdraw(amount: from.balance)
+            Burner.burn(<-from)
+
+            for i in range {
+                let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
+                let swapFun = reverse ? swapper.swapBack : swapper.swap
+
+                let preSwap <- vault.withdraw(amount: vault.balance)
+                var swapped <- swapFun(quote: nil, <-preSwap)
+                vault <-> swapped
+                Burner.burn(<-swapped)
+            }
+            return <- vault
+        }
+    }
+
     /// SwapSource
     ///
     /// A DeFiActions connector that returns post-conversion currency, sourcing pre-converted funds from an inner
