@@ -18,6 +18,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"ERC4626PriceOracles": {
+			"source": "./cadence/contracts/connectors/evm/ERC4626PriceOracles.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"ERC4626SinkConnectors": {
 			"source": "./cadence/contracts/connectors/evm/ERC4626SinkConnectors.cdc",
 			"aliases": {
@@ -26,12 +32,6 @@
 		},
 		"ERC4626SwapConnectors": {
 			"source": "./cadence/contracts/connectors/evm/ERC4626SwapConnectors.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
-		},
-		"ERC4626PriceOracles": {
-			"source": "./cadence/contracts/connectors/evm/ERC4626PriceOracles.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -90,14 +90,14 @@
 				"testing": "0000000000000009"
 			}
 		},
-		"MockSwapper": {
-			"source": "cadence/tests/contracts/MockSwapper.cdc",
+		"MockOracle": {
+			"source": "cadence/tests/contracts/MockOracle.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
 		},
-		"MockOracle": {
-			"source": "cadence/tests/contracts/MockOracle.cdc",
+		"MockSwapper": {
+			"source": "cadence/tests/contracts/MockSwapper.cdc",
 			"aliases": {
 				"testing": "0000000000000009"
 			}
@@ -625,6 +625,14 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
+		"mainnet-erc4626-connectors": {
+			"address": "04f5ae6bef48c1fc",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
 		"mainnet-evm-token-connectors": {
 			"address": "1a771b21fcceadc2",
 			"key": {
@@ -682,6 +690,14 @@
 		},
 		"testnet-defi-actions": {
 			"address": "0b11b1848a8aa2c0",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-erc4626-connectors": {
+			"address": "7014dcffa1f14186",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -791,6 +807,12 @@
 				"DeFiActionsUtils",
 				"DeFiActions"
 			],
+			"mainnet-erc4626-connectors": [
+				"ERC4626Utils",
+				"ERC4626PriceOracles",
+				"ERC4626SinkConnectors",
+				"ERC4626SwapConnectors"
+			],
 			"mainnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
 				"EVMTokenConnectors"
@@ -818,6 +840,12 @@
 			"testnet-defi-actions": [
 				"DeFiActionsUtils",
 				"DeFiActions"
+			],
+			"testnet-erc4626-connectors": [
+				"ERC4626Utils",
+				"ERC4626PriceOracles",
+				"ERC4626SinkConnectors",
+				"ERC4626SwapConnectors"
 			],
 			"testnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
