@@ -90,6 +90,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"MockSwapper": {
+			"source": "cadence/tests/contracts/MockSwapper.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"MockOracle": {
 			"source": "cadence/tests/contracts/MockOracle.cdc",
 			"aliases": {
@@ -116,6 +122,12 @@
 		},
 		"TokenB": {
 			"source": "cadence/tests/contracts/TokenB.cdc",
+			"aliases": {
+				"testing": "0000000000000010"
+			}
+		},
+		"TokenC": {
+			"source": "cadence/tests/contracts/TokenC.cdc",
 			"aliases": {
 				"testing": "0000000000000010"
 			}
