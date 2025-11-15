@@ -88,9 +88,9 @@ access(all) contract SwapConnectors {
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
-                inVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                inVault.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Invalid inVault type - \(inVault.identifier) is not a FungibleToken Vault implementation"
-                outVault.getType().isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                outVault.isSubtype(of: Type<@{FungibleToken.Vault}>()):
                 "Invalid outVault type - \(outVault.identifier) is not a FungibleToken Vault implementation"
             }
             for i in InclusiveRange(0, swappers.length - 1) {
