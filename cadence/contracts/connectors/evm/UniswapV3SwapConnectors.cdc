@@ -232,14 +232,15 @@ access(all) contract UniswapV3SwapConnectors {
             let res = self._call(
                 to: self.factoryAddress,
                 signature: "getPool(address,address,uint24)",
-                args: [ self.tokenPath[0], self.tokenPath[1], UInt256(3000) ],
+                args: [ self.tokenPath[0], self.tokenPath[1], UInt256(self.feePath[0]) ],
                 gasLimit: 120_000,
                 value: 0
             )!
+            assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
 
-            if res.status != EVM.Status.successful {
-                return EVM.addressFromString("0x0000000000000000000000000000000000000000")
-            }
+            // if res.status != EVM.Status.successful {
+            //     return EVM.addressFromString("0x0000000000000000000000000000000000000000")
+            // }
 
             // ABI return is one 32-byte word; the last 20 bytes are the address
             let word = res.data as! [UInt8]
