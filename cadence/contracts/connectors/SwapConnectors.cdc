@@ -421,7 +421,6 @@ access(all) contract SwapConnectors {
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            log("SequentialSwapper quoteOut: \(forProvided) | reverse: \(reverse)")
             var outAmount = forProvided
             let range = reverse
                 ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
