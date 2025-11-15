@@ -42,7 +42,7 @@ access(all) contract ERC4626Utils {
     /// @return The EVM address of the underlying asset for the given ERC4626 vault
     access(all)
     fun underlyingAssetEVMAddress(vault: EVM.EVMAddress): EVM.EVMAddress? {
-        let callRes = self._dryCall(to: vault, signature: "asset()", args: [], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "asset()", args: [], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -57,7 +57,7 @@ access(all) contract ERC4626Utils {
     /// @return The total assets managed by the ERC4626 vault. Callers should anticipate the address of the asset and
     ///         the decimals of the asset being returned.
     access(all) fun totalAssets(vault: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "totalAssets()", args: [], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "totalAssets()", args: [], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -72,7 +72,7 @@ access(all) contract ERC4626Utils {
     /// @return The total shares issued by the ERC4626 vault. Callers should anticipate the address of the asset and
     ///         the decimals of the asset being returned.
     access(all) fun totalShares(vault: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "totalSupply()", args: [], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "totalSupply()", args: [], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -89,7 +89,7 @@ access(all) contract ERC4626Utils {
     ///         Callers should anticipate the address of the shares and the decimals of the shares being returned.
     access(all)
     fun maxRedeem(vault: EVM.EVMAddress, owner: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "maxRedeem(address)", args: [owner], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "maxRedeem(address)", args: [owner], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -106,7 +106,7 @@ access(all) contract ERC4626Utils {
     ///         the asset's decimals.
     access(all)
     fun maxDeposit(vault: EVM.EVMAddress, receiver: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "maxDeposit(address)", args: [receiver], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "maxDeposit(address)", args: [receiver], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -123,7 +123,7 @@ access(all) contract ERC4626Utils {
     ///         should anticipate the address of the asset and the decimals of the asset being returned.
     access(all)
     fun previewMint(vault: EVM.EVMAddress, shares: UInt256): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "previewMint(uint256)", args: [shares], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "previewMint(uint256)", args: [shares], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
@@ -140,7 +140,7 @@ access(all) contract ERC4626Utils {
     ///         should anticipate the address of the asset and the decimals of the vault shares being returned.
     access(all)
     fun previewDeposit(vault: EVM.EVMAddress, assets: UInt256): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "previewDeposit(uint256)", args: [assets], gasLimit: 100_000)
+        let callRes = self._dryCall(to: vault, signature: "previewDeposit(uint256)", args: [assets], gasLimit: 5_000_000)
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
