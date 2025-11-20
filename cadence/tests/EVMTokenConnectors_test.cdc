@@ -16,11 +16,8 @@ access(all) var tokenAERCAddress = ""
 access(all) var wflowHex = ""
 
 access(all) fun setup() {
-    setupBridge(bridgeAccount: bridgeAccount, serviceAccount: serviceAccount, unpause: true)
-
-    createCOA(serviceAccount, fundingAmount: 0.0)
-    wflowHex = deployWFLOW(serviceAccount)
-    createWFLOWHandler(bridgeAccount, wflowAddress: wflowHex)
+    log("================== Setting up EVMTokenConnectors test ==================")
+    wflowHex = getEVMAddressAssociated(withType: Type<@FlowToken.Vault>().identifier)!
 
     var err = Test.deployContract(
         name: "TestTokenMinter",
@@ -34,6 +31,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    transferFlow(signer: serviceAccount, recipient: tokenAAccount.address, amount: 100.0)
     // onboard to the bridge
     let onboardResult = _executeTransaction(
         "./transactions/bridge/onboard_by_type_identifier.cdc",

@@ -22,6 +22,7 @@ access(all) let estimationTolerance = 0.1 // 0.1% tolerance for DeFi precision d
 
 access(all)
 fun setup() {
+    log("================== Setting up IncrementFiPoolLiquidityConnectors test ==================")
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(

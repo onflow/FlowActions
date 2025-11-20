@@ -18,6 +18,7 @@ access(all) let tokenCIdentifier = Type<@TokenC.Vault>().identifier // "A.<ADDRE
 
 access(all)
 fun setup() {
+    log("================== Setting up SwapConnectorsSequentialSwapper test ==================")
     // deploy test token contracts
     var err = Test.deployContract(
         name: "TestTokenMinter",

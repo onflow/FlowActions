@@ -2,12 +2,12 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
+import "FlowToken"
 import "DeFiActions"
 import "EVM"
 import "ERC4626Utils"
 
 access(all) let serviceAccount = Test.serviceAccount()
-access(all) let bridgeAccount = Test.getAccount(0x0000000000000007)
 access(all) let deployerAccount = Test.createAccount()
 
 access(all) var wflowHex = ""
@@ -31,12 +31,25 @@ access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
 )
 
 access(all) fun setup() {
-    // setup VM Bridge & configure WFLOW handler
-    setupBridge(bridgeAccount: bridgeAccount, serviceAccount: serviceAccount, unpause: true)
-    createCOA(serviceAccount, fundingAmount: 0.0)
+    log("================== Setting up ERC4626SwapConnectors test ==================")
+    wflowHex = getEVMAddressAssociated(withType: Type<@FlowToken.Vault>().identifier)!
 
-    wflowHex = deployWFLOW(serviceAccount)
-    createWFLOWHandler(bridgeAccount, wflowAddress: wflowHex)
+    // TODO: remove this step once the VM bridge templates are updated for test env
+    // see https://github.com/onflow/flow-go/issues/8184
+    // Commit bridged NFT code
+    let bridgedNFTChunkResult = _executeTransaction(
+        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
+        ["bridgedNFT", bridgedNFTCodeChunks],
+        serviceAccount
+    )
+    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
+    // Commit bridged Token code
+    let bridgedTokenChunkResult = _executeTransaction(
+        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
+        ["bridgedToken", bridgedTokenCodeChunks],
+        serviceAccount
+    )
+    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
 
     // create deployer account and fund it
     transferFlow(signer: serviceAccount, recipient: deployerAccount.address, amount: 101.0)

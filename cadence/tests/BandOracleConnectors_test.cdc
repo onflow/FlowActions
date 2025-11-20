@@ -5,6 +5,7 @@ import "test_helpers.cdc"
 access(all) let serviceAccount = Test.serviceAccount()
 
 access(all) fun setup() {
+    log("================== Setting up BandOracleConnectors test ==================")
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",

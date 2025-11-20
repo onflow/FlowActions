@@ -2,8 +2,9 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
+import "FlowToken"
+
 access(all) let serviceAccount = Test.serviceAccount()
-access(all) let bridgeAccount = Test.getAccount(0x0000000000000007)
 
 access(all) let uniV2DeployerAccount = Test.createAccount()
 access(all) var uniV2DeployerCOAHex = ""
@@ -15,14 +16,29 @@ access(all) var uniV2RouterHex = ""
 
 access(all)
 fun setup() {
-    setupBridge(bridgeAccount: bridgeAccount, serviceAccount: serviceAccount, unpause: true)
-    
+    log("================== Setting up UniswapV2SwapConnectors test ==================")
+    wflowHex = getEVMAddressAssociated(withType: Type<@FlowToken.Vault>().identifier)!
+
+    // TODO: remove this step once the VM bridge templates are updated for test env
+    // see https://github.com/onflow/flow-go/issues/8184
+    // Commit bridged NFT code
+    let bridgedNFTChunkResult = _executeTransaction(
+        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
+        ["bridgedNFT", bridgedNFTCodeChunks],
+        serviceAccount
+    )
+    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
+    // Commit bridged Token code
+    let bridgedTokenChunkResult = _executeTransaction(
+        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
+        ["bridgedToken", bridgedTokenCodeChunks],
+        serviceAccount
+    )
+    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
+
     transferFlow(signer: serviceAccount, recipient: uniV2DeployerAccount.address, amount: 10.0)
     createCOA(uniV2DeployerAccount, fundingAmount: 1.0)
 
-    wflowHex = deployWFLOW(uniV2DeployerAccount)
-    createWFLOWHandler(bridgeAccount, wflowAddress: wflowHex)    
-    
     uniV2DeployerCOAHex = getCOAAddressHex(atFlowAddress: uniV2DeployerAccount.address)
 
     uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
