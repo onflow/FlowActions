@@ -232,6 +232,15 @@ fun rebalance(signer: Test.TestAccount, storagePath: StoragePath, force: Bool, b
 
 access(all)
 fun createCOA(_ signer: Test.TestAccount, fundingAmount: UFix64) {
+    // Check if COA already exists (new test framework may auto-create)
+    let coaExists = _executeScript(
+        "../scripts/evm/has_coa.cdc",
+        [signer.address]
+    )
+    if coaExists.returnValue! as! Bool {
+        return // COA already exists, skip creation
+    }
+    
     let createCOAResult = _executeTransaction(
         "../transactions/evm/create_coa.cdc",
         [fundingAmount],
