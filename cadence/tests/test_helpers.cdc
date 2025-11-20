@@ -232,6 +232,15 @@ fun rebalance(signer: Test.TestAccount, storagePath: StoragePath, force: Bool, b
 
 access(all)
 fun createCOA(_ signer: Test.TestAccount, fundingAmount: UFix64) {
+    // Check if COA already exists (new test framework may auto-create)
+    let coaExists = _executeScript(
+        "../scripts/evm/has_coa.cdc",
+        [signer.address]
+    )
+    if coaExists.returnValue! as! Bool {
+        return // COA already exists, skip creation
+    }
+    
     let createCOAResult = _executeTransaction(
         "../transactions/evm/create_coa.cdc",
         [fundingAmount],
@@ -716,10 +725,10 @@ fun setupBridge(bridgeAccount: Test.TestAccount, serviceAccount: Test.TestAccoun
     Test.expect(erc721DeployerDeploymentResult, Test.beSucceeded())
     // Assign contract addresses
     var evts = Test.eventsOfType(Type<EVM.TransactionExecuted>())
-    Test.assertEqual(5, evts.length)
-    let registryAddressHex = getEVMAddressHexFromEvents(evts, idx: 2)
-    let erc20DeployerAddressHex = getEVMAddressHexFromEvents(evts, idx: 3)
-    let erc721DeployerAddressHex = getEVMAddressHexFromEvents(evts, idx: 4)
+    // Get the last 3 events (registry, erc20Deployer, erc721Deployer)
+    let registryAddressHex = getEVMAddressHexFromEvents(evts, idx: evts.length - 3)
+    let erc20DeployerAddressHex = getEVMAddressHexFromEvents(evts, idx: evts.length - 2)
+    let erc721DeployerAddressHex = getEVMAddressHexFromEvents(evts, idx: evts.length - 1)
 
     // Deploy factory
     let deploymentResult = _executeTransaction(
@@ -730,8 +739,7 @@ fun setupBridge(bridgeAccount: Test.TestAccount, serviceAccount: Test.TestAccoun
     Test.expect(deploymentResult, Test.beSucceeded())
     // Assign the factory contract address
     evts = Test.eventsOfType(Type<EVM.TransactionExecuted>())
-    Test.assertEqual(6, evts.length)
-    let factoryAddressHex = getEVMAddressHexFromEvents(evts, idx: 5)
+    let factoryAddressHex = getEVMAddressHexFromEvents(evts, idx: evts.length - 1)
     Test.assertEqual(factoryAddressHex.length, 40)
 
     err = Test.deployContract(
