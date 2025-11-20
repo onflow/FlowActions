@@ -9,13 +9,15 @@
 		"DeFiActions": {
 			"source": "cadence/contracts/interfaces/DeFiActions.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"mainnet": "6d888f175c158410"
 			}
 		},
 		"DeFiActionsUtils": {
 			"source": "cadence/contracts/utils/DeFiActionsUtils.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"mainnet": "6d888f175c158410"
 			}
 		},
 		"ERC4626PriceOracles": {
@@ -105,7 +107,8 @@
 		"SwapConnectors": {
 			"source": "cadence/contracts/connectors/SwapConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000007"
+				"testing": "0000000000000007",
+				"mainnet": "e1a479f0cb911df9"
 			}
 		},
 		"TestTokenMinter": {
@@ -133,10 +136,11 @@
 			}
 		},
 		"UniswapV2SwapConnectors": {
-			"source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
-			"aliases": {
-				"testing": "0000000000000009"
-			}
+		  "source": "cadence/contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
+		  "aliases": {
+				"testing": "0000000000000009",
+				"mainnet": "6d888f175c158410"
+		  }
 		},
 		"UniswapV3SwapConnectors": {
 			"source": "cadence/contracts/connectors/evm/UniswapV3SwapConnectors.cdc",
