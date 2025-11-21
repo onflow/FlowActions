@@ -313,28 +313,43 @@ access(all) contract UniswapV3SwapConnectors {
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
             // Calculate price multiplier based on maxPriceImpactBps
-            let bps: UInt = self.maxPriceImpactBps
-            let Q96: UInt = 0x1000000000000000000000000
+            // Use UInt256 throughout to prevent overflow in multiplication operations
+            let bps: UInt256 = UInt256(self.maxPriceImpactBps)
+            let Q96: UInt256 = 0x1000000000000000000000000
+            let sqrtPriceX96_256: UInt256 = UInt256(sqrtPriceX96)
+            let L_256: UInt256 = UInt256(L)
             
-            var maxAmount: UFix128 = 0.0
+            var maxAmount: UInt256 = 0
             if zeroForOne {
                 // Swapping token0 -> token1 (price decreases by maxPriceImpactBps)
-                // Approximation: sqrt(1 - x) ≈ 1 - x/2 for small x
-                let sqrtMultiplier = 10000 as UInt - UInt(UFix64(bps) / 2.0)
-                let sqrtPriceNew = UInt(UFix64(sqrtPriceX96) * UFix64(sqrtMultiplier) / 10000.0)
-                let deltaSqrt = sqrtPriceX96 - sqrtPriceNew
-                maxAmount = UFix128(L * deltaSqrt * Q96) / UFix128(sqrtPriceX96 * sqrtPriceNew)
+                // Formula: Δx = L * (√P - √P') / (√P * √P')
+                // Approximation: √P' ≈ √P * (1 - priceImpact/2)
+                let sqrtMultiplier: UInt256 = 10000 - (bps / 2)
+                let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
+                let deltaSqrt: UInt256 = sqrtPriceX96_256 - sqrtPriceNew
+                
+                // Uniswap V3 spec: getAmount0Delta
+                // Δx = L * (√P - √P') / (√P * √P')
+                // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
+                // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
+                let numerator: UInt256 = L_256 * deltaSqrt
+                maxAmount = (numerator * Q96) / sqrtPriceX96_256 / sqrtPriceNew
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
-                // Approximation: sqrt(1 + x) ≈ 1 + x/2 for small x
-                let sqrtMultiplier = 10000 as UInt + UInt(UFix64(bps) / 2.0)
-                let sqrtPriceNew = UInt(UFix64(sqrtPriceX96) * UFix64(sqrtMultiplier) / 10000.0)
-                let deltaSqrt = sqrtPriceNew - sqrtPriceX96
-                maxAmount = UFix128(L * deltaSqrt) / UFix128(Q96)
+                // Formula: Δy = L * (√P' - √P)
+                // Approximation: √P' ≈ √P * (1 + priceImpact/2)
+                let sqrtMultiplier: UInt256 = 10000 + (bps / 2)
+                let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
+                let deltaSqrt: UInt256 = sqrtPriceNew - sqrtPriceX96_256
+                
+                // Uniswap V3 spec: getAmount1Delta
+                // Δy = L * (√P' - √P)
+                // Divide by Q96 to convert from Q96 format to native token units
+                maxAmount = (L_256 * deltaSqrt) / Q96
             }
             
             // Return 80% of calculated max for additional safety margin
-            return UInt256(maxAmount * 4.0 / 5.0)
+            return (maxAmount * 4) / 5
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
