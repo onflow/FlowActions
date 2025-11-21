@@ -31,6 +31,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    // fund the tokenA account to pay for VM Bridge onboarding
     transferFlow(signer: serviceAccount, recipient: tokenAAccount.address, amount: 100.0)
     // onboard to the bridge
     let onboardResult = _executeTransaction(

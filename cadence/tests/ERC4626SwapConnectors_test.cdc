@@ -36,20 +36,7 @@ access(all) fun setup() {
 
     // TODO: remove this step once the VM bridge templates are updated for test env
     // see https://github.com/onflow/flow-go/issues/8184
-    // Commit bridged NFT code
-    let bridgedNFTChunkResult = _executeTransaction(
-        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
-        ["bridgedNFT", bridgedNFTCodeChunks],
-        serviceAccount
-    )
-    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
-    // Commit bridged Token code
-    let bridgedTokenChunkResult = _executeTransaction(
-        "./transactions/bridge/setup/upsert_contract_code_chunks.cdc",
-        ["bridgedToken", bridgedTokenCodeChunks],
-        serviceAccount
-    )
-    Test.expect(bridgedNFTChunkResult, Test.beSucceeded())
+    tempUpsertBridgeTemplateChunks(serviceAccount)
 
     // create deployer account and fund it
     transferFlow(signer: serviceAccount, recipient: deployerAccount.address, amount: 101.0)
