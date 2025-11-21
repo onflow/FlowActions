@@ -62,9 +62,6 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
-        // NEW: Configurable max price impact in basis points (500 = 5%, 100 = 1%, 1000 = 10%)
-        access(self) let maxPriceImpactBps: UInt
-
         init(
             factoryAddress: EVM.EVMAddress,
             routerAddress: EVM.EVMAddress,
@@ -74,8 +71,7 @@ access(all) contract UniswapV3SwapConnectors {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DeFiActions.UniqueIdentifier?,
-            maxPriceImpactBps: UInt?  // NEW: Optional parameter, defaults to 500 (5%)
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
@@ -86,8 +82,6 @@ access(all) contract UniswapV3SwapConnectors {
                     "Provided outVault \(outVault.identifier) is not associated with ERC20 at tokenPath[last]"
                 coaCapability.check():
                     "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
-                maxPriceImpactBps == nil || (maxPriceImpactBps! > 0 && maxPriceImpactBps! <= 5000):
-                    "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
             }
             self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
@@ -98,7 +92,6 @@ access(all) contract UniswapV3SwapConnectors {
             self.outVault = outVault
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
-            self.maxPriceImpactBps = maxPriceImpactBps ?? 500  // Default to 5%
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -259,9 +252,8 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        /// Simplified getMaxAmount using configurable price impact
+        /// Simplified getMaxAmount using default 5% price impact
         /// Uses current liquidity as proxy for max swappable amount
-        /// Price impact is configurable via maxPriceImpactBps (in basis points)
         access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
             
@@ -312,9 +304,9 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on maxPriceImpactBps
+            // Calculate price multiplier based on 5% price impact (500 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
-            let bps: UInt256 = UInt256(self.maxPriceImpactBps)
+            let bps: UInt256 = 500
             let Q96: UInt256 = 0x1000000000000000000000000
             let sqrtPriceX96_256: UInt256 = UInt256(sqrtPriceX96)
             let L_256: UInt256 = UInt256(L)
