@@ -11,6 +11,7 @@ import "DeFiActions"
 access(all) let serviceAccount = Test.serviceAccount()
 
 access(all) fun setup() {
+    log("================== Setting up EVMNativeFLOWConnectors test ==================")
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",

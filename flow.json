@@ -155,7 +155,7 @@
 			"hash": "e70ddc2f0c7c72158a3f6c68de3a131e1f49e2908ad83eac0308f9e2953957d5",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -191,7 +191,7 @@
 			"hash": "8fe69f487164caffedab68b52a584fa7aa4d54a0061f4f211998c73a619fbea5",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -200,7 +200,7 @@
 			"hash": "9f055ad902e7de5619a2b0f2dc91826ac9c4f007afcd6df9f5b8229c0ca94531",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -218,7 +218,7 @@
 			"hash": "9cd0f897b19c0394e9042225e5758d6ae529a0cce19b19ae05bde8e0f14aa10b",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -227,7 +227,7 @@
 			"hash": "888ba0aab5e961924c47b819f4a9f410449c39745e0d3eab20738bf10ef2ed0f",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -236,7 +236,7 @@
 			"hash": "3c09f74467f22dac7bc02b2fdf462213b2f8ddfb513cd890ad0c2a7016507be3",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -245,7 +245,7 @@
 			"hash": "4651183c3f04f8c5faaa35106b3ab66060ce9868590adb33f3be1900c12ea196",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -254,7 +254,7 @@
 			"hash": "14d1f4ddd347f45d331e543830b94701e1aa1513c56d55c0019c7fac46d8a572",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -263,7 +263,7 @@
 			"hash": "e32154f2a556e53328a0fce75f1e98b57eefd2a8cb626e803b7d39d452691444",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -272,7 +272,7 @@
 			"hash": "7e8adff1dca0ea1d2e361c17de9eca020f82cabc00a52679078752bf85adb004",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -281,7 +281,7 @@
 			"hash": "30257592838edfd4b72700f43bf0326f6903e879f82ac5ca549561d9863c6fe6",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -290,7 +290,7 @@
 			"hash": "c1ac18e92828616771df5ff5d6de87866f2742ca4ce196601c11e977e4f63bb3",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -299,7 +299,7 @@
 			"hash": "78b8115eb0ef2be4583acbe655f0c5128c39712084ec23ce47820ea154141898",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -308,7 +308,7 @@
 			"hash": "49df9c8e5d0dd45abd5bf94376d3b9045299b3c2a5ba6caf48092c916362358d",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -317,7 +317,7 @@
 			"hash": "634ed6dde03eb8f027368aa7861889ce1f5099160903493a7a39a86c9afea14b",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -396,7 +396,7 @@
 			"hash": "431a51a6cca87773596f79832520b19499fe614297eaef347e49383f2ae809af",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -405,7 +405,7 @@
 			"hash": "b95c36eef516da7cd4d2f507cd48288cc16b1d6605ff03b6fcd18161ff2d82e7",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -414,7 +414,7 @@
 			"hash": "d9c7b2bd9fdcc454180c33b3509a5a060a7fe4bd49bce38818f22fd08acb8ba0",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -423,7 +423,7 @@
 			"hash": "e2ad15c495ad7fbf4ab744bccaf8c4334dfb843b50f09e9681ce9a5067dbf049",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -432,7 +432,7 @@
 			"hash": "0ef39c6cb476f0eea2c835900b6a5a83c1ed5f4dbaaeb29cb68ad52c355a40e6",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -441,7 +441,7 @@
 			"hash": "2d495e896510a10bbc7307739aca9341633cac4c7fe7dad32488a81f90a39dd9",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -450,7 +450,7 @@
 			"hash": "87f7d752da8446e73acd3bf4aa17fe5c279d9641b7976c56561af01bc5240ea4",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -477,7 +477,7 @@
 			"hash": "77213f9588ec9862d07c4706689424ad7c1d8f043d5970d96bf18764bb936fc3",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -486,7 +486,7 @@
 			"hash": "064bb0d7b6c24ee1ed370cbbe9e0cda2a4e0955247de5e3e81f2f3a8a8cabfb7",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -495,7 +495,7 @@
 			"hash": "e9f84ea07e29cae05ee0d9264596eb281c291fc1090a10ce3de1a042b4d671da",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
@@ -531,7 +531,7 @@
 			"hash": "28ac1a744ac7fb97253cba007a520a9ec1c2e14458d1bd1add1424fa19282c03",
 			"aliases": {
 				"mainnet": "1e4aa0b87d10b141",
-				"testing": "0000000000000007",
+				"testing": "0000000000000001",
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
