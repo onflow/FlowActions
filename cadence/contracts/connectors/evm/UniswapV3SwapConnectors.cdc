@@ -304,9 +304,9 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 5% price impact (500 bps)
+            // Calculate price multiplier based on 5% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
-            let bps: UInt256 = 500
+            let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
             let sqrtPriceX96_256: UInt256 = UInt256(sqrtPriceX96)
             let L_256: UInt256 = UInt256(L)
@@ -340,8 +340,7 @@ access(all) contract UniswapV3SwapConnectors {
                 maxAmount = (L_256 * deltaSqrt) / Q96
             }
             
-            // Return 80% of calculated max for additional safety margin
-            return (maxAmount * 4) / 5
+            return maxAmount
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
