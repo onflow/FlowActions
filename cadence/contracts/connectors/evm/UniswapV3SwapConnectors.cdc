@@ -62,7 +62,6 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
-        // NEW: Configurable max price impact in basis points (500 = 5%, 100 = 1%, 1000 = 10%)
         access(self) let maxPriceImpactBps: UInt
 
         init(
@@ -75,7 +74,7 @@ access(all) contract UniswapV3SwapConnectors {
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
             uniqueID: DeFiActions.UniqueIdentifier?,
-            maxPriceImpactBps: UInt?  // NEW: Optional parameter, defaults to 500 (5%)
+            maxPriceImpactBps: UInt?
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
@@ -98,7 +97,7 @@ access(all) contract UniswapV3SwapConnectors {
             self.outVault = outVault
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
-            self.maxPriceImpactBps = maxPriceImpactBps ?? 500  // Default to 5%
+            self.maxPriceImpactBps = maxPriceImpactBps ?? 600  // Default to 6%
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -348,8 +347,7 @@ access(all) contract UniswapV3SwapConnectors {
                 maxAmount = (L_256 * deltaSqrt) / Q96
             }
             
-            // Return 80% of calculated max for additional safety margin
-            return (maxAmount * 4) / 5
+            return maxAmount
         }
 
         /// Quote using the Uniswap V3 Quoter via dryCall
