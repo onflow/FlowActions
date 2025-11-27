@@ -1108,17 +1108,15 @@ access(all) contract DeFiActions {
             )
             // post-estimate check if the estimate is valid & that the funder has enough funds of the correct type
             // NOTE: low priority estimates always receive non-nil errors but are still valid if fee is also non-nil
-            if (estimate.flowFee == nil && estimate.error != nil)
-                || config.txnFunder.minimumAvailable() < estimate.flowFee!
-                || config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
-                var errorMessage = estimate.error!
-                if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
-                    errorMessage = "INVALID_FEE_TYPE"
-                } else if config.txnFunder.minimumAvailable() < (estimate.flowFee! * 1.05) {
-                    // Check with 5% margin buffer to match withdrawal
-                    errorMessage = "INSUFFICIENT_FEES_AVAILABLE"
-                }
-                return errorMessage
+            if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
+                return "INVALID_FEE_TYPE"
+            }
+            if estimate.flowFee == nil {
+                return estimate.error ?? "ESTIMATE_FAILED"
+            }
+            if config.txnFunder.minimumAvailable() < (estimate.flowFee! * 1.05) {
+                // Check with 5% margin buffer to match withdrawal
+                return "INSUFFICIENT_FEES_AVAILABLE"
             }
 
             // withdraw the fees from the funder with a margin buffer (fee estimation can vary slightly)
