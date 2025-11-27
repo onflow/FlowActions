@@ -749,7 +749,7 @@
 			}
 		},
 		"testnet-uniswapV3-swap-connectors": {
-			"address": "3ebb7d2595e97cd2",
+			"address": "2cacd41b63212a6f",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
