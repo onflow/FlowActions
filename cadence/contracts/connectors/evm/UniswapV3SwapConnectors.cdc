@@ -62,7 +62,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
-        access(self) let maxPriceImpactBps: UInt
+        access(self) var maxPriceImpactBps: UInt
 
         init(
             factoryAddress: EVM.EVMAddress,
@@ -73,8 +73,7 @@ access(all) contract UniswapV3SwapConnectors {
             inVault: Type,
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DeFiActions.UniqueIdentifier?,
-            maxPriceImpactBps: UInt?
+            uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
@@ -85,8 +84,6 @@ access(all) contract UniswapV3SwapConnectors {
                     "Provided outVault \(outVault.identifier) is not associated with ERC20 at tokenPath[last]"
                 coaCapability.check():
                     "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
-                maxPriceImpactBps == nil || (maxPriceImpactBps! > 0 && maxPriceImpactBps! <= 5000):
-                    "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
             }
             self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
@@ -97,7 +94,7 @@ access(all) contract UniswapV3SwapConnectors {
             self.outVault = outVault
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
-            self.maxPriceImpactBps = maxPriceImpactBps ?? 600  // Default to 6%
+            self.maxPriceImpactBps = 600  // 6% max price impact
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -115,6 +112,13 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(all) view fun inType(): Type { return self.inVault }
         access(all) view fun outType(): Type { return self.outVault }
+
+        access(all) fun setMaxPriceImpactBps(_ bps: UInt) {
+            pre {
+                bps > 0 && bps <= 5000: "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
+            }
+            self.maxPriceImpactBps = bps
+        }
 
         /// Estimate required input for a desired output
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {

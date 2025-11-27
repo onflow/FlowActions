@@ -1,4 +1,15 @@
 {
     "cadence.accessCheckMode": "none",
-    "cadence.customConfigPath": "./flow.json"
+    "cadence.customConfigPath": "./flow.json",
+    "wake.compiler.solc.remappings": [
+        "flow-sol-utils/=solidity/lib/flow-sol-utils/",
+        "forge-std/=solidity/lib/forge-std/src/",
+        "@openzeppelincontracts/=solidity/lib/openzeppelin-contracts/",
+        "@openzeppelin/contracts/=solidity/lib/openzeppelin-contracts/contracts/",
+        "erc4626-tests/=solidity/lib/openzeppelin-contracts/lib/erc4626-tests/",
+        "halmos-cheatcodes/=solidity/lib/openzeppelin-contracts/lib/halmos-cheatcodes/src/",
+        "openzeppelin-contracts/=solidity/lib/openzeppelin-contracts/",
+        "v2-core/=solidity/lib/v2-core/contracts/",
+        "v2-periphery/=solidity/lib/v2-periphery/contracts/"
+    ]
 }
