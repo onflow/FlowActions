@@ -1019,10 +1019,11 @@ access(all) contract DeFiActions {
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
             self.rebalance(force: force)
 
-            // if configured as recurring & this transaction is internally managed, schedule the next execution
-            // NOTE: externally scheduled transactions will not automatically schedule the next execution
-            let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
-            if self._recurringConfig != nil && isInternallyManaged {
+            // If configured as recurring, ALWAYS attempt to schedule the next execution.
+            // This ensures that even externally-scheduled transactions (e.g., Supervisor recovery)
+            // will restart the self-scheduling cycle. The scheduleNextRebalance function already
+            // handles deduplication by checking for existing scheduled transactions within the interval.
+            if self._recurringConfig != nil {
                 let err = self.scheduleNextRebalance(whileExecuting: id)
                 if err != nil {
                     emit FailedRecurringSchedule(
