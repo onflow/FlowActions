@@ -252,7 +252,7 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        /// Simplified getMaxAmount using default 5% price impact
+        /// Simplified getMaxAmount using default 6% price impact
         /// Uses current liquidity as proxy for max swappable amount
         access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
@@ -304,7 +304,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 5% price impact (600 bps)
+            // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
