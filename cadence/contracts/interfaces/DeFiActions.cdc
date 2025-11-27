@@ -1017,21 +1017,15 @@ access(all) contract DeFiActions {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
             let dataDict = data as? {String: AnyStruct} ?? {}
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
-            // restartRecurring: when true, signals that this externally-scheduled transaction
-            // should restart the AutoBalancer's self-scheduling cycle (e.g., Supervisor recovery)
-            let restartRecurring = dataDict["restartRecurring"] as? Bool ?? false
             
             self.rebalance(force: force)
 
-            // If configured as recurring, schedule the next execution if:
-            // 1. This transaction is internally managed (normal self-scheduling cycle), OR
-            // 2. The caller explicitly requested to restart recurring (recovery scenario)
-            //
-            // By default, externally-scheduled transactions are treated as "fire once" to support
+            // If configured as recurring, schedule the next execution only if this is an internally-managed
+            // scheduled transaction. Externally-scheduled transactions are treated as "fire once" to support
             // external scheduling logic that manages its own recurring behavior.
             if self._recurringConfig != nil {
                 let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
-                if isInternallyManaged || restartRecurring {
+                if isInternallyManaged {
                     let err = self.scheduleNextRebalance(whileExecuting: id)
                     if err != nil {
                         emit FailedRecurringSchedule(
