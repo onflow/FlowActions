@@ -1114,14 +1114,17 @@ access(all) contract DeFiActions {
                 var errorMessage = estimate.error!
                 if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
                     errorMessage = "INVALID_FEE_TYPE"
-                } else if config.txnFunder.minimumAvailable() < estimate.flowFee! {
+                } else if config.txnFunder.minimumAvailable() < (estimate.flowFee! * 1.05) {
+                    // Check with 5% margin buffer to match withdrawal
                     errorMessage = "INSUFFICIENT_FEES_AVAILABLE"
                 }
                 return errorMessage
             }
 
-            // withdraw the fees from the funder & post-withdraw check that the provided fees are sufficient
-            let fees <- config.txnFunder.withdrawAvailable(maxAmount: estimate.flowFee!) as! @FlowToken.Vault
+            // withdraw the fees from the funder with a margin buffer (fee estimation can vary slightly)
+            // Add 5% margin to handle estimation variance
+            let feeWithMargin = estimate.flowFee! * 1.05
+            let fees <- config.txnFunder.withdrawAvailable(maxAmount: feeWithMargin) as! @FlowToken.Vault
             if fees.balance < estimate.flowFee! {
                 config.txnFunder.depositCapacity(from: &fees as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 destroy fees
