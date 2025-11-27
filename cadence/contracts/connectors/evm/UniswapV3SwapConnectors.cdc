@@ -74,7 +74,8 @@ access(all) contract UniswapV3SwapConnectors {
             outVault: Type,
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
             uniqueID: DeFiActions.UniqueIdentifier?,
-            maxPriceImpactBps: UInt?
+            maxPriceImpactBps: UInt?,
+            maxSlippageBps: UInt?
         ) {
             pre {
                 tokenPath.length >= 2: "tokenPath must contain at least two addresses"
@@ -87,6 +88,8 @@ access(all) contract UniswapV3SwapConnectors {
                     "Provided COA Capability is invalid - need Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>"
                 maxPriceImpactBps == nil || (maxPriceImpactBps! > 0 && maxPriceImpactBps! <= 5000):
                     "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
+                maxSlippageBps == nil || (maxSlippageBps! > 0 && maxSlippageBps! <= 1000):
+                    "maxPriceImpactBps must be between 1 and 5000 (0.01% to 10%)"
             }
             self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
@@ -98,6 +101,7 @@ access(all) contract UniswapV3SwapConnectors {
             self.coaCapability = coaCapability
             self.uniqueID = uniqueID
             self.maxPriceImpactBps = maxPriceImpactBps ?? 600  // Default to 6%
+            self.maxSlippageBps = maxSlippageBps ?? 100 // Default to 1%
         }
 
         /* --- DeFiActions.Swapper conformance --- */
@@ -413,7 +417,7 @@ access(all) contract UniswapV3SwapConnectors {
             }
 
             // Slippage/min out on EVM units (adjust factor to your policy)
-            let slippage = UFix64(self.maxPriceImpactBps) / 10000.0 // convert bps to percents
+            let slippage = UFix64(self.maxSlippageBps) / 10000.0 // convert bps to percents
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 amountOutMin * (1.0 - slippage),
                 erc20Address: outToken
