@@ -62,7 +62,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) let coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>
 
-        access(self) var maxPriceImpactBps: UInt
+        access(self) let maxPriceImpactBps: UInt
 
         init(
             factoryAddress: EVM.EVMAddress,
@@ -112,13 +112,6 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(all) view fun inType(): Type { return self.inVault }
         access(all) view fun outType(): Type { return self.outVault }
-
-        access(all) fun setMaxPriceImpactBps(_ bps: UInt) {
-            pre {
-                bps > 0 && bps <= 5000: "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
-            }
-            self.maxPriceImpactBps = bps
-        }
 
         /// Estimate required input for a desired output
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
