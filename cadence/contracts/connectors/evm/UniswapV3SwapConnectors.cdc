@@ -89,7 +89,7 @@ access(all) contract UniswapV3SwapConnectors {
                 maxPriceImpactBps == nil || (maxPriceImpactBps! > 0 && maxPriceImpactBps! <= 5000):
                     "maxPriceImpactBps must be between 1 and 5000 (0.01% to 50%)"
                 maxSlippageBps == nil || (maxSlippageBps! > 0 && maxSlippageBps! <= 1000):
-                    "maxPriceImpactBps must be between 1 and 5000 (0.01% to 10%)"
+                    "maxPriceImpactBps must be between 1 and 1000 (0.01% to 10%)"
             }
             self.factoryAddress = factoryAddress
             self.routerAddress = routerAddress
