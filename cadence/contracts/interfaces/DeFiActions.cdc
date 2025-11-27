@@ -1017,22 +1017,31 @@ access(all) contract DeFiActions {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
             let dataDict = data as? {String: AnyStruct} ?? {}
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
+            // restartRecurring: when true, signals that this externally-scheduled transaction
+            // should restart the AutoBalancer's self-scheduling cycle (e.g., Supervisor recovery)
+            let restartRecurring = dataDict["restartRecurring"] as? Bool ?? false
+            
             self.rebalance(force: force)
 
-            // If configured as recurring, ALWAYS attempt to schedule the next execution.
-            // This ensures that even externally-scheduled transactions (e.g., Supervisor recovery)
-            // will restart the self-scheduling cycle. The scheduleNextRebalance function already
-            // handles deduplication by checking for existing scheduled transactions within the interval.
+            // If configured as recurring, schedule the next execution if:
+            // 1. This transaction is internally managed (normal self-scheduling cycle), OR
+            // 2. The caller explicitly requested to restart recurring (recovery scenario)
+            //
+            // By default, externally-scheduled transactions are treated as "fire once" to support
+            // external scheduling logic that manages its own recurring behavior.
             if self._recurringConfig != nil {
-                let err = self.scheduleNextRebalance(whileExecuting: id)
-                if err != nil {
-                    emit FailedRecurringSchedule(
-                        whileExecuting: id,
-                        balancerUUID: self.uuid,
-                        address: self.owner?.address,
-                        error: err!,
-                        uniqueID: self.uniqueID?.id
-                    )
+                let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
+                if isInternallyManaged || restartRecurring {
+                    let err = self.scheduleNextRebalance(whileExecuting: id)
+                    if err != nil {
+                        emit FailedRecurringSchedule(
+                            whileExecuting: id,
+                            balancerUUID: self.uuid,
+                            address: self.owner?.address,
+                            error: err!,
+                            uniqueID: self.uniqueID?.id
+                        )
+                    }
                 }
             }
             // clean up internally-managed historical scheduled transactions
