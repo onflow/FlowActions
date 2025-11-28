@@ -1017,21 +1017,25 @@ access(all) contract DeFiActions {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
             let dataDict = data as? {String: AnyStruct} ?? {}
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
+            
             self.rebalance(force: force)
 
-            // if configured as recurring & this transaction is internally managed, schedule the next execution
-            // NOTE: externally scheduled transactions will not automatically schedule the next execution
-            let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
-            if self._recurringConfig != nil && isInternallyManaged {
-                let err = self.scheduleNextRebalance(whileExecuting: id)
-                if err != nil {
-                    emit FailedRecurringSchedule(
-                        whileExecuting: id,
-                        balancerUUID: self.uuid,
-                        address: self.owner?.address,
-                        error: err!,
-                        uniqueID: self.uniqueID?.id
-                    )
+            // If configured as recurring, schedule the next execution only if this is an internally-managed
+            // scheduled transaction. Externally-scheduled transactions are treated as "fire once" to support
+            // external scheduling logic that manages its own recurring behavior.
+            if self._recurringConfig != nil {
+                let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
+                if isInternallyManaged {
+                    let err = self.scheduleNextRebalance(whileExecuting: id)
+                    if err != nil {
+                        emit FailedRecurringSchedule(
+                            whileExecuting: id,
+                            balancerUUID: self.uuid,
+                            address: self.owner?.address,
+                            error: err!,
+                            uniqueID: self.uniqueID?.id
+                        )
+                    }
                 }
             }
             // clean up internally-managed historical scheduled transactions
@@ -1098,20 +1102,21 @@ access(all) contract DeFiActions {
             )
             // post-estimate check if the estimate is valid & that the funder has enough funds of the correct type
             // NOTE: low priority estimates always receive non-nil errors but are still valid if fee is also non-nil
-            if (estimate.flowFee == nil && estimate.error != nil)
-                || config.txnFunder.minimumAvailable() < estimate.flowFee!
-                || config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
-                var errorMessage = estimate.error!
-                if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
-                    errorMessage = "INVALID_FEE_TYPE"
-                } else if config.txnFunder.minimumAvailable() < estimate.flowFee! {
-                    errorMessage = "INSUFFICIENT_FEES_AVAILABLE"
-                }
-                return errorMessage
+            if config.txnFunder.getSourceType() != Type<@FlowToken.Vault>() {
+                return "INVALID_FEE_TYPE"
+            }
+            if estimate.flowFee == nil {
+                return estimate.error ?? "ESTIMATE_FAILED"
+            }
+            if config.txnFunder.minimumAvailable() < (estimate.flowFee! * 1.05) {
+                // Check with 5% margin buffer to match withdrawal
+                return "INSUFFICIENT_FEES_AVAILABLE"
             }
 
-            // withdraw the fees from the funder & post-withdraw check that the provided fees are sufficient
-            let fees <- config.txnFunder.withdrawAvailable(maxAmount: estimate.flowFee!) as! @FlowToken.Vault
+            // withdraw the fees from the funder with a margin buffer (fee estimation can vary slightly)
+            // Add 5% margin to handle estimation variance
+            let feeWithMargin = estimate.flowFee! * 1.05
+            let fees <- config.txnFunder.withdrawAvailable(maxAmount: feeWithMargin) as! @FlowToken.Vault
             if fees.balance < estimate.flowFee! {
                 config.txnFunder.depositCapacity(from: &fees as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
                 destroy fees
