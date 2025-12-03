@@ -165,7 +165,7 @@
 			"aliases": {
 				"mainnet": "6801a6222ebf784a",
 				"testing": "0000000000000007",
-				"testnet": "2c71de7af78d1adf"
+				"testnet": "9fb6606c300b5051"
 			}
 		},
 		"Burner": {
@@ -675,7 +675,7 @@
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
-		},
+	},
 		"mainnet-uniswapv2-swap-connectors": {
 			"address": "f94f371678513b2b",
 			"key": {
