@@ -675,7 +675,7 @@
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
-	},
+		},
 		"mainnet-uniswapv2-swap-connectors": {
 			"address": "f94f371678513b2b",
 			"key": {
