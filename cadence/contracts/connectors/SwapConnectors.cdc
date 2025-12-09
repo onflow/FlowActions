@@ -186,14 +186,15 @@ access(all) contract SwapConnectors {
         /// Returns the the index of the optimal Swapper (result[0]) and the associated amountOut or amountIn (result[0])
         /// as a UFix64 array
         access(self) fun _estimate(amount: UFix64, out: Bool, reverse: Bool): [UFix64; 2] {
-            var res: [UFix64; 2] = [0.0, 0.0]
+            var res: [UFix64; 2] = out ? [0.0, 0.0] : [0.0, UFix64.max] // maximizing for out, minimizing for in
             for i in InclusiveRange(0, self.swappers.length - 1) {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
                 // call the appropriate estimator
                 let estimate = out
                     ? swapper.quoteOut(forProvided: amount, reverse: reverse).outAmount
                     : swapper.quoteIn(forDesired: amount, reverse: reverse).inAmount
-                if (out ? res[1] < estimate : estimate < res[1]) {
+                // estimates of 0.0 are presumed to be graceful failures - skip them
+                if estimate > 0.0 && (out ? res[1] < estimate : estimate < res[1]) {
                     // take minimum for in, maximum for out
                     res = [UFix64(i), estimate]
                 }

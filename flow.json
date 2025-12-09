@@ -748,20 +748,20 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"testnet-uniswapv2-swap-connectors": {
-			"address": "5f1153f29b57747f",
-			"key": {
-				"type": "google-kms",
-				"hashAlgorithm": "SHA2_256",
-				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
-			}
-		},
 		"testnet-uniswapV3-swap-connectors": {
 			"address": "3ebb7d2595e97cd2",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/dl-flow-devex-staging/locations/us-central1/keyRings/tidal-keyring/cryptoKeys/tidal_admin_pk/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-uniswapv2-swap-connectors": {
+			"address": "5f1153f29b57747f",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		}
 	},
@@ -888,12 +888,12 @@
 			"testnet-swap-connectors": [
 				"SwapConnectors"
 			],
-			"testnet-uniswapv2-swap-connectors": [
-				"UniswapV2SwapConnectors"
-			],
 			"testnet-uniswapV3-swap-connectors": [
 				"EVMAbiHelpers",
 				"UniswapV3SwapConnectors"
+			],
+			"testnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
 			]
 		}
 	}
