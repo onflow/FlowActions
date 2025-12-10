@@ -89,13 +89,13 @@ fun testConnectorMockSwapSucceeds() {
             "outVault": Type<@TokenB.Vault>(),
             "inVaultPath": TokenA.VaultStoragePath,
             "outVaultPath": TokenB.VaultStoragePath,
-            "priceRatio": 0.5
+            "priceRatio": priceRatio
         }, {
             "inVault": Type<@TokenB.Vault>(),
             "outVault": Type<@TokenC.Vault>(),
             "inVaultPath": TokenB.VaultStoragePath,
             "outVaultPath": TokenC.VaultStoragePath,
-            "priceRatio": 0.5
+            "priceRatio": priceRatio
         }
     ]
     let expectedOut = amountIn * priceRatio * priceRatio
@@ -136,13 +136,13 @@ fun testConnectorMockSwapBackSucceeds() {
             "outVault": Type<@TokenB.Vault>(),
             "inVaultPath": TokenA.VaultStoragePath,
             "outVaultPath": TokenB.VaultStoragePath,
-            "priceRatio": 0.5
+            "priceRatio": priceRatio
         }, {
             "inVault": Type<@TokenB.Vault>(),
             "outVault": Type<@TokenC.Vault>(),
             "inVaultPath": TokenB.VaultStoragePath,
             "outVaultPath": TokenC.VaultStoragePath,
-            "priceRatio": 0.5
+            "priceRatio": priceRatio
         }
     ]
     let expectedOut = amountIn / priceRatio / priceRatio

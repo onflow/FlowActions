@@ -397,19 +397,33 @@ access(all) contract SwapConnectors {
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            var inAmount = forDesired
+            var tmpAmount = forDesired
+            var finalOutAmount = forDesired
+
+            // walk through the swappers in the sequence starting with the output based on direction of swap
             let range = reverse
-                ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
-                : InclusiveRange(0, self.swappers.length - 1)
+                ? InclusiveRange(0, self.swappers.length - 1)
+                : InclusiveRange(self.swappers.length - 1, 0, step: -1)
             for i in range {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
-                inAmount = swapper.quoteIn(forDesired: inAmount, reverse: reverse).inAmount
+                let quote = swapper.quoteIn(forDesired: tmpAmount, reverse: reverse)
+                if quote.inAmount == 0.0 || quote.outAmount == 0.0 {
+                    return SwapConnectors.BasicQuote(
+                        inType: reverse ? self.outType() : self.inType(),
+                        outType: reverse ? self.inType() : self.outType(),
+                        inAmount: 0.0,
+                        outAmount: 0.0
+                    )
+                }
+                if i == range.start { finalOutAmount = quote.outAmount; }
+                tmpAmount = quote.inAmount
             }
-            return BasicQuote(
-                inType: self.inVault,
-                outType: self.outVault,
-                inAmount: inAmount,
-                outAmount: forDesired
+
+            return SwapConnectors.BasicQuote(
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
+                inAmount: tmpAmount,
+                outAmount: finalOutAmount
             )
         }
         /// The estimated amount delivered out for a provided input balance
@@ -422,19 +436,33 @@ access(all) contract SwapConnectors {
         ///     result.inAmount and result.outAmount will be 0.0 if an estimate is not available
         ///
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            var outAmount = forProvided
+            var tmpAmount = forProvided
+            var finalInAmount = forProvided
+
+            // walk through the swappers in the sequence starting with the input based on direction of swap
             let range = reverse
                 ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
                 : InclusiveRange(0, self.swappers.length - 1)
             for i in range {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
-                outAmount = swapper.quoteOut(forProvided: outAmount, reverse: reverse).outAmount
+                let quote = swapper.quoteOut(forProvided: tmpAmount, reverse: reverse)
+                if quote.inAmount == 0.0 || quote.outAmount == 0.0 {
+                    return SwapConnectors.BasicQuote(
+                        inType: reverse ? self.outType() : self.inType(),
+                        outType: reverse ? self.inType() : self.outType(),
+                        inAmount: 0.0,
+                        outAmount: 0.0
+                    )
+                }
+                if i == range.start { finalInAmount = quote.inAmount; }
+                tmpAmount = quote.outAmount
             }
+
             return BasicQuote(
-                inType: self.outVault,
-                outType: self.inVault,
-                inAmount: forProvided,
-                outAmount: outAmount
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
+                inAmount: finalInAmount,
+                outAmount: tmpAmount
             )
         }
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Callers should be careful
