@@ -25,6 +25,7 @@ access(all) let autoBalancerPublicPath = /public/autoBalancerTest
 access(all) var snapshot: UInt64 = 0
 
 access(all) fun setup() {
+    log("================== Setting up AutoBalancer test ==================")
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",

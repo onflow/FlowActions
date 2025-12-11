@@ -26,6 +26,7 @@ access(all) let testAdminSeedAmount: UFix64 = 1000.0
 access(all) let testLimitAmount: UFix64 = 1000000.0
 
 access(all) fun beforeEach() {
+    log("================== Setting up IncrementFiStakingConnectors test ==================")
     // Reset the blockchain state before each test
     // We cannot reset to the same block height, so we need to
     // commit a block first to ensure that the state is clean.

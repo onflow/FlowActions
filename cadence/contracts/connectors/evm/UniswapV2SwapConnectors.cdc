@@ -240,7 +240,7 @@ access(all) contract UniswapV2SwapConnectors {
             }
             // perform the swap
             res = self.call(to: self.routerAddress,
-                signature: "swapExactTokensForTokens(uint,uint,address[],address,uint)", // amountIn, amountOutMin, path, to, deadline (timestamp)
+                signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", // amountIn, amountOutMin, path, to, deadline (timestamp)
                 args: [evmAmountIn, UInt256(0), (reverse ? self.addressPath.reverse() : self.addressPath), coa.address(), UInt256(getCurrentBlock().timestamp)],
                 gasLimit: 1_000_000,
                 value: 0,
@@ -248,7 +248,7 @@ access(all) contract UniswapV2SwapConnectors {
             )!
             if res.status != EVM.Status.successful {
                 // revert because the funds have already been deposited to the COA - a no-op would leave the funds in EVM
-                UniswapV2SwapConnectors._callError("swapExactTokensForTokens(uint,uint,address[],address,uint)",
+                UniswapV2SwapConnectors._callError("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
                     res, self.routerAddress, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)

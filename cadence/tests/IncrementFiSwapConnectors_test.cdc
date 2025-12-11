@@ -20,6 +20,7 @@ access(all) let tokenBKey = String.join(tokenBIdentifier.split(separator: ".").s
 
 access(all)
 fun setup() {
+    log("================== Setting up IncrementFiSwapConnectors test ==================")
     setupIncrementFiDependencies()
 
     var err = Test.deployContract(
