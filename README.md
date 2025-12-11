@@ -41,7 +41,7 @@ DeFiActions is currently in **beta status** and undergoing active development. I
 | ERC4626SwapConnectors | 0x7014dcffa1f14186 | 0x04f5ae6bef48c1fc |
 | EVMNativeFLOWConnectors | 0xbee3f3636cec263a | 0x1a771b21fcceadc2 |
 | EVMTokenConnectors | 0xbee3f3636cec263a | 0x1a771b21fcceadc2 |
-| SwapConnectors | 0xaddd594cf410166a | 0xe1a479f0cb911df9 |
+| SwapConnectors | 0xad228f1c13a97ec1 | 0xe1a479f0cb911df9 |
 | IncrementFiSwapConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
 | IncrementFiFlashloanConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
 | IncrementFiPoolLiquidityConnectors | 0x494536c102537e1e | 0xe844c7cf7430a77c |
