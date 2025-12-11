@@ -82,35 +82,41 @@ fun setup() {
 access(all)
 fun testConnectorMockSwapSucceeds() {
     let amountIn = 10.0
-    let priceRatio = 0.5
+    let priceRatio1 = 0.5
+    let priceRatio2 = 0.2
     let mockSwapperConfigs: [{String: AnyStruct}] = [
         {
             "inVault": Type<@TokenA.Vault>(),
             "outVault": Type<@TokenB.Vault>(),
             "inVaultPath": TokenA.VaultStoragePath,
             "outVaultPath": TokenB.VaultStoragePath,
-            "priceRatio": priceRatio
+            "priceRatio": priceRatio1
         }, {
             "inVault": Type<@TokenB.Vault>(),
             "outVault": Type<@TokenC.Vault>(),
             "inVaultPath": TokenB.VaultStoragePath,
             "outVaultPath": TokenC.VaultStoragePath,
-            "priceRatio": priceRatio
+            "priceRatio": priceRatio2
         }
     ]
-    let expectedOut = amountIn * priceRatio * priceRatio
+    let inType = Type<@TokenA.Vault>()
+    let outType = Type<@TokenC.Vault>()
+    let expectedOut = amountIn * priceRatio1 * priceRatio2
 
     let quoteOut = executeScript(
             "./scripts/sequential-swapper/mock_quote.cdc",
-            [testTokenAccount.address, mockSwapperConfigs, amountIn, true, false]
+            [testTokenAccount.address, mockSwapperConfigs, amountIn, true, false] // out=true, reverse=false
         )
     Test.expect(quoteOut, Test.beSucceeded())
     let actualQuoteOut = quoteOut.returnValue! as! {DeFiActions.Quote}
+    Test.assertEqual(inType, actualQuoteOut.inType)
+    Test.assertEqual(outType, actualQuoteOut.outType)
+    Test.assertEqual(amountIn, actualQuoteOut.inAmount)
     Test.assertEqual(expectedOut, actualQuoteOut.outAmount)
 
     let quoteIn = executeScript(
             "./scripts/sequential-swapper/mock_quote.cdc",
-            [testTokenAccount.address, mockSwapperConfigs, expectedOut, false, false]
+            [testTokenAccount.address, mockSwapperConfigs, expectedOut, false, false] // out=false, reverse=false
         )
     Test.expect(quoteIn, Test.beSucceeded())
     let actualQuoteIn = quoteIn.returnValue! as! {DeFiActions.Quote}
@@ -129,38 +135,45 @@ access(all)
 fun testConnectorMockSwapBackSucceeds() {
     log("testConnectorMockSwapBackSucceeds() =================================================")
     let amountIn = 10.0
-    let priceRatio = 0.5
+    let priceRatio1 = 0.5
+    let priceRatio2 = 0.2
     let mockSwapperConfigs: [{String: AnyStruct}] = [
         {
             "inVault": Type<@TokenA.Vault>(),
             "outVault": Type<@TokenB.Vault>(),
             "inVaultPath": TokenA.VaultStoragePath,
             "outVaultPath": TokenB.VaultStoragePath,
-            "priceRatio": priceRatio
+            "priceRatio": priceRatio1
         }, {
             "inVault": Type<@TokenB.Vault>(),
             "outVault": Type<@TokenC.Vault>(),
             "inVaultPath": TokenB.VaultStoragePath,
             "outVaultPath": TokenC.VaultStoragePath,
-            "priceRatio": priceRatio
+            "priceRatio": priceRatio2
         }
     ]
-    let expectedOut = amountIn / priceRatio / priceRatio
+    // default direction is inType -> outType
+    let inType = Type<@TokenA.Vault>()
+    let outType = Type<@TokenC.Vault>()
+    let expectedOut = amountIn / priceRatio1 / priceRatio2
 
     log("inAmount: \(amountIn)")
     log("expectedOut: \(expectedOut)")
 
     let quoteOut = executeScript(
             "./scripts/sequential-swapper/mock_quote.cdc",
-            [testTokenAccount.address, mockSwapperConfigs, amountIn, true, true]
+            [testTokenAccount.address, mockSwapperConfigs, amountIn, true, true] // out=true, reverse=true
         )
     Test.expect(quoteOut, Test.beSucceeded())
     let actualQuoteOut = quoteOut.returnValue! as! {DeFiActions.Quote}
+    Test.assertEqual(inType, actualQuoteOut.outType) // reverse direction
+    Test.assertEqual(outType, actualQuoteOut.inType) // reverse direction
+    Test.assertEqual(amountIn, actualQuoteOut.inAmount)
     Test.assertEqual(expectedOut, actualQuoteOut.outAmount)
 
     let quoteIn = executeScript(
             "./scripts/sequential-swapper/mock_quote.cdc",
-            [testTokenAccount.address, mockSwapperConfigs, expectedOut, false, true]
+            [testTokenAccount.address, mockSwapperConfigs, expectedOut, false, true] // out=false, reverse=true
         )
     Test.expect(quoteIn, Test.beSucceeded())
     let actualQuoteIn = quoteIn.returnValue! as! {DeFiActions.Quote}
