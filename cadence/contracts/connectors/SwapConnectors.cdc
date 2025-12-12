@@ -288,23 +288,23 @@ access(all) contract SwapConnectors {
         /// @param from: the Vault to source deposits from
         ///
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
+            // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
+            if from.balance == 0.0 || from.getType() != self.getSinkType() { return; }
             let limit = self.sink.minimumCapacity()
-            if from.balance == 0.0 || limit == 0.0 || from.getType() != self.getSinkType() {
-                return // nothing to swap from, no capacity to ingest, invalid Vault type - do nothing
-            }
+            if limit == 0.0 { return; }
 
-            var quote = self.swapper.quoteIn(forDesired: limit, reverse: false)
-            let swapVault <- from.createEmptyVault()
-            if from.balance <= quote.inAmount  {
-                // sink can accept all of the available tokens, so we swap everything
-                quote = self.swapper.quoteIn(forDesired: from.balance, reverse: false)
-                swapVault.deposit(from: <-from.withdraw(amount: from.balance))
-            } else {
-                // sink is limited to fewer tokens than we have available - swap the amount we need to meet the limit
-                swapVault.deposit(from: <-from.withdraw(amount: quote.inAmount))
+            // quote based on available funds & inner sink limit
+            var quote = self.swapper.quoteOut(forProvided: from.balance, reverse: false)
+            if limit <= quote.outAmount {
+                quote = self.swapper.quoteIn(forDesired: limit, reverse: false)
             }
+            // error when quoting - in/out should not be 0.0
+            if quote.inAmount == 0.0 || quote.outAmount == 0.0 { return; }
 
+            // assign the amount to swap based on updated quote
+            let swapAmount = quote.inAmount <= from.balance ? quote.inAmount : from.balance
             // swap then deposit to the inner sink
+            let swapVault <- from.withdraw(amount: swapAmount)
             let swappedTokens <- self.swapper.swap(quote: quote, inVault: <-swapVault)
             self.sink.depositCapacity(from: &swappedTokens as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
