@@ -304,9 +304,9 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 6% price impact (600 bps)
+            // Calculate price multiplier based on 4% price impact (400 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
-            let bps: UInt256 = 600
+            let bps: UInt256 = 400
             let Q96: UInt256 = 0x1000000000000000000000000
             let sqrtPriceX96_256: UInt256 = UInt256(sqrtPriceX96)
             let L_256: UInt256 = UInt256(L)
