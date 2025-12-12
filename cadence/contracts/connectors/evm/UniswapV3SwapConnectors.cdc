@@ -383,7 +383,10 @@ access(all) contract UniswapV3SwapConnectors {
                 // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
                 let numerator: UInt256 = L_256 * deltaSqrt
-                maxAmount = (numerator * Q96) / sqrtPriceX96_256 / sqrtPriceNew
+                let num1: UInt256 = L_256 * bps
+                let num2: UInt256 = num1 * Q96
+                let den: UInt256  = UInt256(20000) * sqrtPriceNew
+                maxAmount = den == 0 ? UInt256(0) : num2 / den
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
                 // Formula: Δy = L * (√P' - √P)
