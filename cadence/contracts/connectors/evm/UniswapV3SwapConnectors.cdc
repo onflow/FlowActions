@@ -45,6 +45,36 @@ access(all) contract UniswapV3SwapConnectors {
         return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
     }
 
+    access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
+        // floor to 8 decimals if decimals > 8 by truncating to a multiple of quantum
+        if decimals <= 8 {
+            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
+        }
+
+        let quantumExp: UInt8 = decimals - 8
+        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+        let remainder: UInt256 = amt % quantum
+        let floored: UInt256 = amt - remainder
+
+        return FlowEVMBridgeUtils.uint256ToUFix64(value: floored, decimals: decimals)
+    }
+
+    access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
+        if decimals <= 8 {
+            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
+        }
+
+        let quantumExp: UInt8 = decimals - 8
+        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+
+        let remainder: UInt256 = amt % quantum
+        var padded: UInt256 = amt
+        if remainder != 0 {
+            padded = amt + (quantum - remainder)
+        }
+
+        return FlowEVMBridgeUtils.uint256ToUFix64(value: padded, decimals: decimals)
+    }
 
     /// Swapper
     access(all) struct Swapper: DeFiActions.Swapper {
@@ -583,62 +613,16 @@ access(all) contract UniswapV3SwapConnectors {
         }
 
         /// OUT amounts: round down to UFix64 precision
-        ///
-        /// Guarantees: convertCadenceAmountToERC20Amount(result) <= original ERC20 amount.
-        access(self) fun _toCadenceOut(
-            _ amt: UInt256,
-            erc20Address: EVM.EVMAddress
-        ): UFix64 {
-            // Bridge utils already floors when going UInt256 -> UFix64
-            return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
-                amt,
-                erc20Address: erc20Address
-            )
+        access(self) fun _toCadenceOut(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
+            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
+            return UniswapV3SwapConnectors.toCadenceOutWithDecimals(amt, decimals: decimals)
         }
 
         /// IN amounts: round up to the next UFix64 such that the ERC20 conversion
         /// (via ufix64ToUInt256) is >= the original UInt256 amount.
-        access(self) fun _toCadenceIn(
-            _ amt: UInt256,
-            erc20Address: EVM.EVMAddress
-        ): UFix64 {
-            let decimals: UInt8 = FlowEVMBridgeUtils.getTokenDecimals(
-                evmContractAddress: erc20Address
-            )
-
-            // Case 1: decimals <= 8
-            // Every smallest ERC20 unit is exactly representable in UFix64,
-            // so the natural conversion is already the minimal "ceil".
-            if decimals <= 8 {
-                return FlowEVMBridgeUtils.uint256ToUFix64(
-                    value: amt,
-                    decimals: decimals
-                )
-            }
-
-            // Case 2: decimals > 8
-            //
-            // UFix64 only has 8 decimal places, so ERC20 amounts are effectively
-            // quantized to multiples of quantum = 10^(decimals - 8).
-            // We want the smallest multiple of quantum that is >= amt.
-            let quantumExp: UInt8 = decimals - 8
-            let quantum: UInt256 = FlowEVMBridgeUtils.pow(
-                base: 10,
-                exponent: quantumExp
-            )
-
-            let remainder: UInt256 = amt % quantum
-            var padded: UInt256 = amt
-            if remainder != 0 {
-                padded = amt + (quantum - remainder)
-            }
-
-            // Now `padded` is a multiple of `quantum`. Because of how
-            // uint256ToUFix64 / ufix64ToUInt256 work, this will round-trip exactly.
-            return FlowEVMBridgeUtils.uint256ToUFix64(
-                value: padded,
-                decimals: decimals
-            )
+        access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
+            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
+            return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
         }
     }
 
