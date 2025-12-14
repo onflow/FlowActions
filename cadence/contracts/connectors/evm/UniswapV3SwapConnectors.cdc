@@ -45,6 +45,49 @@ access(all) contract UniswapV3SwapConnectors {
         return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
     }
 
+    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
+    /// maximum `UFix64` precision (8 decimal places).
+    ///
+    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
+    /// - For `decimals > 8`, this floors the ERC20 amount to the nearest multiple of
+    ///   `quantum = 10^(decimals - 8)` so the result round-trips safely:
+    ///   `ufix64ToUInt256(result) <= amt`.
+    access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
+        if decimals <= 8 {
+            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
+        }
+
+        let quantumExp: UInt8 = decimals - 8
+        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+        let remainder: UInt256 = amt % quantum
+        let floored: UInt256 = amt - remainder
+
+        return FlowEVMBridgeUtils.uint256ToUFix64(value: floored, decimals: decimals)
+    }
+
+    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding up** to the
+    /// smallest representable value at `UFix64` precision (8 decimal places).
+    ///
+    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
+    /// - For `decimals > 8`, this ceils the ERC20 amount to the next multiple of
+    ///   `quantum = 10^(decimals - 8)` (unless already exact), ensuring:
+    ///   `ufix64ToUInt256(result) >= amt`, and the increase is `< quantum`.
+    access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
+        if decimals <= 8 {
+            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
+        }
+
+        let quantumExp: UInt8 = decimals - 8
+        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+
+        let remainder: UInt256 = amt % quantum
+        var padded: UInt256 = amt
+        if remainder != 0 {
+            padded = amt + (quantum - remainder)
+        }
+
+        return FlowEVMBridgeUtils.uint256ToUFix64(value: padded, decimals: decimals)
+    }
 
     /// Swapper
     access(all) struct Swapper: DeFiActions.Swapper {
@@ -118,19 +161,20 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: tokenEVMAddress
             )
 
-            let maxAmount = self.getMaxAmount(zeroForOne: reverse)
+            let maxAmountOut = self.maxOutAmount(reverse: reverse)
 
-            var safeAmount = desired
-            if safeAmount > maxAmount {
-                safeAmount = maxAmount
+            var safeAmountOut = desired
+            if safeAmountOut > maxAmountOut {
+                safeAmountOut = maxAmountOut
             }
 
-            let safeAmountDesired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
-                safeAmount,
+            // Desired OUT amount => floor
+            let safeAmountDesired = self._toCadenceOut(
+                safeAmountOut,
                 erc20Address: tokenEVMAddress
             )
-            //panic("desired: \(desired), maxAmount: \(maxAmount), safeAmount: \(safeAmount)")
-            let amountIn = self.getV3Quote(out: false, amount: safeAmount, reverse: reverse)
+
+            let amountIn = self.getV3Quote(out: false, amount: safeAmountOut, reverse: reverse)
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
@@ -147,14 +191,15 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: tokenEVMAddress
             )
 
-            let maxAmount = self.getMaxAmount(zeroForOne: reverse)
+            let maxAmount = self.maxInAmount(reverse: reverse)
 
             var safeAmount = provided 
             if safeAmount > maxAmount {
                 safeAmount = maxAmount
             }
 
-            let safeAmountProvided = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+            // Provided IN amount => ceil
+            let safeAmountProvided = self._toCadenceIn(
                 safeAmount,
                 erc20Address: tokenEVMAddress
             )
@@ -251,6 +296,62 @@ access(all) contract UniswapV3SwapConnectors {
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
+        access(self) fun getPoolTokens(_ pool: EVM.EVMAddress): [EVM.EVMAddress] {
+            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81] // token0()
+            let SEL_TOKEN1: [UInt8] = [0xd2, 0x12, 0x20, 0xa7] // token1()
+
+            let t0Res = self._callRaw(
+                to: pool,
+                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
+                gasLimit: 200_000,
+                value: 0
+            )!
+            let t1Res = self._callRaw(
+                to: pool,
+                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN1, args: []),
+                gasLimit: 200_000,
+                value: 0
+            )!
+
+            let t0Bytes = (t0Res.data.slice(from: 12, upTo: 32))
+            let t1Bytes = (t1Res.data.slice(from: 12, upTo: 32))
+
+            return [
+                EVM.EVMAddress(bytes: self.to20(t0Bytes)),
+                EVM.EVMAddress(bytes: self.to20(t1Bytes))
+            ]
+        }
+
+        access(self) fun maxInAmount(reverse: Bool): UInt256 {
+            let pool = self.getPoolAddress()
+            let tokens = self.getPoolTokens(pool)
+            let token0 = tokens[0]
+            let token1 = tokens[1]
+
+            let input = reverse ? self.tokenPath[self.tokenPath.length - 1]
+                                : self.tokenPath[0]
+
+            let zeroForOne = (input.toString() == token0.toString())   // input == token0 ? 0→1 : 1→0
+            return self.getMaxAmount(zeroForOne: zeroForOne)
+        }
+
+        access(self) fun maxOutAmount(reverse: Bool): UInt256 {
+            let maxIn = self.maxInAmount(reverse: reverse)
+
+            // Max out at that max-in, using quoteExactInput
+            let maxOutUFix: UFix64 = self.getV3Quote(out: true, amount: maxIn, reverse: reverse)
+                ?? 0.0
+
+            // OUT token address
+            let outToken = reverse
+                ? self.tokenPath[0]      // reverse: path[last] -> ... -> path[0], so out is path[0]
+                : self.tokenPath[self.tokenPath.length - 1]
+
+            return FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                maxOutUFix,
+                erc20Address: outToken
+            )
+        }
 
         /// Simplified getMaxAmount using default 6% price impact
         /// Uses current liquidity as proxy for max swappable amount
@@ -304,7 +405,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 6% price impact (600 bps)
+            // Calculate price multiplier based on 4% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
@@ -325,7 +426,10 @@ access(all) contract UniswapV3SwapConnectors {
                 // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
                 let numerator: UInt256 = L_256 * deltaSqrt
-                maxAmount = (numerator * Q96) / sqrtPriceX96_256 / sqrtPriceNew
+                let num1: UInt256 = L_256 * bps
+                let num2: UInt256 = num1 * Q96
+                let den: UInt256  = UInt256(20000) * sqrtPriceNew
+                maxAmount = den == 0 ? UInt256(0) : num2 / den
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
                 // Formula: Δy = L * (√P' - √P)
@@ -366,7 +470,13 @@ access(all) contract UniswapV3SwapConnectors {
                 ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
                 : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
 
-            return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmt, erc20Address: ercAddr)
+            // out == true  => quoteExactInput  => result is an OUT amount => floor
+            // out == false => quoteExactOutput => result is an IN amount  => ceil
+            if out {
+                return self._toCadenceOut(uintAmt, erc20Address: ercAddr)
+            } else {
+                return self._toCadenceIn(uintAmt, erc20Address: ercAddr)
+            }
         }
 
         /// Executes exact input swap via router
@@ -456,8 +566,21 @@ access(all) contract UniswapV3SwapConnectors {
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
             let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
 
+            let outTokenEVMAddress =
+                FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.outType())
+                ?? panic("out token \(self.outType().identifier) is not bridged")
+
+            let outUFix = self._toCadenceOut(
+                amountOut,
+                erc20Address: outTokenEVMAddress
+            )
+
+            let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                outUFix,
+                erc20Address: outTokenEVMAddress
+            )
             // Withdraw output back to Flow
-            let outVault <- coa.withdrawTokens(type: self.outType(), amount: amountOut, feeProvider: feeVaultRef)
+            let outVault <- coa.withdrawTokens(type: self.outType(), amount: safeAmountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
@@ -500,6 +623,19 @@ access(all) contract UniswapV3SwapConnectors {
             } else {
                 Burner.burn(<-vault)
             }
+        }
+
+        /// OUT amounts: round down to UFix64 precision
+        access(self) fun _toCadenceOut(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
+            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
+            return UniswapV3SwapConnectors.toCadenceOutWithDecimals(amt, decimals: decimals)
+        }
+
+        /// IN amounts: round up to the next UFix64 such that the ERC20 conversion
+        /// (via ufix64ToUInt256) is >= the original UInt256 amount.
+        access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
+            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
+            return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
         }
     }
 
