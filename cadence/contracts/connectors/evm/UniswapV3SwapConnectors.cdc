@@ -45,8 +45,14 @@ access(all) contract UniswapV3SwapConnectors {
         return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
     }
 
+    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
+    /// maximum `UFix64` precision (8 decimal places).
+    ///
+    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
+    /// - For `decimals > 8`, this floors the ERC20 amount to the nearest multiple of
+    ///   `quantum = 10^(decimals - 8)` so the result round-trips safely:
+    ///   `ufix64ToUInt256(result) <= amt`.
     access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        // floor to 8 decimals if decimals > 8 by truncating to a multiple of quantum
         if decimals <= 8 {
             return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
         }
@@ -59,6 +65,13 @@ access(all) contract UniswapV3SwapConnectors {
         return FlowEVMBridgeUtils.uint256ToUFix64(value: floored, decimals: decimals)
     }
 
+    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding up** to the
+    /// smallest representable value at `UFix64` precision (8 decimal places).
+    ///
+    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
+    /// - For `decimals > 8`, this ceils the ERC20 amount to the next multiple of
+    ///   `quantum = 10^(decimals - 8)` (unless already exact), ensuring:
+    ///   `ufix64ToUInt256(result) >= amt`, and the increase is `< quantum`.
     access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
         if decimals <= 8 {
             return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
