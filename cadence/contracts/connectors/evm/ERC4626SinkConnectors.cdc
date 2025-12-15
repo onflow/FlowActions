@@ -112,7 +112,7 @@ access(all) contract ERC4626SinkConnectors {
                     to: self.assetEVMAddress,
                     signature: "approve(address,uint256)",
                     args: [self.vault, uintAmount],
-                    gasLimit: 100_000
+                    gasLimit: 500_000
                 )
             if approveRes?.status != EVM.Status.successful {
                 // TODO: consider more graceful handling of this error
@@ -125,7 +125,7 @@ access(all) contract ERC4626SinkConnectors {
                 to: self.vault,
                 signature: "deposit(uint256,address)",
                 args: [uintAmount, self.coa.borrow()!.address()],
-                gasLimit: 250_000
+                gasLimit: 1_000_000
             )
             if depositRes?.status != EVM.Status.successful {
                 // TODO: Consider unwinding the deposit & returning to the from vault
