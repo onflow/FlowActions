@@ -82,9 +82,7 @@ access(all) contract ERC4626SinkConnectors {
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             // check capacity & early return if none
             let capacity = self.minimumCapacity()
-            if capacity == 0.0 {
-                return
-            }
+            if capacity == 0.0 || from.balance == 0.0 { return; }
 
             // withdraw the appropriate amount from the referenced vault & deposit to the EVMTokenConnectors Sink
             var amount = capacity <= from.balance ? capacity : from.balance
@@ -113,10 +111,10 @@ access(all) contract ERC4626SinkConnectors {
                     signature: "approve(address,uint256)",
                     args: [self.vault, uintAmount],
                     gasLimit: 500_000
-                )
-            if approveRes?.status != EVM.Status.successful {
+                )!
+            if approveRes.status != EVM.Status.successful {
                 // TODO: consider more graceful handling of this error
-                panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes!))
+                panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
             // deposit the assets to the ERC4626 vault
@@ -126,11 +124,11 @@ access(all) contract ERC4626SinkConnectors {
                 signature: "deposit(uint256,address)",
                 args: [uintAmount, self.coa.borrow()!.address()],
                 gasLimit: 1_000_000
-            )
-            if depositRes?.status != EVM.Status.successful {
+            )!
+            if depositRes.status != EVM.Status.successful {
                 // TODO: Consider unwinding the deposit & returning to the from vault
                 //      - would require {Sink, Source} instead of just Sink
-                panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes!))
+                panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
