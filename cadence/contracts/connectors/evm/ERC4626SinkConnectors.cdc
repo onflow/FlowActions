@@ -82,9 +82,7 @@ access(all) contract ERC4626SinkConnectors {
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
             // check capacity & early return if none
             let capacity = self.minimumCapacity()
-            if capacity == 0.0 {
-                return
-            }
+            if capacity == 0.0 || from.balance == 0.0 { return; }
 
             // withdraw the appropriate amount from the referenced vault & deposit to the EVMTokenConnectors Sink
             var amount = capacity <= from.balance ? capacity : from.balance
@@ -112,11 +110,11 @@ access(all) contract ERC4626SinkConnectors {
                     to: self.assetEVMAddress,
                     signature: "approve(address,uint256)",
                     args: [self.vault, uintAmount],
-                    gasLimit: 100_000
-                )
-            if approveRes?.status != EVM.Status.successful {
+                    gasLimit: 500_000
+                )!
+            if approveRes.status != EVM.Status.successful {
                 // TODO: consider more graceful handling of this error
-                panic("Failed to approve ERC4626 vault to spend assets")
+                panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
             // deposit the assets to the ERC4626 vault
@@ -125,12 +123,12 @@ access(all) contract ERC4626SinkConnectors {
                 to: self.vault,
                 signature: "deposit(uint256,address)",
                 args: [uintAmount, self.coa.borrow()!.address()],
-                gasLimit: 250_000
-            )
-            if depositRes?.status != EVM.Status.successful {
+                gasLimit: 1_000_000
+            )!
+            if depositRes.status != EVM.Status.successful {
                 // TODO: Consider unwinding the deposit & returning to the from vault
                 //      - would require {Sink, Source} instead of just Sink
-                panic("Failed to deposit \(amount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString())")
+                panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
@@ -178,6 +176,35 @@ access(all) contract ERC4626SinkConnectors {
                     : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
             }
             return nil
+        }
+        /// Returns an error message for a failed approve call
+        ///
+        /// @param ufixAmount: the amount of assets to approve
+        /// @param uintAmount: the amount of assets to approve in uint256 format
+        /// @param approveRes: the result of the approve call
+        ///
+        /// @return an error message for a failed approve call
+        ///
+        access(self)
+        fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.Result): String {
+            return "Failed to approve ERC4626 vault \(self.vault.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()). "
+                .concat("approvee: \(self.vault.toString()), amount: \(uintAmount). ")
+                .concat("Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)")
+        }
+        /// Returns an error message for a failed deposit call
+        ///
+        /// @param ufixAmount: the amount of assets to deposit
+        /// @param uintAmount: the amount of assets to deposit in uint256 format
+        /// @param depositRes: the result of the deposit call
+        ///
+        /// @return an error message for a failed deposit call
+        ///
+        access(self)
+        fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.Result): String {
+            let coaHex = self.coa.borrow()!.address().toString()
+            return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString()). "
+                .concat("amount: \(uintAmount), to: \(coaHex). ")
+                .concat("Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)")
         }
     }
 }
