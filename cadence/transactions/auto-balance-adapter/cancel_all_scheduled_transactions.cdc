@@ -23,11 +23,8 @@ transaction(storagePath: StoragePath) {
     execute {
         // cancel the scheduled transaction
         for id in self.autoBalancer.getScheduledTransactionIDs() {
-            let refund <- self.autoBalancer.cancelScheduledTransaction(id: id) as @{FungibleToken.Vault}?
-            if refund != nil {
-                self.refundReceiver.deposit(from: <-refund!)
-            } else {
-                destroy refund
+            if let refund <- self.autoBalancer.cancelScheduledTransaction(id: id) {
+                self.refundReceiver.deposit(from: <-refund)
             }
         }
     }
