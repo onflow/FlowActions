@@ -515,10 +515,9 @@ access(all) contract UniswapV3SwapConnectors {
                 UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
             }
 
-            // Slippage/min out on EVM units (adjust factor to your policy)
-            let slippage = 0.01 // 1%
+            // Min out on EVM units
             let minOutUint = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                amountOutMin * (1.0 - slippage),
+                amountOutMin,
                 erc20Address: outToken
             )
 
