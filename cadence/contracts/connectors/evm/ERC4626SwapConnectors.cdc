@@ -106,7 +106,7 @@ access(all) contract ERC4626SwapConnectors {
             }
             let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
             if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
-                let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.vault)
+                let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
 
                 if uintRequired > uintMaxAllowed {
                     return SwapConnectors.BasicQuote(
