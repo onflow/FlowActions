@@ -785,6 +785,7 @@
 				"SwapConnectors",
 				"FungibleTokenConnectors",
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors",
 				"ERC4626Utils",
 				"ERC4626SwapConnectors",
@@ -842,6 +843,7 @@
 			],
 			"mainnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors"
 			],
 			"mainnet-fungible-token-connectors": [
@@ -884,6 +886,7 @@
 			],
 			"testnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors"
 			],
 			"testnet-fungible-token-connectors": [

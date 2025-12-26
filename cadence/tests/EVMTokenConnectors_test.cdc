@@ -6,6 +6,7 @@ import "FungibleToken"
 import "FlowToken"
 import "TokenA"
 import "EVM"
+import "FlowEVMBridgeUtils"
 import "DeFiActions"
 
 access(all) let serviceAccount = Test.serviceAccount()
@@ -58,6 +59,12 @@ access(all) fun setup() {
     err = Test.deployContract(
         name: "FungibleTokenConnectors",
         path: "../contracts/connectors/FungibleTokenConnectors.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "EVMAmountUtils",
+        path: "../contracts/utils/EVMAmountUtils.cdc",
         arguments: [],
     )
     Test.expect(err, Test.beNil())
@@ -364,4 +371,78 @@ access(all) fun testSourceWithdrawTokenAWithMinSucceeds() {
     // get the TokenA balance of the COA
     evmTokenABalance = getEVMTokenBalance(of: recipient, erc20Address: tokenAERCAddress)
     Test.assertEqual(evmTokenABalance, minAmount)
+}
+
+access(all) fun testSinkRespectsMaxAfterNonQuantumEvmTransfer() {
+    let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: EVM.addressFromString(wflowHex))
+    if decimals <= 8 {
+        log("Skipping test: token decimals <= 8")
+        return
+    }
+
+    let user = Test.createAccount()
+    let flowBalance = 20.0
+    transferFlow(signer: serviceAccount, recipient: user.address, amount: flowBalance)
+
+    createCOA(user, fundingAmount: 1.0)
+    let recipient = getCOAAddressHex(atFlowAddress: user.address)
+
+    let initialDeposit = 10.0
+    let firstDeposit = _executeTransaction(
+        "../transactions/evm-token-connectors/deposit_via_sink.cdc",
+        [nil, initialDeposit, Type<@FlowToken.Vault>().identifier, recipient],
+        user
+    )
+    Test.expect(firstDeposit, Test.beSucceeded())
+
+    let transferCalldata = String.encodeHex(
+        EVM.encodeABIWithSignature(
+            "transfer(address,uint256)",
+            [EVM.addressFromString("0x0000000000000000000000000000000000000001"), UInt256(1)]
+        )
+    )
+    evmCall(user, target: wflowHex, calldata: transferCalldata, gasLimit: 500_000, value: 0, beFailed: false)
+
+    let balanceAfterTransfer = evmScriptCallRaw(
+        fromAddress: recipient,
+        toAddress: wflowHex,
+        calldata: String.encodeHex(
+            EVM.encodeABIWithSignature("balanceOf(address)", [EVM.addressFromString(recipient)])
+        ),
+        gasLimit: 1_000_000,
+        value: 0
+    )
+    Test.assertEqual(balanceAfterTransfer.status, EVM.Status.successful)
+    let decodedAfterTransfer = EVM.decodeABI(types: [Type<UInt256>()], data: balanceAfterTransfer.data)
+    let rawAfterTransfer = decodedAfterTransfer[0] as! UInt256
+
+    let quantum = FlowEVMBridgeUtils.pow(base: UInt256(10), exponent: decimals - 8)
+    assert(rawAfterTransfer % quantum != 0, message: "Expected non-quantum EVM balance after transfer")
+
+    let sinkMax = 10.0
+    let secondDeposit = _executeTransaction(
+        "../transactions/evm-token-connectors/deposit_via_sink.cdc",
+        [sinkMax, sinkMax, Type<@FlowToken.Vault>().identifier, recipient],
+        user
+    )
+    Test.expect(secondDeposit, Test.beSucceeded())
+
+    let balanceAfterDeposit = evmScriptCallRaw(
+        fromAddress: recipient,
+        toAddress: wflowHex,
+        calldata: String.encodeHex(
+            EVM.encodeABIWithSignature("balanceOf(address)", [EVM.addressFromString(recipient)])
+        ),
+        gasLimit: 1_000_000,
+        value: 0
+    )
+    Test.assertEqual(balanceAfterDeposit.status, EVM.Status.successful)
+    let decodedAfterDeposit = EVM.decodeABI(types: [Type<UInt256>()], data: balanceAfterDeposit.data)
+    let rawAfterDeposit = decodedAfterDeposit[0] as! UInt256
+
+    let maxEvm = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+        sinkMax,
+        erc20Address: EVM.addressFromString(wflowHex)
+    )
+    assert(rawAfterDeposit <= maxEvm, message: "WFLOW balance exceeds sinkMax after deposit")
 }
