@@ -9,6 +9,7 @@ import "ERC4626SinkConnectors"
 import "SwapConnectors"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -116,7 +117,7 @@ access(all) contract ERC4626SwapConnectors {
                         outAmount: forDesired
                     )
                 }
-                let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
+                let ufixRequired = EVMAmountUtils.toCadenceIn(uintRequired, erc20Address: self.assetEVMAddress)
                 return SwapConnectors.BasicQuote(
                     inType: self.asset,
                     outType: self.vaultType,
@@ -146,14 +147,14 @@ access(all) contract ERC4626SwapConnectors {
             let uintMaxDeposit = ERC4626Utils.maxDeposit(vault: self.vault, receiver: self.assetEVMAddress)
             var _forProvided = forProvided
             if uintMaxDeposit != nil {
-                let ufixMaxDeposit = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintMaxDeposit!, erc20Address: self.assetEVMAddress)
+                let ufixMaxDeposit = EVMAmountUtils.toCadenceOut(uintMaxDeposit!, erc20Address: self.assetEVMAddress)
                 _forProvided = _forProvided > ufixMaxDeposit ? ufixMaxDeposit : _forProvided
             }
             let uintForProvided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(_forProvided, erc20Address: self.assetEVMAddress)
 
             
             if let uintShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintForProvided) {
-                let ufixShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintShares, erc20Address: self.vault)
+                let ufixShares = EVMAmountUtils.toCadenceOut(uintShares, erc20Address: self.vault)
                 return SwapConnectors.BasicQuote(
                     inType: self.asset,
                     outType: self.vaultType,

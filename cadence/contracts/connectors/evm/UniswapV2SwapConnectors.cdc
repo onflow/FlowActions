@@ -5,6 +5,7 @@ import "EVM"
 import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridge"
+import "EVMAmountUtils"
 
 import "DeFiActions"
 import "SwapConnectors"
@@ -296,9 +297,9 @@ access(all) contract UniswapV2SwapConnectors {
             if uintAmounts.length == 0 {
                 return nil
             } else if out {
-                return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmounts[uintAmounts.length - 1], erc20Address: path[path.length - 1])
+                return EVMAmountUtils.toCadenceOut(uintAmounts[uintAmounts.length - 1], erc20Address: path[path.length - 1])
             } else {
-                return FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintAmounts[0], erc20Address: path[0])
+                return EVMAmountUtils.toCadenceIn(uintAmounts[0], erc20Address: path[0])
             }
         }
 

@@ -46,6 +46,14 @@ access(all) fun setup() {
     )
     Test.expect(err, Test.beNil())
     Test.commitBlock()
+
+    err = Test.deployContract(
+        name: "EVMAmountUtils",
+        path: "../../contracts/utils/EVMAmountUtils.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    Test.commitBlock()
     
     err = Test.deployContract(
         name: "UniswapV2SwapConnectors",
