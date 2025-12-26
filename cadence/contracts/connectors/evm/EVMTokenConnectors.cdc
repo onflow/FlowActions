@@ -7,6 +7,7 @@ import "FlowEVMBridgeConfig"
 import "FlowEVMBridge"
 import "DeFiActions"
 import "DeFiActionsUtils"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -102,10 +103,8 @@ access(all) contract EVMTokenConnectors {
         access(all) fun minimumCapacity(): UFix64 {
             let erc20Address = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.depositVaultType)!
             let balance = FlowEVMBridgeUtils.balanceOf(owner: self.address, evmContractAddress: erc20Address)
-            let balanceInCadence = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
-                balance,
-                erc20Address: erc20Address
-            )
+            // Round up to avoid exceeding the max due to UFix64 precision limits.
+            let balanceInCadence = EVMAmountUtils.toCadenceIn(balance, erc20Address: erc20Address)
             return balanceInCadence < self.maximumBalance ? self.maximumBalance - balanceInCadence : 0.0
         }
         /// Deposits the given Vault into the EVM address's balance

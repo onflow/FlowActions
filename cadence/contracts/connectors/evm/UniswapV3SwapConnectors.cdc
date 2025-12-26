@@ -9,6 +9,7 @@ import "FlowEVMBridge"
 import "DeFiActions"
 import "SwapConnectors"
 import "EVMAbiHelpers"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -43,50 +44,6 @@ access(all) contract UniswapV3SwapConnectors {
         head.append(EVMAbiHelpers.abiUInt256(amountTwo))
 
         return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
-    }
-
-    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
-    /// maximum `UFix64` precision (8 decimal places).
-    ///
-    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
-    /// - For `decimals > 8`, this floors the ERC20 amount to the nearest multiple of
-    ///   `quantum = 10^(decimals - 8)` so the result round-trips safely:
-    ///   `ufix64ToUInt256(result) <= amt`.
-    access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        if decimals <= 8 {
-            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
-        }
-
-        let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
-        let remainder: UInt256 = amt % quantum
-        let floored: UInt256 = amt - remainder
-
-        return FlowEVMBridgeUtils.uint256ToUFix64(value: floored, decimals: decimals)
-    }
-
-    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding up** to the
-    /// smallest representable value at `UFix64` precision (8 decimal places).
-    ///
-    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
-    /// - For `decimals > 8`, this ceils the ERC20 amount to the next multiple of
-    ///   `quantum = 10^(decimals - 8)` (unless already exact), ensuring:
-    ///   `ufix64ToUInt256(result) >= amt`, and the increase is `< quantum`.
-    access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        if decimals <= 8 {
-            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
-        }
-
-        let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
-
-        let remainder: UInt256 = amt % quantum
-        var padded: UInt256 = amt
-        if remainder != 0 {
-            padded = amt + (quantum - remainder)
-        }
-
-        return FlowEVMBridgeUtils.uint256ToUFix64(value: padded, decimals: decimals)
     }
 
     /// Swapper
@@ -405,7 +362,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 4% price impact (600 bps)
+            // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
@@ -415,17 +372,13 @@ access(all) contract UniswapV3SwapConnectors {
             var maxAmount: UInt256 = 0
             if zeroForOne {
                 // Swapping token0 -> token1 (price decreases by maxPriceImpactBps)
-                // Formula: Δx = L * (√P - √P') / (√P * √P')
                 // Approximation: √P' ≈ √P * (1 - priceImpact/2)
                 let sqrtMultiplier: UInt256 = 10000 - (bps / 2)
                 let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
-                let deltaSqrt: UInt256 = sqrtPriceX96_256 - sqrtPriceNew
-                
-                // Uniswap V3 spec: getAmount0Delta
-                // Δx = L * (√P - √P') / (√P * √P')
-                // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
-                // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
-                let numerator: UInt256 = L_256 * deltaSqrt
+
+                // Uniswap V3 getAmount0Delta approximation:
+                // Δx = L × impact / (2 × √P')
+                // Rearranged: Δx = (L × bps × Q96) / (20000 × sqrtPriceNew)
                 let num1: UInt256 = L_256 * bps
                 let num2: UInt256 = num1 * Q96
                 let den: UInt256  = UInt256(20000) * sqrtPriceNew
@@ -626,15 +579,13 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// OUT amounts: round down to UFix64 precision
         access(self) fun _toCadenceOut(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
-            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
-            return UniswapV3SwapConnectors.toCadenceOutWithDecimals(amt, decimals: decimals)
+            return EVMAmountUtils.toCadenceOut(amt, erc20Address: erc20Address)
         }
 
         /// IN amounts: round up to the next UFix64 such that the ERC20 conversion
         /// (via ufix64ToUInt256) is >= the original UInt256 amount.
         access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
-            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
-            return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
+            return EVMAmountUtils.toCadenceIn(amt, erc20Address: erc20Address)
         }
     }
 

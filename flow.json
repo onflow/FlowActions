@@ -50,6 +50,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"EVMAmountUtils": {
+			"source": "./cadence/contracts/utils/EVMAmountUtils.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"EVMNativeFLOWConnectors": {
 			"source": "cadence/contracts/connectors/evm/EVMNativeFLOWConnectors.cdc",
 			"aliases": {
@@ -779,6 +785,7 @@
 				"SwapConnectors",
 				"FungibleTokenConnectors",
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors",
 				"ERC4626Utils",
 				"ERC4626SwapConnectors",
@@ -828,6 +835,7 @@
 				"DeFiActions"
 			],
 			"mainnet-erc4626-connectors": [
+				"EVMAmountUtils",
 				"ERC4626Utils",
 				"ERC4626PriceOracles",
 				"ERC4626SinkConnectors",
@@ -835,6 +843,7 @@
 			],
 			"mainnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors"
 			],
 			"mainnet-fungible-token-connectors": [
@@ -850,9 +859,11 @@
 				"SwapConnectors"
 			],
 			"mainnet-uniswapv2-swap-connectors": [
+				"EVMAmountUtils",
 				"UniswapV2SwapConnectors"
 			],
 			"mainnet-uniswapV3-connectors-deployer": [
+				"EVMAmountUtils",
 				"EVMAbiHelpers",
 				"UniswapV3SwapConnectors"
 			]
@@ -867,6 +878,7 @@
 				"DeFiActions"
 			],
 			"testnet-erc4626-connectors": [
+				"EVMAmountUtils",
 				"ERC4626Utils",
 				"ERC4626PriceOracles",
 				"ERC4626SinkConnectors",
@@ -874,6 +886,7 @@
 			],
 			"testnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
+				"EVMAmountUtils",
 				"EVMTokenConnectors"
 			],
 			"testnet-fungible-token-connectors": [
@@ -889,10 +902,12 @@
 				"SwapConnectors"
 			],
 			"testnet-uniswapV3-swap-connectors": [
+				"EVMAmountUtils",
 				"EVMAbiHelpers",
 				"UniswapV3SwapConnectors"
 			],
 			"testnet-uniswapv2-swap-connectors": [
+				"EVMAmountUtils",
 				"UniswapV2SwapConnectors"
 			]
 		}
