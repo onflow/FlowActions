@@ -174,3 +174,44 @@ access(all) fun testSwapAssetsForSharesOutSucceeds() {
     Test.assertEqual(afterTotalShares, expectedInitialShares + uintDepositAmount * 100) // increase by 100x due to decimals offset
     Test.assertEqual(afterTotalAssets, initialAssets + uintDepositAmount)
 }
+
+access(all) fun testQuoteInWithLargeAmountReturnsMaxWhenOverflow() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // Donate assets directly to the vault (no shares minted) to make assets/share > 1.
+    // With a 2x asset/share ratio, requesting UFix64.max shares should overflow the
+    // asset-decimal max check but still be below the vault-decimal max check.
+    let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(beforeTotalShares, expectedInitialShares)
+    Test.assertEqual(beforeTotalAssets, initialAssets)
+
+    let donationAmount: UInt256 = initialAssets
+    let donateCalldata = String.encodeHex(EVM.encodeABIWithSignature("mint(address,uint256)",
+            [vaultDeploymentInfo.vault, donationAmount]
+        ))
+    evmCall(deployerAccount,
+        target: vaultDeploymentInfo.underlying.toString(),
+        calldata: donateCalldata,
+        gasLimit: 1000000,
+        value: 0,
+        beFailed: false
+    )
+
+    let afterTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    let afterTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(afterTotalShares, expectedInitialShares)
+    Test.assertEqual(afterTotalAssets, initialAssets + donationAmount)
+    let quoteRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_in.cdc",
+        [deployerAccount.address, UFix64.max, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteRes, Test.beSucceeded())
+
+    let quote = quoteRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote In (max) - inAmount: \(quote.inAmount), outAmount: \(quote.outAmount)")
+
+    // With assets/share > 1, the overflow guard should cap inAmount at UFix64.max.
+    Test.assertEqual(quote.outAmount, UFix64.max)
+    Test.assertEqual(quote.inAmount, UFix64.max)
+}
