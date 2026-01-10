@@ -155,31 +155,50 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Estimate required input for a desired output
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let tokenEVMAddress = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
-            let desired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+            // OUT token for this direction
+            let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
+            let desiredOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forDesired,
-                erc20Address: tokenEVMAddress
+                erc20Address: outToken
             )
 
-            let maxAmountOut = self.maxOutAmount(reverse: reverse)
+            // Derive true Uniswap direction for pool math
+            let zeroForOne = self.isZeroForOne(reverse: reverse)
 
-            var safeAmountOut = desired
-            if safeAmountOut > maxAmountOut {
-                safeAmountOut = maxAmountOut
+            // Max INPUT proxy in correct pool terms
+            let maxInEVM = self.getMaxAmount(zeroForOne: zeroForOne)
+
+            // If clamp proxy is 0, don't clamp — it's a truncation/edge case
+            var safeOutEVM = desiredOutEVM
+
+            if maxInEVM > 0 {
+                // Translate max input -> max output using exactInput quote
+                let maxOutCadence = self.getV3Quote(out: true, amount: maxInEVM, reverse: reverse)
+                if maxOutCadence != nil {
+                    let maxOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                        maxOutCadence!,
+                        erc20Address: outToken
+                    )
+                    if safeOutEVM > maxOutEVM {
+                        safeOutEVM = maxOutEVM
+                    }
+                }
+                // If maxOutCadence is nil, we also skip clamping (better than forcing 0)
             }
 
-            // Desired OUT amount => floor
-            let safeAmountDesired = self._toCadenceOut(
-                safeAmountOut,
-                erc20Address: tokenEVMAddress
+            let safeOutCadence = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                safeOutEVM,
+                erc20Address: outToken
             )
 
-            let amountIn = self.getV3Quote(out: false, amount: safeAmountOut, reverse: reverse)
+            // ExactOutput quote: how much IN required for safeOutEVM OUT
+            let amountInCadence = self.getV3Quote(out: false, amount: safeOutEVM, reverse: reverse)
+
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: amountIn != nil ? amountIn! : 0.0,
-                outAmount: amountIn != nil ? safeAmountDesired : 0.0
+                inAmount: amountInCadence ?? 0.0,
+                outAmount: amountInCadence != nil ? safeOutCadence : 0.0
             )
         }
 
@@ -635,6 +654,32 @@ access(all) contract UniswapV3SwapConnectors {
         access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
             let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
             return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
+        }
+        access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
+            // token0() selector = 0x0dfe1681
+            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81]
+            let res = self._callRaw(
+                to: pool,
+                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
+                gasLimit: 150_000,
+                value: 0
+            )!
+            assert(res.status == EVM.Status.successful, message: "token0() call failed")
+
+            let word = res.data as! [UInt8]
+            let addrSlice = word.slice(from: 12, upTo: 32)
+            let addrBytes: [UInt8; 20] = self.to20(addrSlice)
+            return EVM.EVMAddress(bytes: addrBytes)
+        }
+
+        access(self) fun isZeroForOne(reverse: Bool): Bool {
+            let pool = self.getPoolAddress()
+            let token0 = self.getPoolToken0(pool)
+
+            // your actual input token for this swap direction:
+            let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
+
+            return inToken.toString() == token0.toString()
         }
     }
 
