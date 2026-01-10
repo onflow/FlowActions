@@ -230,33 +230,30 @@ access(all) contract UniswapV3SwapConnectors {
         /// Build Uniswap V3 path bytes: address(20) + fee(uint24) + address(20) + ...
         access(self) fun _buildPathBytes(reverse: Bool): EVM.EVMBytes {
             var bytes: [UInt8] = []
-            var i: Int = 0
             let last = self.tokenPath.length - 1
 
+            // Write first token address
+            let firstIdx = reverse ? last : 0
+            let firstAddr: [UInt8; 20] = self.tokenPath[firstIdx].bytes
+            var k: Int = 0
+            while k < 20 { bytes.append(firstAddr[k]); k = k + 1 }
+
+            // Write fee + next address for each hop
+            var i: Int = 0
             while i < self.tokenPath.length - 1 {
-                let idx0 = reverse ? (last - i) : i
-                let idx1 = reverse ? (last - (i + 1)) : (i + 1)
-
-                let a0 = self.tokenPath[idx0]
-                let a1 = self.tokenPath[idx1]
-
                 let feeIdx = reverse ? (self.feePath.length - 1 - i) : i
                 let f: UInt32 = self.feePath[feeIdx]
-
-                // address 0
-                let a0Fixed: [UInt8; 20] = a0.bytes
-                var k: Int = 0
-                while k < 20 { bytes.append(a0Fixed[k]); k = k + 1 }
 
                 // fee uint24 big-endian
                 bytes.append(UInt8((f >> 16) & 0xFF))
                 bytes.append(UInt8((f >> 8) & 0xFF))
                 bytes.append(UInt8(f & 0xFF))
 
-                // address 1
-                let a1Fixed: [UInt8; 20] = a1.bytes
+                // next address
+                let nextIdx = reverse ? (last - (i + 1)) : (i + 1)
+                let nextAddr: [UInt8; 20] = self.tokenPath[nextIdx].bytes
                 k = 0
-                while k < 20 { bytes.append(a1Fixed[k]); k = k + 1 }
+                while k < 20 { bytes.append(nextAddr[k]); k = k + 1 }
 
                 i = i + 1
             }
