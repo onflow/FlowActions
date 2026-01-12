@@ -314,7 +314,7 @@ access(all) contract UniswapV3SwapConnectors {
             if word.length < 32 { panic("getPool: invalid ABI word length") }
 
             let addrSlice = word.slice(from: 12, upTo: 32)   // 20 bytes
-            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
@@ -339,8 +339,8 @@ access(all) contract UniswapV3SwapConnectors {
             let t1Bytes = (t1Res.data.slice(from: 12, upTo: 32))
 
             return [
-                EVM.EVMAddress(bytes: t0Bytes.toConstantSized<[UInt8; 20]>()),
-                EVM.EVMAddress(bytes: t1Bytes.toConstantSized<[UInt8; 20]>())
+                EVM.EVMAddress(bytes: t0Bytes.toConstantSized<[UInt8; 20]>()!),
+                EVM.EVMAddress(bytes: t1Bytes.toConstantSized<[UInt8; 20]>()!)
             ]
         }
 
@@ -668,7 +668,7 @@ access(all) contract UniswapV3SwapConnectors {
 
             let word = res.data as! [UInt8]
             let addrSlice = word.slice(from: 12, upTo: 32)
-            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
