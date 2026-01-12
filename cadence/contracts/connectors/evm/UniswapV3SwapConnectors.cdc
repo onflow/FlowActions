@@ -4,7 +4,6 @@ import "Burner"
 import "EVM"
 import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
-import "FlowEVMBridge"
 
 import "DeFiActions"
 import "SwapConnectors"
@@ -314,10 +313,6 @@ access(all) contract UniswapV3SwapConnectors {
             )!
             assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
 
-            // if res.status != EVM.Status.successful {
-            //     return EVM.addressFromString("0x0000000000000000000000000000000000000000")
-            // }
-
             // ABI return is one 32-byte word; the last 20 bytes are the address
             let word = res.data as! [UInt8]
             if word.length < 32 { panic("getPool: invalid ABI word length") }
@@ -405,7 +400,6 @@ access(all) contract UniswapV3SwapConnectors {
                 // Δx = L * (√P - √P') / (√P * √P')
                 // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
-                let numerator: UInt256 = L_256 * deltaSqrt
                 let num1: UInt256 = L_256 * bps
                 let num2: UInt256 = num1 * Q96
                 let den: UInt256  = UInt256(20000) * sqrtPriceNew
