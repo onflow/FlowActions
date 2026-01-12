@@ -153,10 +153,24 @@ access(all) contract UniswapV3SwapConnectors {
         access(all) view fun inType(): Type { return self.inVault }
         access(all) view fun outType(): Type { return self.outVault }
 
+
+        access(self) view fun outToken(_ reverse: Bool): EVM.EVMAddress {
+            if reverse {
+                return self.tokenPath[0]
+            }
+            return self.tokenPath[self.tokenPath.length - 1]
+        }
+        access(self) view fun inToken(_ reverse: Bool): EVM.EVMAddress {
+            if reverse {
+                return self.tokenPath[self.tokenPath.length - 1]
+            }
+            return self.tokenPath[0]
+        }
+
         /// Estimate required input for a desired output
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             // OUT token for this direction
-            let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
+            let outToken = self.outToken(reverse)
             let desiredOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forDesired,
                 erc20Address: outToken
@@ -203,7 +217,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Estimate output for a provided input
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let tokenEVMAddress = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
+            let tokenEVMAddress = self.inToken(reverse)
             let provided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forProvided,
                 erc20Address: tokenEVMAddress
@@ -281,16 +295,6 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMBytes(value: bytes)
         }
 
-        access(self) fun to20(_ b: [UInt8]): [UInt8; 20] {
-            if b.length != 20 { panic("to20: need exactly 20 bytes") }
-            return [
-                b[0],  b[1],  b[2],  b[3],  b[4],
-                b[5],  b[6],  b[7],  b[8],  b[9],
-                b[10], b[11], b[12], b[13], b[14],
-                b[15], b[16], b[17], b[18], b[19]
-            ]
-        }
-
         access(self) fun getPoolAddress(): EVM.EVMAddress {
             let res = self._call(
                 to: self.factoryAddress,
@@ -310,7 +314,7 @@ access(all) contract UniswapV3SwapConnectors {
             if word.length < 32 { panic("getPool: invalid ABI word length") }
 
             let addrSlice = word.slice(from: 12, upTo: 32)   // 20 bytes
-            let addrBytes: [UInt8; 20] = self.to20(addrSlice)
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
@@ -335,8 +339,8 @@ access(all) contract UniswapV3SwapConnectors {
             let t1Bytes = (t1Res.data.slice(from: 12, upTo: 32))
 
             return [
-                EVM.EVMAddress(bytes: self.to20(t0Bytes)),
-                EVM.EVMAddress(bytes: self.to20(t1Bytes))
+                EVM.EVMAddress(bytes: t0Bytes.toConstantSized<[UInt8; 20]>()),
+                EVM.EVMAddress(bytes: t1Bytes.toConstantSized<[UInt8; 20]>())
             ]
         }
 
@@ -346,8 +350,7 @@ access(all) contract UniswapV3SwapConnectors {
             let token0 = tokens[0]
             let token1 = tokens[1]
 
-            let input = reverse ? self.tokenPath[self.tokenPath.length - 1]
-                                : self.tokenPath[0]
+            let input = self.inToken(reverse)
 
             let zeroForOne = (input.toString() == token0.toString())   // input == token0 ? 0→1 : 1→0
             return self.getMaxAmount(zeroForOne: zeroForOne)
@@ -361,9 +364,7 @@ access(all) contract UniswapV3SwapConnectors {
                 ?? 0.0
 
             // OUT token address
-            let outToken = reverse
-                ? self.tokenPath[0]      // reverse: path[last] -> ... -> path[0], so out is path[0]
-                : self.tokenPath[self.tokenPath.length - 1]
+            let outToken = self.outToken(reverse)
 
             return FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 maxOutUFix,
@@ -484,9 +485,9 @@ access(all) contract UniswapV3SwapConnectors {
             if decoded.length == 0 { return nil }
             let uintAmt = decoded[0] as! UInt256
 
-            let ercAddr = reverse
-                ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
-                : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
+            let ercAddr = out
+                ? self.outToken(reverse)
+                : self.inToken(reverse)
 
             // out == true  => quoteExactInput  => result is an OUT amount => floor
             // out == false => quoteExactOutput => result is an IN amount  => ceil
@@ -511,8 +512,8 @@ access(all) contract UniswapV3SwapConnectors {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // I/O tokens
-            let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
-            let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
+            let inToken = self.inToken(reverse)
+            let outToken = self.outToken(reverse)
 
             // Bridge input to EVM
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
@@ -667,7 +668,7 @@ access(all) contract UniswapV3SwapConnectors {
 
             let word = res.data as! [UInt8]
             let addrSlice = word.slice(from: 12, upTo: 32)
-            let addrBytes: [UInt8; 20] = self.to20(addrSlice)
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
@@ -676,7 +677,7 @@ access(all) contract UniswapV3SwapConnectors {
             let token0 = self.getPoolToken0(pool)
 
             // your actual input token for this swap direction:
-            let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
+            let inToken = self.inToken(reverse)
 
             return inToken.equals(token0)
         }
