@@ -655,19 +655,7 @@ access(all) contract UniswapV3SwapConnectors {
         _ swapperType: Type
     ) {
         panic(
-            ("Call to ".concat(target.toString())
-                .concat(".")
-                .concat(signature)
-                .concat(" from Swapper ")
-                .concat(swapperType.identifier)
-                .concat(" with UniqueIdentifier ")
-                .concat(uniqueIDType)
-                .concat(" ID ")
-                .concat(id)
-                .concat(" failed:\n\t"))
-            .concat("Status value: ".concat(res.status.rawValue.toString()).concat("\n\t"))
-            .concat("Error code: ".concat(res.errorCode.toString()).concat("\n\t"))
-            .concat("ErrorMessage: ".concat(res.errorMessage).concat("\n"))
+            "Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) with UniqueIdentifier \(uniqueIDType) ID \(id) failed:\n\tStatus value: \(res.status.rawValue.toString())\n\tError code: \(res.errorCode.toString())\n\tErrorMessage: \(res.errorMessage)\n"
         )
     }
 }
