@@ -173,10 +173,9 @@ access(all) contract UniswapV3SwapConnectors {
 
             if maxInEVM > 0 {
                 // Translate max input -> max output using exactInput quote
-                let maxOutCadence = self.getV3Quote(out: true, amount: maxInEVM, reverse: reverse)
-                if maxOutCadence != nil {
+                if let maxOutCadence = self.getV3Quote(out: true, amount: maxInEVM, reverse: reverse) {
                     let maxOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                        maxOutCadence!,
+                        maxOutCadence,
                         erc20Address: outToken
                     )
                     if safeOutEVM > maxOutEVM {
@@ -679,7 +678,7 @@ access(all) contract UniswapV3SwapConnectors {
             // your actual input token for this swap direction:
             let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
 
-            return inToken.toString() == token0.toString()
+            return inToken.equals(token0)
         }
     }
 
