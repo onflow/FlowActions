@@ -180,7 +180,9 @@ access(all) contract UniswapV3SwapConnectors {
             let zeroForOne = self.isZeroForOne(reverse: reverse)
 
             // Max INPUT proxy in correct pool terms
-            let maxInEVM = self.getMaxAmount(zeroForOne: zeroForOne)
+            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
+            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
+            let maxInEVM = self.getMaxInAmount(zeroForOne: zeroForOne)
 
             // If clamp proxy is 0, don't clamp — it's a truncation/edge case
             var safeOutEVM = desiredOutEVM
@@ -217,31 +219,38 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Estimate output for a provided input
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let tokenEVMAddress = self.inToken(reverse)
-            let provided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+            // IN token for this direction
+            let inToken = self.inToken(reverse)
+            let providedInEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forProvided,
-                erc20Address: tokenEVMAddress
+                erc20Address: inToken
             )
 
-            let maxAmount = self.maxInAmount(reverse: reverse)
+            // Max INPUT proxy in correct pool terms
+            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
+            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
+            let maxInEVM = self.maxInAmount(reverse: reverse)
 
-            var safeAmount = provided 
-            if safeAmount > maxAmount {
-                safeAmount = maxAmount
+            // If clamp proxy is 0, don't clamp — it's a truncation/edge case
+            var safeInEVM = providedInEVM
+            if maxInEVM > 0 && safeInEVM > maxInEVM {
+                safeInEVM = maxInEVM
             }
 
             // Provided IN amount => ceil
-            let safeAmountProvided = self._toCadenceIn(
-                safeAmount,
-                erc20Address: tokenEVMAddress
+            let safeInCadence = self._toCadenceIn(
+                safeInEVM,
+                erc20Address: inToken
             )
 
-            let amountOut = self.getV3Quote(out: true, amount: safeAmount, reverse: reverse)
+            // ExactInput quote: how much OUT for safeInEVM IN
+            let amountOutCadence = self.getV3Quote(out: true, amount: safeInEVM, reverse: reverse)
+
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: amountOut != nil ? safeAmountProvided : 0.0,
-                outAmount: amountOut != nil ? amountOut! : 0.0
+                inAmount: amountOutCadence != nil ? safeInCadence : 0.0,
+                outAmount: amountOutCadence ?? 0.0
             )
         }
 
@@ -318,63 +327,15 @@ access(all) contract UniswapV3SwapConnectors {
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
-        access(self) fun getPoolTokens(_ pool: EVM.EVMAddress): [EVM.EVMAddress] {
-            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81] // token0()
-            let SEL_TOKEN1: [UInt8] = [0xd2, 0x12, 0x20, 0xa7] // token1()
-
-            let t0Res = self._callRaw(
-                to: pool,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
-                gasLimit: 200_000,
-                value: 0
-            )!
-            let t1Res = self._callRaw(
-                to: pool,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN1, args: []),
-                gasLimit: 200_000,
-                value: 0
-            )!
-
-            let t0Bytes = (t0Res.data.slice(from: 12, upTo: 32))
-            let t1Bytes = (t1Res.data.slice(from: 12, upTo: 32))
-
-            return [
-                EVM.EVMAddress(bytes: t0Bytes.toConstantSized<[UInt8; 20]>()!),
-                EVM.EVMAddress(bytes: t1Bytes.toConstantSized<[UInt8; 20]>()!)
-            ]
-        }
 
         access(self) fun maxInAmount(reverse: Bool): UInt256 {
-            let pool = self.getPoolAddress()
-            let tokens = self.getPoolTokens(pool)
-            let token0 = tokens[0]
-            let token1 = tokens[1]
-
-            let input = self.inToken(reverse)
-
-            let zeroForOne = (input.toString() == token0.toString())   // input == token0 ? 0→1 : 1→0
-            return self.getMaxAmount(zeroForOne: zeroForOne)
+            let zeroForOne = self.isZeroForOne(reverse: reverse)
+            return self.getMaxInAmount(zeroForOne: zeroForOne)
         }
 
-        access(self) fun maxOutAmount(reverse: Bool): UInt256 {
-            let maxIn = self.maxInAmount(reverse: reverse)
-
-            // Max out at that max-in, using quoteExactInput
-            let maxOutUFix: UFix64 = self.getV3Quote(out: true, amount: maxIn, reverse: reverse)
-                ?? 0.0
-
-            // OUT token address
-            let outToken = self.outToken(reverse)
-
-            return FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                maxOutUFix,
-                erc20Address: outToken
-            )
-        }
-
-        /// Simplified getMaxAmount using default 6% price impact
-        /// Uses current liquidity as proxy for max swappable amount
-        access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
+        /// Simplified max input calculation using default 6% price impact
+        /// Uses current liquidity as proxy for max swappable input amount
+        access(self) fun getMaxInAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
             
             // Helper functions
@@ -424,7 +385,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 4% price impact (600 bps)
+            // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
