@@ -201,7 +201,7 @@ access(all) contract UniswapV3SwapConnectors {
                 // If maxOutCadence is nil, we also skip clamping (better than forcing 0)
             }
 
-            let safeOutCadence = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+            let safeOutCadence = self._toCadenceOut(
                 safeOutEVM,
                 erc20Address: outToken
             )
