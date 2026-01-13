@@ -4,7 +4,6 @@ import "Burner"
 import "EVM"
 import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
-import "FlowEVMBridge"
 
 import "DeFiActions"
 import "SwapConnectors"
@@ -153,63 +152,104 @@ access(all) contract UniswapV3SwapConnectors {
         access(all) view fun inType(): Type { return self.inVault }
         access(all) view fun outType(): Type { return self.outVault }
 
+
+        access(self) view fun outToken(_ reverse: Bool): EVM.EVMAddress {
+            if reverse {
+                return self.tokenPath[0]
+            }
+            return self.tokenPath[self.tokenPath.length - 1]
+        }
+        access(self) view fun inToken(_ reverse: Bool): EVM.EVMAddress {
+            if reverse {
+                return self.tokenPath[self.tokenPath.length - 1]
+            }
+            return self.tokenPath[0]
+        }
+
         /// Estimate required input for a desired output
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let tokenEVMAddress = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
-            let desired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+            // OUT token for this direction
+            let outToken = self.outToken(reverse)
+            let desiredOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forDesired,
-                erc20Address: tokenEVMAddress
+                erc20Address: outToken
             )
 
-            let maxAmountOut = self.maxOutAmount(reverse: reverse)
+            // Derive true Uniswap direction for pool math
+            let zeroForOne = self.isZeroForOne(reverse: reverse)
 
-            var safeAmountOut = desired
-            if safeAmountOut > maxAmountOut {
-                safeAmountOut = maxAmountOut
+            // Max INPUT proxy in correct pool terms
+            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
+            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
+            let maxInEVM = self.getMaxInAmount(zeroForOne: zeroForOne)
+
+            // If clamp proxy is 0, don't clamp — it's a truncation/edge case
+            var safeOutEVM = desiredOutEVM
+
+            if maxInEVM > 0 {
+                // Translate max input -> max output using exactInput quote
+                if let maxOutCadence = self.getV3Quote(out: true, amount: maxInEVM, reverse: reverse) {
+                    let maxOutEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                        maxOutCadence,
+                        erc20Address: outToken
+                    )
+                    if safeOutEVM > maxOutEVM {
+                        safeOutEVM = maxOutEVM
+                    }
+                }
+                // If maxOutCadence is nil, we also skip clamping (better than forcing 0)
             }
 
-            // Desired OUT amount => floor
-            let safeAmountDesired = self._toCadenceOut(
-                safeAmountOut,
-                erc20Address: tokenEVMAddress
+            let safeOutCadence = self._toCadenceOut(
+                safeOutEVM,
+                erc20Address: outToken
             )
 
-            let amountIn = self.getV3Quote(out: false, amount: safeAmountOut, reverse: reverse)
+            // ExactOutput quote: how much IN required for safeOutEVM OUT
+            let amountInCadence = self.getV3Quote(out: false, amount: safeOutEVM, reverse: reverse)
+
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: amountIn != nil ? amountIn! : 0.0,
-                outAmount: amountIn != nil ? safeAmountDesired : 0.0
+                inAmount: amountInCadence ?? 0.0,
+                outAmount: amountInCadence != nil ? safeOutCadence : 0.0
             )
         }
 
         /// Estimate output for a provided input
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            let tokenEVMAddress = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
-            let provided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+            // IN token for this direction
+            let inToken = self.inToken(reverse)
+            let providedInEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 forProvided,
-                erc20Address: tokenEVMAddress
+                erc20Address: inToken
             )
 
-            let maxAmount = self.maxInAmount(reverse: reverse)
+            // Max INPUT proxy in correct pool terms
+            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
+            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
+            let maxInEVM = self.maxInAmount(reverse: reverse)
 
-            var safeAmount = provided 
-            if safeAmount > maxAmount {
-                safeAmount = maxAmount
+            // If clamp proxy is 0, don't clamp — it's a truncation/edge case
+            var safeInEVM = providedInEVM
+            if maxInEVM > 0 && safeInEVM > maxInEVM {
+                safeInEVM = maxInEVM
             }
 
             // Provided IN amount => ceil
-            let safeAmountProvided = self._toCadenceIn(
-                safeAmount,
-                erc20Address: tokenEVMAddress
+            let safeInCadence = self._toCadenceIn(
+                safeInEVM,
+                erc20Address: inToken
             )
 
-            let amountOut = self.getV3Quote(out: true, amount: safeAmount, reverse: reverse)
+            // ExactInput quote: how much OUT for safeInEVM IN
+            let amountOutCadence = self.getV3Quote(out: true, amount: safeInEVM, reverse: reverse)
+
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: amountOut != nil ? safeAmountProvided : 0.0,
-                outAmount: amountOut != nil ? amountOut! : 0.0
+                inAmount: amountOutCadence != nil ? safeInCadence : 0.0,
+                outAmount: amountOutCadence ?? 0.0
             )
         }
 
@@ -263,16 +303,6 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMBytes(value: bytes)
         }
 
-        access(self) fun to20(_ b: [UInt8]): [UInt8; 20] {
-            if b.length != 20 { panic("to20: need exactly 20 bytes") }
-            return [
-                b[0],  b[1],  b[2],  b[3],  b[4],
-                b[5],  b[6],  b[7],  b[8],  b[9],
-                b[10], b[11], b[12], b[13], b[14],
-                b[15], b[16], b[17], b[18], b[19]
-            ]
-        }
-
         access(self) fun getPoolAddress(): EVM.EVMAddress {
             let res = self._call(
                 to: self.factoryAddress,
@@ -283,79 +313,24 @@ access(all) contract UniswapV3SwapConnectors {
             )!
             assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
 
-            // if res.status != EVM.Status.successful {
-            //     return EVM.addressFromString("0x0000000000000000000000000000000000000000")
-            // }
-
             // ABI return is one 32-byte word; the last 20 bytes are the address
             let word = res.data as! [UInt8]
             if word.length < 32 { panic("getPool: invalid ABI word length") }
 
             let addrSlice = word.slice(from: 12, upTo: 32)   // 20 bytes
-            let addrBytes: [UInt8; 20] = self.to20(addrSlice)
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
-        access(self) fun getPoolTokens(_ pool: EVM.EVMAddress): [EVM.EVMAddress] {
-            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81] // token0()
-            let SEL_TOKEN1: [UInt8] = [0xd2, 0x12, 0x20, 0xa7] // token1()
-
-            let t0Res = self._callRaw(
-                to: pool,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
-                gasLimit: 200_000,
-                value: 0
-            )!
-            let t1Res = self._callRaw(
-                to: pool,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN1, args: []),
-                gasLimit: 200_000,
-                value: 0
-            )!
-
-            let t0Bytes = (t0Res.data.slice(from: 12, upTo: 32))
-            let t1Bytes = (t1Res.data.slice(from: 12, upTo: 32))
-
-            return [
-                EVM.EVMAddress(bytes: self.to20(t0Bytes)),
-                EVM.EVMAddress(bytes: self.to20(t1Bytes))
-            ]
-        }
 
         access(self) fun maxInAmount(reverse: Bool): UInt256 {
-            let pool = self.getPoolAddress()
-            let tokens = self.getPoolTokens(pool)
-            let token0 = tokens[0]
-            let token1 = tokens[1]
-
-            let input = reverse ? self.tokenPath[self.tokenPath.length - 1]
-                                : self.tokenPath[0]
-
-            let zeroForOne = (input.toString() == token0.toString())   // input == token0 ? 0→1 : 1→0
-            return self.getMaxAmount(zeroForOne: zeroForOne)
+            let zeroForOne = self.isZeroForOne(reverse: reverse)
+            return self.getMaxInAmount(zeroForOne: zeroForOne)
         }
 
-        access(self) fun maxOutAmount(reverse: Bool): UInt256 {
-            let maxIn = self.maxInAmount(reverse: reverse)
-
-            // Max out at that max-in, using quoteExactInput
-            let maxOutUFix: UFix64 = self.getV3Quote(out: true, amount: maxIn, reverse: reverse)
-                ?? 0.0
-
-            // OUT token address
-            let outToken = reverse
-                ? self.tokenPath[0]      // reverse: path[last] -> ... -> path[0], so out is path[0]
-                : self.tokenPath[self.tokenPath.length - 1]
-
-            return FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                maxOutUFix,
-                erc20Address: outToken
-            )
-        }
-
-        /// Simplified getMaxAmount using default 6% price impact
-        /// Uses current liquidity as proxy for max swappable amount
-        access(self) fun getMaxAmount(zeroForOne: Bool): UInt256 {
+        /// Simplified max input calculation using default 6% price impact
+        /// Uses current liquidity as proxy for max swappable input amount
+        access(self) fun getMaxInAmount(zeroForOne: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress()
             
             // Helper functions
@@ -405,7 +380,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
-            // Calculate price multiplier based on 4% price impact (600 bps)
+            // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
@@ -425,7 +400,6 @@ access(all) contract UniswapV3SwapConnectors {
                 // Δx = L * (√P - √P') / (√P * √P')
                 // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
-                let numerator: UInt256 = L_256 * deltaSqrt
                 let num1: UInt256 = L_256 * bps
                 let num2: UInt256 = num1 * Q96
                 let den: UInt256  = UInt256(20000) * sqrtPriceNew
@@ -466,9 +440,9 @@ access(all) contract UniswapV3SwapConnectors {
             if decoded.length == 0 { return nil }
             let uintAmt = decoded[0] as! UInt256
 
-            let ercAddr = reverse
-                ? (out ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1])
-                : (out ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0])
+            let ercAddr = out
+                ? self.outToken(reverse)
+                : self.inToken(reverse)
 
             // out == true  => quoteExactInput  => result is an OUT amount => floor
             // out == false => quoteExactOutput => result is an IN amount  => ceil
@@ -493,8 +467,8 @@ access(all) contract UniswapV3SwapConnectors {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // I/O tokens
-            let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
-            let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
+            let inToken = self.inToken(reverse)
+            let outToken = self.outToken(reverse)
 
             // Bridge input to EVM
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(exactVaultIn.balance, erc20Address: inToken)
@@ -636,6 +610,32 @@ access(all) contract UniswapV3SwapConnectors {
             let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
             return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
         }
+        access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
+            // token0() selector = 0x0dfe1681
+            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81]
+            let res = self._callRaw(
+                to: pool,
+                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
+                gasLimit: 150_000,
+                value: 0
+            )!
+            assert(res.status == EVM.Status.successful, message: "token0() call failed")
+
+            let word = res.data as! [UInt8]
+            let addrSlice = word.slice(from: 12, upTo: 32)
+            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
+            return EVM.EVMAddress(bytes: addrBytes)
+        }
+
+        access(self) fun isZeroForOne(reverse: Bool): Bool {
+            let pool = self.getPoolAddress()
+            let token0 = self.getPoolToken0(pool)
+
+            // your actual input token for this swap direction:
+            let inToken = self.inToken(reverse)
+
+            return inToken.equals(token0)
+        }
     }
 
     /// Revert helper
@@ -649,19 +649,7 @@ access(all) contract UniswapV3SwapConnectors {
         _ swapperType: Type
     ) {
         panic(
-            ("Call to ".concat(target.toString())
-                .concat(".")
-                .concat(signature)
-                .concat(" from Swapper ")
-                .concat(swapperType.identifier)
-                .concat(" with UniqueIdentifier ")
-                .concat(uniqueIDType)
-                .concat(" ID ")
-                .concat(id)
-                .concat(" failed:\n\t"))
-            .concat("Status value: ".concat(res.status.rawValue.toString()).concat("\n\t"))
-            .concat("Error code: ".concat(res.errorCode.toString()).concat("\n\t"))
-            .concat("ErrorMessage: ".concat(res.errorMessage).concat("\n"))
+            "Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) with UniqueIdentifier \(uniqueIDType) ID \(id) failed:\n\tStatus value: \(res.status.rawValue.toString())\n\tError code: \(res.errorCode.toString())\n\tErrorMessage: \(res.errorMessage)\n"
         )
     }
 }
