@@ -181,13 +181,34 @@ access(all) contract ERC4626SwapConnectors {
             // assign or get the quote for the swap
             let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
 
-            // get the before available shares
+            assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
+            assert(_quote.outType == self.outType(), message: "Quote inType mismatch")
+            assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
+            assert(_quote.outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
+
+            // --- Slippage protection: don't allow spending more than quoted ---
+            let beforeInBalance = inVault.balance
+            assert(
+                beforeInBalance <= _quote.inAmount,
+                message: "Swap input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
+            )
+
+            // Track shares available before/after to determine received shares
             let beforeAvailable = self.shareSource.minimumAvailable()
 
-            // deposit the inVault into the asset sink
+            // Deposit the inVault into the asset sink (should consume all of it)
             self.assetSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
             let remainder = inVault.balance
+            let consumedIn = beforeInBalance - remainder
+
+            // We expect full consumption in this connector's semantics.
+            // If this ever becomes "partial fill" in the future, this check + price check below
+            // ensures it still can't be worse than quoted.
+            assert(
+                consumedIn > 0.0,
+                message: "Asset sink did not consume any input."
+            )
             assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
 
             assert(self.assetSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Asset Sink to have capacity after depositing")
@@ -198,8 +219,23 @@ access(all) contract ERC4626SwapConnectors {
             assert(afterAvailable > beforeAvailable, message: "Expected ERC4626 Vault \(self.vault.toString()) to have more shares after depositing")
 
             // withdraw the available difference in shares
-            let availableDiff = afterAvailable - beforeAvailable
-            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: availableDiff)
+            let receivedShares = afterAvailable - beforeAvailable
+
+            // --- Slippage protection: ensure minimum out ---
+            assert(
+                receivedShares >= _quote.outAmount,
+                message: "Slippage: received \(receivedShares) < quote.outAmount (\(_quote.outAmount))."
+            )
+
+            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: receivedShares)
+
+            // Extra safety: ensure the vault we’re returning matches the computed delta
+            // (withdrawAvailable could theoretically return less if liquidity changed)
+            assert(
+                sharesVault.balance >= _quote.outAmount,
+                message: "Slippage: withdrawn shares \(sharesVault.balance) < quote.outAmount (\(_quote.outAmount))."
+            )
+
             return <- sharesVault
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
