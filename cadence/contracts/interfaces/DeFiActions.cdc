@@ -320,6 +320,7 @@ access(all) contract DeFiActions {
     /// An interface for an estimate to be returned by a Swapper when asking for a swap estimate. This may be helpful
     /// for passing additional parameters to a Swapper relevant to the use case. Implementations may choose to add
     /// fields relevant to their Swapper implementation and downcast in swap() and/or swapBack() scope.
+    /// By convention, a Quote with inAmount==outAmount==0 indicates no estimated swap price is available.
     ///
     access(all) struct interface Quote {
         /// The quoted pre-swap Vault type
@@ -342,9 +343,18 @@ access(all) contract DeFiActions {
         access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outType(): Type
-        /// The estimated amount required to provide a Vault with the desired output balance
-        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote} // fun quoteIn/Out
+        /// Provides a quote for how many input tokens can be swapped for `forDesired` output tokens.
+        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
+        /// Interpretation:
+        /// - reverse=false -> I want to provide `quote.inAmount` input tokens and receive `forDesired` output tokens.
+        /// - reverse=true -> I want to provide `forDesired` output tokens and receive `quote.inAmount` input tokens.
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
+        /// Provides a quote for how many output tokens can be swapped for `forProvided` input tokens.
+        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
+        /// Interpretation:
+        /// - reverse=false -> I want to provide `forProvided` input tokens and receive `quote.outAmount` output tokens.
+        /// - reverse=true -> I want to provide `quote.outAmount` output tokens and receive `forProvided` input tokens.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
@@ -394,6 +404,18 @@ access(all) contract DeFiActions {
                 )
             }
         }
+    }
+
+    /// SwapperProvider
+    ///
+    /// An interface for a wrapper around one or more Swappers.
+    /// For example, a DEX which supports multiple trading pairs is conceptually a SwapperProvider which
+    /// can provide a Swapper for each of its supported trading pairs.
+    ///
+    access(all) struct interface SwapperProvider {
+        /// Returns a Swapper for the given trade pair, if the pair is supported.
+        /// Otherwise returns nil.
+        access(all) fun getSwapper(inType: Type, outType: Type): {DeFiActions.Swapper}?
     }
 
     /// PriceOracle
