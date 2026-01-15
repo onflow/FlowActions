@@ -267,49 +267,57 @@ access(all) contract UniswapV3SwapConnectors {
 
         /* --- Core swap / quote internals --- */
 
-        /// Build Uniswap V3 path bytes: address(20) + fee(uint24) + address(20) + ...
+        /// Build Uniswap V3 path bytes:
+        /// token0(20) | fee0(3) | token1(20) | fee1(3) | token2(20) | ...
         access(self) fun _buildPathBytes(reverse: Bool): EVM.EVMBytes {
-            var bytes: [UInt8] = []
-            var i: Int = 0
+            var out: [UInt8] = []
+
+            // helper to append address bytes
+            fun appendAddr(_ a: EVM.EVMAddress) {
+                let fixed: [UInt8; 20] = a.bytes
+                var i = 0
+                while i < 20 {
+                    out.append(fixed[i])
+                    i = i + 1
+                }
+            }
+
+            // helper to append uint24 fee big-endian
+            fun appendFee(_ f: UInt32) {
+                // validate fee fits uint24
+                pre { f <= 0xFFFFFF: "feePath element exceeds uint24" }
+                out.append(UInt8((f >> 16) & 0xFF))
+                out.append(UInt8((f >> 8) & 0xFF))
+                out.append(UInt8(f & 0xFF))
+            }
+
+            let nHops = self.feePath.length
             let last = self.tokenPath.length - 1
 
-            while i < self.tokenPath.length - 1 {
-                let idx0 = reverse ? (last - i) : i
-                let idx1 = reverse ? (last - (i + 1)) : (i + 1)
+            // choose first token based on direction
+            let first = reverse ? self.tokenPath[last] : self.tokenPath[0]
+            appendAddr(first)
 
-                let a0 = self.tokenPath[idx0]
-                let a1 = self.tokenPath[idx1]
+            var i = 0
+            while i < nHops {
+                let feeIdx = reverse ? (nHops - 1 - i) : i
+                let nextIdx = reverse ? (last - (i + 1)) : (i + 1)
 
-                let feeIdx = reverse ? (self.feePath.length - 1 - i) : i
-                let f: UInt32 = self.feePath[feeIdx]
-
-                // address 0
-                let a0Fixed: [UInt8; 20] = a0.bytes
-                var k: Int = 0
-                while k < 20 { bytes.append(a0Fixed[k]); k = k + 1 }
-
-                // fee uint24 big-endian
-                bytes.append(UInt8((f >> 16) & 0xFF))
-                bytes.append(UInt8((f >> 8) & 0xFF))
-                bytes.append(UInt8(f & 0xFF))
-
-                // address 1
-                let a1Fixed: [UInt8; 20] = a1.bytes
-                k = 0
-                while k < 20 { bytes.append(a1Fixed[k]); k = k + 1 }
+                appendFee(self.feePath[feeIdx])
+                appendAddr(self.tokenPath[nextIdx])
 
                 i = i + 1
             }
-            return EVM.EVMBytes(value: bytes)
+
+            return EVM.EVMBytes(value: out)
         }
 
         access(self) fun getPoolAddress(): EVM.EVMAddress {
-            let res = self._call(
-                to: self.factoryAddress,
-                signature: "getPool(address,address,uint24)",
-                args: [ self.tokenPath[0], self.tokenPath[1], UInt256(self.feePath[0]) ],
-                gasLimit: 120_000,
-                value: 0
+            let res = self._dryCall(
+                self.factoryAddress,
+                "getPool(address,address,uint24)",
+                [ self.tokenPath[0], self.tokenPath[1], UInt256(self.feePath[0]) ],
+                120_000
             )!
             assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
 
@@ -362,21 +370,19 @@ access(all) contract UniswapV3SwapConnectors {
             let SEL_LIQUIDITY: [UInt8] = [0x1a, 0x68, 0x65, 0x02]
             
             // Get slot0 (sqrtPriceX96, tick, etc.)
-            let s0Res: EVM.Result? = self._callRaw(
+            let s0Res: EVM.Result? = self._dryCallRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_SLOT0, args: []),
                 gasLimit: 1_000_000,
-                value: 0
             )
             let s0w = words(s0Res!.data)
             let sqrtPriceX96 = wordToUIntN(s0w[0], 160)
             
             // Get current active liquidity
-            let liqRes: EVM.Result? = self._callRaw(
+            let liqRes: EVM.Result? = self._dryCallRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_LIQUIDITY, args: []),
                 gasLimit: 300_000,
-                value: 0
             )
             let L = wordToUIntN(words(liqRes!.data)[0], 128)
             
@@ -573,6 +579,15 @@ access(all) contract UniswapV3SwapConnectors {
             return nil
         }
 
+        access(self) fun _dryCallRaw(to: EVM.EVMAddress, calldata: [UInt8], gasLimit: UInt64): EVM.Result? {
+            let calldata = EVM.encodeABIWithSignature(signature, args)
+            let valueBalance = EVM.Balance(attoflow: 0)
+            if let coa = self.borrowCOA() {
+                return coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+            }
+            return nil
+        }
+
         access(self) fun _call(to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64, value: UInt): EVM.Result? {
             let calldata = EVM.encodeABIWithSignature(signature, args)
             let valueBalance = EVM.Balance(attoflow: value)
@@ -613,11 +628,10 @@ access(all) contract UniswapV3SwapConnectors {
         access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
             // token0() selector = 0x0dfe1681
             let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81]
-            let res = self._callRaw(
+            let res = self._dryCallRaw(
                 to: pool,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
                 gasLimit: 150_000,
-                value: 0
             )!
             assert(res.status == EVM.Status.successful, message: "token0() call failed")
 
