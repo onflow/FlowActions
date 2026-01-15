@@ -580,7 +580,6 @@ access(all) contract UniswapV3SwapConnectors {
         }
 
         access(self) fun _dryCallRaw(to: EVM.EVMAddress, calldata: [UInt8], gasLimit: UInt64): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
             let valueBalance = EVM.Balance(attoflow: 0)
             if let coa = self.borrowCOA() {
                 return coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
