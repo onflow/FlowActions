@@ -28,9 +28,10 @@ access(all) contract ERC4626SwapConnectors {
     /// for liquidity to flow between Cadnece & EVM. These "swaps" are performed by depositing the input asset into the
     /// ERC4626 vault and withdrawing the resulting shares from the ERC4626 vault.
     ///
-    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this Swapper only supports the
-    ///     default inType -> outType path via swap() and reverts on swapBack() since the withdrawal cannot be returned
-    ///     synchronously.
+    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this is a one-way swapper that
+    ///     only supports the default inType -> outType path via swap() and reverts on swapBack(). When used with
+    ///     SwapConnectors.SwapSink, ensure the inner sink always consumes all swapped shares (has sufficient capacity).
+    ///     If residuals remain, swapBack() will be called and the transaction will revert.
     ///
     access(all) struct Swapper : DeFiActions.Swapper {
         /// The asset type serving as the price basis in the ERC4626 vault
