@@ -186,7 +186,6 @@ access(all) contract ERC4626SwapConnectors {
 
             // deposit the inVault into the asset sink
             self.assetSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-            assert(self.assetSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Asset Sink to have capacity after depositing")
             Burner.burn(<-inVault)
 
             // get the after available shares
