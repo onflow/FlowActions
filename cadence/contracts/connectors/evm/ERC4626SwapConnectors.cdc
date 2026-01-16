@@ -180,11 +180,12 @@ access(all) contract ERC4626SwapConnectors {
 
             // assign or get the quote for the swap
             let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
+            let outAmount = _quote.outAmount
 
             assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
             assert(_quote.outType == self.outType(), message: "Quote inType mismatch")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
-            assert(_quote.outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
+            assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
             // --- Slippage protection: don't allow spending more than quoted ---
             let beforeInBalance = inVault.balance
@@ -223,8 +224,8 @@ access(all) contract ERC4626SwapConnectors {
 
             // --- Slippage protection: ensure minimum out ---
             assert(
-                receivedShares >= _quote.outAmount,
-                message: "Slippage: received \(receivedShares) < quote.outAmount (\(_quote.outAmount))."
+                receivedShares >= outAmount,
+                message: "Slippage: received \(receivedShares) < quote.outAmount (\(outAmount))."
             )
 
             let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: receivedShares)
@@ -232,8 +233,8 @@ access(all) contract ERC4626SwapConnectors {
             // Extra safety: ensure the vault we’re returning matches the computed delta
             // (withdrawAvailable could theoretically return less if liquidity changed)
             assert(
-                sharesVault.balance >= _quote.outAmount,
-                message: "Slippage: withdrawn shares \(sharesVault.balance) < quote.outAmount (\(_quote.outAmount))."
+                sharesVault.balance >= outAmount,
+                message: "Slippage: withdrawn shares \(sharesVault.balance) < outAmount (\(outAmount))."
             )
 
             return <- sharesVault
