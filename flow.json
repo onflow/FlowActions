@@ -147,6 +147,12 @@
 			"aliases": {
 				"testing": "0000000000000009"
 			}
+		},
+		"UniswapV3SwapperProvider": {
+			"source": "cadence/contracts/connectors/evm/UniswapV3SwapperProvider.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
 		}
 	},
 	"dependencies": {
@@ -359,7 +365,7 @@
 		},
 		"FlowTransactionSchedulerUtils": {
 			"source": "mainnet://e467b9dd11fa00df.FlowTransactionSchedulerUtils",
-			"hash": "b5d6f06dd43e4cee907e08a5bc46df0bb9c2338d806d9d253789aee4c4ac01ad",
+			"hash": "429ed886472cd65def9e5ab1dd20079b0dcfb23095d18d54077767ac3316a8ce",
 			"aliases": {
 				"mainnet": "e467b9dd11fa00df"
 			}
@@ -676,20 +682,20 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"mainnet-uniswapv2-swap-connectors": {
-			"address": "f94f371678513b2b",
-			"key": {
-				"type": "google-kms",
-				"hashAlgorithm": "SHA2_256",
-				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
-			}
-		},
 		"mainnet-uniswapV3-connectors-deployer": {
 			"address": "a7825d405ac89518",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/dl-flow-devex-production/locations/us-central1/keyRings/tidal-keyring/cryptoKeys/tidal_admin_pk/cryptoKeyVersions/1"
+			}
+		},
+		"mainnet-uniswapv2-swap-connectors": {
+			"address": "f94f371678513b2b",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
 		"testnet-band-oracle-connectors": {
@@ -786,6 +792,8 @@
 				"ERC4626PriceOracles",
 				"IncrementFiSwapConnectors",
 				"IncrementFiFlashloanConnectors",
+				"UniswapV3SwapConnectors",
+				"UniswapV3SwapperProvider",
 				"SwapPair",
 				"FlowEVMBridgeUtils",
 				"SerializeMetadata",
@@ -849,14 +857,14 @@
 			"mainnet-swap-connectors": [
 				"SwapConnectors"
 			],
-			"mainnet-uniswapv2-swap-connectors": [
-				"UniswapV2SwapConnectors"
-			],
 			"mainnet-uniswapV3-connectors-deployer": [
 				"EVMAbiHelpers",
-				"UniswapV3SwapConnectors"
+				"UniswapV3SwapConnectors",
+				"UniswapV3SwapperProvider"
+			],
+			"mainnet-uniswapv2-swap-connectors": [
+				"UniswapV2SwapConnectors"
 			]
-
 		},
 		"testnet": {
 			"testnet-band-oracle-connectors": [
@@ -890,7 +898,8 @@
 			],
 			"testnet-uniswapV3-swap-connectors": [
 				"EVMAbiHelpers",
-				"UniswapV3SwapConnectors"
+				"UniswapV3SwapConnectors",
+				"UniswapV3SwapperProvider"
 			],
 			"testnet-uniswapv2-swap-connectors": [
 				"UniswapV2SwapConnectors"
