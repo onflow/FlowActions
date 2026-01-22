@@ -142,12 +142,13 @@ access(all) contract ERC4626SwapConnectors {
                 )
             }
             
-            // ensure the provided amount is not greater than the maximum deposit amount
-            let uintMaxDeposit = ERC4626Utils.maxDeposit(vault: self.vault, receiver: self.assetEVMAddress)
+            // ensure the provided amount is not greater than the maximum deposit capacity
+            let maxCapacity = self.assetSink.minimumCapacity()
             var _forProvided = forProvided
-            if uintMaxDeposit != nil {
-                let ufixMaxDeposit = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintMaxDeposit!, erc20Address: self.assetEVMAddress)
-                _forProvided = _forProvided > ufixMaxDeposit ? ufixMaxDeposit : _forProvided
+            if maxCapacity == 0.0 {
+                _forProvided = 0.0
+            } else if _forProvided > maxCapacity {
+                _forProvided = maxCapacity
             }
             let uintForProvided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(_forProvided, erc20Address: self.assetEVMAddress)
 
@@ -190,7 +191,6 @@ access(all) contract ERC4626SwapConnectors {
             let remainder = inVault.balance
             assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
 
-            assert(self.assetSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Asset Sink to have capacity after depositing")
             Burner.burn(<-inVault)
 
             // get the after available shares
