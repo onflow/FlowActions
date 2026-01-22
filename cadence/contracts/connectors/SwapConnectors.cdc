@@ -186,21 +186,50 @@ access(all) contract SwapConnectors {
         /// Returns the the index of the optimal Swapper (result[0]) and the associated amountOut or amountIn (result[0])
         /// as a UFix64 array
         access(self) fun _estimate(amount: UFix64, out: Bool, reverse: Bool): [UFix64; 2] {
-            var res: [UFix64; 2] = out ? [0.0, 0.0] : [0.0, UFix64.max] // maximizing for out, minimizing for in
-            for i in InclusiveRange(0, self.swappers.length - 1) {
+            let n = self.swappers.length
+            if n == 0 {
+                return [0.0, 0.0]
+            }
+
+            var foundValid = false
+            var bestIndex: Int = 0
+            var bestEstimate: UFix64 = 0.0
+
+            var i = 0
+            while i < n {
                 let swapper = &self.swappers[i] as &{DeFiActions.Swapper}
-                // call the appropriate estimator
-                let estimate = out
+                let estimate: UFix64 = out
                     ? swapper.quoteOut(forProvided: amount, reverse: reverse).outAmount
                     : swapper.quoteIn(forDesired: amount, reverse: reverse).inAmount
-                // estimates of 0.0 are presumed to be graceful failures - skip them
-                if estimate > 0.0 && (out ? res[1] < estimate : estimate < res[1]) {
-                    // take minimum for in, maximum for out
-                    res = [UFix64(i), estimate]
+
+                // Treat 0-quote for non-zero amount as invalid/unavailable route
+                if amount > 0.0 && estimate == 0.0 {
+                    i = i + 1
+                    continue
                 }
+
+                if !foundValid {
+                    foundValid = true
+                    bestIndex = i
+                    bestEstimate = estimate
+                } else {
+                    let better = out ? (estimate > bestEstimate) : (estimate < bestEstimate)
+                    if better {
+                        bestIndex = i
+                        bestEstimate = estimate
+                    }
+                }
+
+                i = i + 1
             }
-            return res
+
+            if !foundValid {
+                return [0.0, 0.0]
+            }
+
+            return [UFix64(bestIndex), bestEstimate]
         }
+
         /// Swaps the provided Vault in the defined direction. If the quote is not a MultiSwapperQuote, a new quote is
         /// requested and the current optimal Swapper used to fulfill the swap.
         access(self) fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
