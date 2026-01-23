@@ -365,3 +365,27 @@ access(all) fun testSourceWithdrawTokenAWithMinSucceeds() {
     evmTokenABalance = getEVMTokenBalance(of: recipient, erc20Address: tokenAERCAddress)
     Test.assertEqual(evmTokenABalance, minAmount)
 }
+
+access(all) fun testSinkAndSourceGetComponentInfoIncludesFeeSource() {
+    // create a user account and fund it
+    let user = Test.createAccount()
+    let flowBalance = 100.0
+    transferFlow(signer: serviceAccount, recipient: user.address, amount: flowBalance)
+    // create a COA for the user
+    createCOA(user, fundingAmount: 0.0)
+    // get the EVM address of the COA
+    let recipient = getCOAAddressHex(atFlowAddress: user.address)
+
+    // get component info for both Sink and Source and verify they include feeSource
+    let componentInfoResult = _executeScript(
+        "../scripts/evm-token-connectors/get_component_info.cdc",
+        [Type<@FlowToken.Vault>().identifier, recipient, user.address]
+    )
+    Test.expect(componentInfoResult, Test.beSucceeded())
+
+    let result = componentInfoResult.returnValue! as! {String: Int}
+    
+    // Both Sink and Source should have exactly 1 inner component (the feeSource)
+    Test.assertEqual(1, result["sinkInnerComponentsCount"]!)
+    Test.assertEqual(1, result["sourceInnerComponentsCount"]!)
+}
