@@ -366,7 +366,7 @@ access(all) fun testSourceWithdrawTokenAWithMinSucceeds() {
     Test.assertEqual(evmTokenABalance, minAmount)
 }
 
-access(all) fun testSinkAndSourceGetComponentInfoIncludesFeeSource() {
+access(all) fun testSinkAndSourceGetComponentInfo() {
     // create a user account and fund it
     let user = Test.createAccount()
     let flowBalance = 100.0
@@ -376,16 +376,51 @@ access(all) fun testSinkAndSourceGetComponentInfoIncludesFeeSource() {
     // get the EVM address of the COA
     let recipient = getCOAAddressHex(atFlowAddress: user.address)
 
-    // get component info for both Sink and Source and verify they include feeSource
-    let componentInfoResult = _executeScript(
-        "../scripts/evm-token-connectors/get_component_info.cdc",
-        [Type<@FlowToken.Vault>().identifier, recipient, user.address]
+    // create Sink
+    let createSinkResult = _executeTransaction(
+        "./transactions/evm-token-connectors/create_sink.cdc",
+        [nil, nil, Type<@FlowToken.Vault>().identifier, recipient],
+        user
     )
-    Test.expect(componentInfoResult, Test.beSucceeded())
+    Test.expect(createSinkResult, Test.beSucceeded())
 
-    let result = componentInfoResult.returnValue! as! {String: Int}
-    
+    // create Source
+    let createSourceResult = _executeTransaction(
+        "./transactions/evm-token-connectors/create_source.cdc",
+        [nil, nil, Type<@FlowToken.Vault>().identifier],
+        user
+    )
+    Test.expect(createSourceResult, Test.beSucceeded())
+
+    // get Sink component info from storage
+    let sinkInfoResult = _executeScript(
+        "./scripts/evm-token-connectors/get_sink_component_info.cdc",
+        [user.address]
+    )
+    Test.expect(sinkInfoResult, Test.beSucceeded())
+    let sinkInfo = sinkInfoResult.returnValue! as! DeFiActions.ComponentInfo
+
+    // get Source component info from storage
+    let sourceInfoResult = _executeScript(
+        "./scripts/evm-token-connectors/get_source_component_info.cdc",
+        [user.address]
+    )
+    Test.expect(sourceInfoResult, Test.beSucceeded())
+    let sourceInfo = sourceInfoResult.returnValue! as! DeFiActions.ComponentInfo
+
+    // Verify Sink type
+    Test.assert(
+        sinkInfo.type.identifier.contains("EVMTokenConnectors.Sink"),
+        message: "Expected Sink type but got: \(sinkInfo.type.identifier)"
+    )
+
+    // Verify Source type
+    Test.assert(
+        sourceInfo.type.identifier.contains("EVMTokenConnectors.Source"),
+        message: "Expected Source type but got: \(sourceInfo.type.identifier)"
+    )
+
     // Both Sink and Source should have exactly 1 inner component (the feeSource)
-    Test.assertEqual(1, result["sinkInnerComponentsCount"]!)
-    Test.assertEqual(1, result["sourceInnerComponentsCount"]!)
+    Test.assertEqual(1, sinkInfo.innerComponents.length)
+    Test.assertEqual(1, sourceInfo.innerComponents.length)
 }
