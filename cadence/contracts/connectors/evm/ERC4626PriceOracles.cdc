@@ -59,10 +59,17 @@ access(all) contract ERC4626PriceOracles {
         }
         /// Returns the current price of the ERC4626 vault denominated in the underlying asset type
         ///
-        /// @param ofToken The token type to get the price of
+        /// @param ofToken The ERC4626 share token type to get the price of
         ///
         /// @return The current price of the ERC4626 vault denominated in the underlying asset type
         access(all) fun price(ofToken: Type): UFix64? {
+            if let vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: self.vault) {
+                if ofToken != vaultType {
+                    return nil
+                }
+            } else {
+                return nil
+            }
             let totalAssets = ERC4626Utils.totalAssets(vault: self.vault)
             let totalShares = ERC4626Utils.totalShares(vault: self.vault)
             if totalAssets == nil || totalShares == nil || totalShares == UInt256(0) {

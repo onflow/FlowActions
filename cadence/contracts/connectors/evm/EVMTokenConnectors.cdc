@@ -100,6 +100,10 @@ access(all) contract EVMTokenConnectors {
         /// @return the minimum capacity of this Sink
         ///
         access(all) fun minimumCapacity(): UFix64 {
+            let feeAmount = FlowEVMBridgeConfig.baseFee
+            if self.feeSource.minimumAvailable() < feeAmount {
+                return 0.0
+            }
             let erc20Address = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.depositVaultType)!
             let balance = FlowEVMBridgeUtils.balanceOf(owner: self.address, evmContractAddress: erc20Address)
             let balanceInCadence = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
@@ -125,7 +129,7 @@ access(all) contract EVMTokenConnectors {
             }
 
             // collect VM bridge fees
-            let feeAmount = FlowEVMBridgeConfig.baseFee * 2.0
+            let feeAmount = FlowEVMBridgeConfig.baseFee
             if self.feeSource.minimumAvailable() < feeAmount {
                 return // early return here instead of reverting in bridge scope on insufficient fees
             }
