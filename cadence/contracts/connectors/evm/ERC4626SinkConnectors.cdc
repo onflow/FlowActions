@@ -100,16 +100,21 @@ access(all) contract ERC4626SinkConnectors {
             // TODO: pass from through and skip the intermediary withdrawal
             let deposit <- from.withdraw(amount: amount)
             self.tokenSink.depositCapacity(from: &deposit as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-            if deposit.balance == amount {
-                // nothing was deposited to the EVMTokenConnectors Sink
-                Burner.burn(<-deposit)
+
+            let remainder = deposit.balance
+
+            if remainder == amount {
+                // 0 deposited -> return everything, stop
+                from.deposit(from: <-deposit)
                 return
-            } else if deposit.balance > 0.0 {
-                // update deposit amount & deposit the residual
-                amount = amount - deposit.balance
+            }
+
+            if remainder > 0.0 {
+                // partial deposited -> return remainder
+                amount = amount - remainder
                 from.deposit(from: <-deposit)
             } else {
-                // nothing left - burn & execute vault's burnCallback()
+                // fully deposited -> clean up empty vault
                 Burner.burn(<-deposit)
             }
 
