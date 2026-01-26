@@ -105,18 +105,11 @@ access(all) contract ERC4626SwapConnectors {
                 )
             }
             let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
-            if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
-                let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
 
-                if uintRequired > uintMaxAllowed {
-                    return SwapConnectors.BasicQuote(
-                        inType: self.asset,
-                        outType: self.vaultType,
-                        inAmount: UFix64.max,
-                        outAmount: forDesired
-                    )
-                }
-                let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
+            if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
+                let maxAvailableRequired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
+                let safeUIntRequired = uintRequired < maxAvailableRequired ? uintRequired : maxAvailableRequired
+                let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(safeUIntRequired, erc20Address: self.assetEVMAddress)
                 return SwapConnectors.BasicQuote(
                     inType: self.asset,
                     outType: self.vaultType,
@@ -133,10 +126,7 @@ access(all) contract ERC4626SwapConnectors {
         }
         /// The estimated amount delivered out for a provided input balance
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            if reverse { 
-
-
-
+            if reverse { // unsupported
                 return SwapConnectors.BasicQuote(
                     inType: self.vaultType,
                     outType: self.asset,
@@ -144,18 +134,16 @@ access(all) contract ERC4626SwapConnectors {
                     outAmount: 0.0
                 )
             }
-            
-            // ensure the provided amount is not greater than the maximum deposit capacity
-            let maxCapacity = self.assetSink.minimumCapacity()
+
+            // ensure the provided amount is not greater than the maximum deposit amount
+            let uintMaxDeposit = ERC4626Utils.maxDeposit(vault: self.vault, receiver: self.assetEVMAddress)
             var _forProvided = forProvided
-            if maxCapacity == 0.0 {
-                _forProvided = 0.0
-            } else if _forProvided > maxCapacity {
-                _forProvided = maxCapacity
+            if uintMaxDeposit != nil {
+                let ufixMaxDeposit = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintMaxDeposit!, erc20Address: self.assetEVMAddress)
+                _forProvided = _forProvided > ufixMaxDeposit ? ufixMaxDeposit : _forProvided
             }
             let uintForProvided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(_forProvided, erc20Address: self.assetEVMAddress)
 
-            
             if let uintShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintForProvided) {
                 let ufixShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintShares, erc20Address: self.vault)
                 return SwapConnectors.BasicQuote(
@@ -206,13 +194,7 @@ access(all) contract ERC4626SwapConnectors {
         /// to use multiple Flow swap protocols.
         // TODO: Impl detail - accept quote that was just used by swap() but reverse the direction assuming swap() was just called
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            if residual.balance == 0.0 {
-                // nothing to swap - burn the inVault and return an empty outVault
-                Burner.burn(<- residual)
-                return <- DeFiActionsUtils.getEmptyVault(self.asset)
-            }
-
-            let _quote = quote ?? self.quoteOut(forProvided: )
+            panic("ERC4626SwapConnectors.Swapper.swapBack() is not supported - ERC4626 Vaults do not support synchronous withdrawals")
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
         /// each inner component in the stack.
