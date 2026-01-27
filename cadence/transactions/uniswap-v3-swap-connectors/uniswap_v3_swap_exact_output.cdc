@@ -1,0 +1,101 @@
+import "FungibleToken"
+import "EVM"
+import "FlowEVMBridgeConfig"
+import "UniswapV3SwapConnectors"
+import "DeFiActions"
+import "SwapConnectors"
+
+/// Uniswap V3 exactOutput swap transaction
+///
+/// User specifies the exact amount of output tokens desired.
+/// The transaction will use up to maxAmountIn of input tokens.
+/// Any unused input tokens remain in the COA.
+///
+/// @param desiredAmountOut: Exact amount of output tokens desired
+/// @param maxAmountIn: Maximum amount of input tokens willing to spend
+/// @param factoryAddress: Uniswap V3 Factory EVM address
+/// @param routerAddress: Uniswap V3 SwapRouter EVM address
+/// @param quoterAddress: Uniswap V3 Quoter EVM address
+/// @param tokenInType: Cadence Type of input token (must be bridged)
+/// @param tokenOutType: Cadence Type of output token (must be bridged)
+/// @param fee: Pool fee tier (e.g., 3000 for 0.3%, 500 for 0.05%, 10000 for 1%)
+///
+transaction(
+    desiredAmountOut: UFix64,
+    maxAmountIn: UFix64,
+    factoryAddress: String,
+    routerAddress: String,
+    quoterAddress: String,
+    tokenInType: Type,
+    tokenOutType: Type,
+    fee: UInt32
+) {
+    let swapper: UniswapV3SwapConnectors.Swapper
+    let tokenInVault: @{FungibleToken.Vault}
+    let quote: {DeFiActions.Quote}
+    var tokenOut: UFix64
+
+    prepare(signer: auth(Storage, IssueStorageCapabilityController, BorrowValue) &Account) {
+        self.tokenOut = 0.0
+
+        let coaCap = signer.capabilities.storage.issue<auth(EVM.Owner) &EVM.CadenceOwnedAccount>(/storage/evm)
+        assert(coaCap.check(), message: "COA capability is invalid")
+
+        let factory = EVM.addressFromString(factoryAddress)
+        let router = EVM.addressFromString(routerAddress)
+        let quoter = EVM.addressFromString(quoterAddress)
+
+        let tokenInEVMAddr = FlowEVMBridgeConfig.getEVMAddressAssociated(with: tokenInType)
+            ?? panic("Token in type not bridged: ".concat(tokenInType.identifier))
+        let tokenOutEVMAddr = FlowEVMBridgeConfig.getEVMAddressAssociated(with: tokenOutType)
+            ?? panic("Token out type not bridged: ".concat(tokenOutType.identifier))
+
+        self.swapper = UniswapV3SwapConnectors.Swapper(
+            factoryAddress: factory,
+            routerAddress: router,
+            quoterAddress: quoter,
+            tokenPath: [tokenInEVMAddr, tokenOutEVMAddr],
+            feePath: [fee],
+            inVault: tokenInType,
+            outVault: tokenOutType,
+            coaCapability: coaCap,
+            uniqueID: nil
+        )
+
+        let estimatedQuote = self.swapper.quoteIn(forDesired: desiredAmountOut, reverse: false)
+
+        self.quote = SwapConnectors.BasicQuote(
+            inType: tokenInType,
+            outType: tokenOutType,
+            inAmount: maxAmountIn,
+            outAmount: desiredAmountOut
+        )
+
+        // withdraw the max amount - unused tokens will stay in COA
+        self.tokenInVault <- signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
+            from: /storage/flowTokenVault
+        )!.withdraw(amount: maxAmountIn)
+    }
+
+    pre {
+        self.tokenInVault.balance == maxAmountIn:
+            "Invalid token balance of \(self.tokenInVault.balance) - expected \(maxAmountIn)"
+        self.swapper.inType() == self.tokenInVault.getType():
+            "Invalid swapper inType of \(self.swapper.inType().identifier) - expected \(self.tokenInVault.getType().identifier)"
+        self.swapper.outType() == tokenOutType:
+            "Invalid swapper outType of \(self.swapper.outType().identifier) - expected \(tokenOutType.identifier)"
+    }
+
+    execute {
+        let tokenOutVault <- self.swapper.swapExactOutput(quote: self.quote, inVault: <-self.tokenInVault)
+        self.tokenOut = tokenOutVault.balance
+        log("SwapExactOutput: requested ".concat(desiredAmountOut.toString()).concat(", received ").concat(tokenOutVault.balance.toString()))
+        destroy tokenOutVault
+    }
+
+    // гsing ">=" instead of "==" because AMM rounding may result in slightly more tokens than requested
+    post {
+        self.tokenOut >= desiredAmountOut:
+            "Swap output (\(self.tokenOut)) must be at least the desired amount (\(desiredAmountOut))"
+    }
+}
