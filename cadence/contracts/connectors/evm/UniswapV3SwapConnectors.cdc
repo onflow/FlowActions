@@ -19,30 +19,6 @@ import "EVMAbiHelpers"
 /// Supports single-hop and multi-hop swaps using exactInput / exactInputSingle and Quoter for estimates.
 ///
 access(all) contract UniswapV3SwapConnectors {
-    // (bytes,address,uint256,uint256)
-    access(all) fun encodeTuple_bytes_addr_u256_u256(
-        path: [UInt8],
-        recipient: EVM.EVMAddress,
-        amountOne: UInt256,
-        amountTwo: UInt256
-    ): [UInt8] {
-        let tupleHeadSize = 32 * 4
-
-        var head: [[UInt8]] = []
-        var tail: [[UInt8]] = []
-
-        // 1) bytes path (dynamic) -> pointer to tail, relative to start of this tuple blob
-        head.append(EVMAbiHelpers.abiWord(UInt256(tupleHeadSize)))
-        tail.append(EVMAbiHelpers.abiDynamicBytes(path))
-
-        head.append(EVMAbiHelpers.abiAddress(recipient))
-
-        head.append(EVMAbiHelpers.abiUInt256(amountOne))
-
-        head.append(EVMAbiHelpers.abiUInt256(amountTwo))
-
-        return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
-    }
 
     /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
     /// maximum `UFix64` precision (8 decimal places).
