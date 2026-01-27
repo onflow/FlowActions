@@ -366,6 +366,9 @@ access(all) fun testSourceWithdrawTokenAWithMinSucceeds() {
     Test.assertEqual(evmTokenABalance, minAmount)
 }
 
+/// Verifies that both EVMTokenConnectors.Sink and EVMTokenConnectors.Source correctly include
+/// feeSource in their getComponentInfo().innerComponents array, ensuring consistent behavior
+/// between the two implementations.
 access(all) fun testSinkAndSourceGetComponentInfo() {
     // create a user account and fund it
     let user = Test.createAccount()
