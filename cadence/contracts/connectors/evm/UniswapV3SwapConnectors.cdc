@@ -439,7 +439,7 @@ access(all) contract UniswapV3SwapConnectors {
 
             let args: [AnyStruct] = [pathBytes, amount]
 
-            let res = self._dryCall(self.quoterAddress, callSig, args, 1_000_000)
+            let res = self._dryCall(self.quoterAddress, callSig, args, 10_000_000)
             if res == nil || res!.status != EVM.Status.successful { return nil }
 
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
@@ -533,7 +533,7 @@ access(all) contract UniswapV3SwapConnectors {
             let swapRes = self._callRaw(
                 to: self.routerAddress,
                 calldata: calldata,
-                gasLimit: 2_000_000,
+                gasLimit: 10_000_000,
                 value: 0
             )!
             if swapRes.status != EVM.Status.successful {
