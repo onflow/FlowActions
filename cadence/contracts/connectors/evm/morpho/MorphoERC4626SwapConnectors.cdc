@@ -5,7 +5,7 @@ import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
 import "DeFiActions"
 import "DeFiActionsUtils"
-import "ERC4626SinkConnectors"
+import "MorphoERC4626SinkConnectors"
 import "SwapConnectors"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
@@ -19,7 +19,7 @@ import "ERC4626Utils"
 /// Implements the DeFiActions.Swapper interface to swap asset tokens to 4626 shares, integrating the connector with an
 /// EVM ERC4626 Vault.
 ///
-access(all) contract ERC4626SwapConnectors {
+access(all) contract MorphoERC4626SwapConnectors {
 
     /// Swapper
     ///
@@ -42,11 +42,11 @@ access(all) contract ERC4626SwapConnectors {
         /// The type of the bridged ERC4626 vault
         access(self) let vaultType: Type
         /// The token sink to use for the ERC4626 vault
-        access(self) let assetSink: EVMTokenConnectors.Sink
+        access(self) let assetSink: MorphoERC4626SinkConnectors.AssetSink
         /// The token source to use for the ERC4626 vault
         access(self) let shareSource: EVMTokenConnectors.Source
         /// The token sink to bridge ERC4626 shares into the COA/EVM
-        access(self) let shareSink: EVMTokenConnectors.Sink
+        access(self) let shareSink: MorphoERC4626SinkConnectors.ShareSink
         /// The token source to withdraw underlying assets back from the COA/EVM
         access(self) let assetSource: EVMTokenConnectors.Source
         /// The optional UniqueIdentifier of the ERC4626 vault
@@ -61,21 +61,21 @@ access(all) contract ERC4626SwapConnectors {
         ) {
             pre {
                 DeFiActionsUtils.definingContractIsFungibleToken(asset):
-                "Provided asset \(asset.identifier) is not a Vault type"
+                "Provided asset \(assetType.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
             }
             self.assetType = assetType
-            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
-                ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: assetType)
+                ?? panic("Provided asset \(assetType.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
             self.vaultEVMAddress = vaultEVMAddress
-            self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vault)
-                ?? panic("Provided ERC4626 Vault \(vault.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
+            self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vaultEVMAddress)
+                ?? panic("Provided ERC4626 Vault \(vaultEVMAddress.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
 
-            self.assetSink = EVMTokenConnectors.Sink(
-                max: nil,
-                depositVaultType: assetType,
-                address: assetEVMAddress,
+            self.assetSink = MorphoERC4626SinkConnectors.AssetSink(
+                assetType: assetType,
+                vaultEVMAddress: vaultEVMAddress,
+                coa: coa,
                 feeSource: feeSource,
                 uniqueID: uniqueID
             )
@@ -87,10 +87,10 @@ access(all) contract ERC4626SwapConnectors {
                 uniqueID: uniqueID
             )
 
-            self.shareSink = EVMTokenConnectors.Sink(
-                max: nil,
-                depositVaultType: vaultType,
-                address: vaultEVMAddress,
+            self.shareSink = MorphoERC4626SinkConnectors.ShareSink(
+                assetType: assetType,
+                vaultEVMAddress: vaultEVMAddress,
+                coa: coa,
                 feeSource: feeSource,
                 uniqueID: uniqueID
             )
@@ -341,7 +341,7 @@ access(all) contract ERC4626SwapConnectors {
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
             // Track assets availbe before/after to determine received assets
-            let beforeInAvailable = residual.balance
+            let beforeInBalance = residual.balance
             assert(
                 beforeInBalance <= _quote.inAmount,
                 message: "SwapBack input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
@@ -354,7 +354,7 @@ access(all) contract ERC4626SwapConnectors {
             let consumedIn = beforeInBalance - remainder
 
             assert(
-                consumedin > 0.0,
+                consumedIn > 0.0,
                 message: "Share sink did not consume any input."
             )
             assert(remainder == 0.0, message: "Share sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.")
