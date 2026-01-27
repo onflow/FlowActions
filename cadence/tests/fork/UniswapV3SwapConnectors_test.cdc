@@ -15,13 +15,16 @@ import "DeFiActions"
 /// - Tests against ACTUAL FlowSwap V3 deployment (Uniswap V3 fork)
 /// - Validates connector can access real EVM DEX contracts
 /// - Proves pre-deployment validation works for cross-VM integrations
-///
-/// FlowSwap V3 mainnet addresses (from https://developers.flow.com/ecosystem/defi-liquidity/defi-contracts):
-/// - Factory: 0xca6d7Bb03334bBf135902e1d919a5feccb461632
-/// - SwapRouter02: 0xeEDC6Ff75e1b10B903D9013c358e446a73d35341
-/// - QuoterV2: 0x370A8DF17742867a44e56223EC20D82092242C85
-/// - WFLOW: 0xd3bF53DAC106A0290B0483EcBC89d40FcC961f3e
-///
+
+// FlowSwap V3 addresses (from https://developers.flow.com/ecosystem/defi-liquidity/defi-contracts):
+access(all) let FACTORY_ADDR = "0xca6d7Bb03334bBf135902e1d919a5feccb461632"
+access(all) let ROUTER_ADDR = "0xeEDC6Ff75e1b10B903D9013c358e446a73d35341"
+access(all) let QUOTER_ADDR = "0x370A8DF17742867a44e56223EC20D82092242C85"
+
+// USDC on Flow EVM: 0xF1815bd50389c46847f0Bda824eC8da914045D14
+// Flow EVM bridge mainnet: 1e4aa0b87d10b141
+// Type identifier: A.<bridge_address>.EVMVMBridgedToken_<evm_token_address_lowercase>.Vault
+access(all) let USDC_TYPE_ID = "A.1e4aa0b87d10b141.EVMVMBridgedToken_f1815bd50389c46847f0bda824ec8da914045d14.Vault"
 
 access(all) fun setup() {
     // Deploy the LATEST local contracts to the forked environment
@@ -66,56 +69,42 @@ access(all) fun setup() {
     Test.commitBlock()
 }
 
-/// Test FLOW -> token swap using exactInput against real FlowSwap V3
+/// Test FLOW -> USDC swap using exactInput against real FlowSwap V3
 access(all) fun testSwapExactInputAgainstFlowSwapV3() {
-    let factoryAddr = "0xca6d7Bb03334bBf135902e1d919a5feccb461632"
-    let routerAddr = "0xeEDC6Ff75e1b10B903D9013c358e446a73d35341"
-    let quoterAddr = "0x370A8DF17742867a44e56223EC20D82092242C85"
-    let swapAmount = 1.0
+    let swapAmount = 0.1 // Small amount to test (0.1 FLOW)
     let fee: UInt32 = 3000 // 0.3% fee tier
 
     let signer = Test.getAccount(0xb13b21a06b75536d)
 
     let tokenInType = Type<@FlowToken.Vault>()
-    // USDC.e on Flow EVM
-    let tokenOutType = CompositeType("A.1e4aa0b87d10b141.EVMVMBridgedToken_f1d2b8c3e7a4f5b6c9d0e1f2a3b4c5d6e7f8a9b0.Vault")!
+    let tokenOutType = CompositeType(USDC_TYPE_ID)!
 
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap.cdc"),
         authorizers: [signer.address],
         signers: [signer],
-        arguments: [swapAmount, factoryAddr, routerAddr, quoterAddr, tokenInType, tokenOutType, fee]
+        arguments: [swapAmount, FACTORY_ADDR, ROUTER_ADDR, QUOTER_ADDR, tokenInType, tokenOutType, fee]
     )
     let swapResult = Test.executeTransaction(swapTxn)
     Test.expect(swapResult, Test.beSucceeded())
 }
 
-/// Test FLOW -> token swap using exactOutput against real FlowSwap V3
+/// Test FLOW -> USDC swap using exactOutput against real FlowSwap V3
 access(all) fun testSwapExactOutputAgainstFlowSwapV3() {
-    let factoryAddr = "0xca6d7Bb03334bBf135902e1d919a5feccb461632"
-    let routerAddr = "0xeEDC6Ff75e1b10B903D9013c358e446a73d35341"
-    let quoterAddr = "0x370A8DF17742867a44e56223EC20D82092242C85"
-    let desiredAmountOut = 0.5 // Desired output amount
-    let maxAmountIn = 2.0 // Max input willing to spend
+    let desiredAmountOut = 0.001 // Desired output amount (0.001 USDC)
+    let maxAmountIn = 10.0 // Max input willing to spend (10 FLOW)
     let fee: UInt32 = 3000 // 0.3% fee tier
 
     let signer = Test.getAccount(0xb13b21a06b75536d)
 
     let tokenInType = Type<@FlowToken.Vault>()
-    // USDC.e on Flow EVM
-    let tokenOutType = CompositeType("A.1e4aa0b87d10b141.EVMVMBridgedToken_f1d2b8c3e7a4f5b6c9d0e1f2a3b4c5d6e7f8a9b0.Vault")
-
-    // Skip if token type is not available
-    if tokenOutType == nil {
-        log("Skipping test - output token type not available on this fork")
-        return
-    }
+    let tokenOutType = CompositeType(USDC_TYPE_ID)!
 
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_exact_output.cdc"),
         authorizers: [signer.address],
         signers: [signer],
-        arguments: [desiredAmountOut, maxAmountIn, factoryAddr, routerAddr, quoterAddr, tokenInType, tokenOutType!, fee]
+        arguments: [desiredAmountOut, maxAmountIn, FACTORY_ADDR, ROUTER_ADDR, QUOTER_ADDR, tokenInType, tokenOutType, fee]
     )
     let swapResult = Test.executeTransaction(swapTxn)
     Test.expect(swapResult, Test.beSucceeded())

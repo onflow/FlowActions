@@ -77,7 +77,7 @@ transaction(
     execute {
         let tokenOutVault <- self.swapper.swap(quote: self.quote, inVault: <-self.tokenInVault)
         self.tokenOut = tokenOutVault.balance
-        log("Swapped ".concat(amount.toString()).concat(" -> ").concat(tokenOutVault.balance.toString()))
+        log("Swapped \(amount) -> \(tokenOutVault.balance)")
         destroy tokenOutVault
     }
 

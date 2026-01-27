@@ -9,7 +9,7 @@ import "SwapConnectors"
 ///
 /// User specifies the exact amount of output tokens desired.
 /// The transaction will use up to maxAmountIn of input tokens.
-/// Any unused input tokens remain in the COA.
+/// Any unused input tokens are returned to the user's vault.
 ///
 /// @param desiredAmountOut: Exact amount of output tokens desired
 /// @param maxAmountIn: Maximum amount of input tokens willing to spend
@@ -32,6 +32,7 @@ transaction(
 ) {
     let swapper: UniswapV3SwapConnectors.Swapper
     let tokenInVault: @{FungibleToken.Vault}
+    let tokenInVaultRef: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
     let quote: {DeFiActions.Quote}
     var tokenOut: UFix64
 
@@ -70,11 +71,12 @@ transaction(
             inAmount: maxAmountIn,
             outAmount: desiredAmountOut
         )
-
-        // withdraw the max amount - unused tokens will stay in COA
-        self.tokenInVault <- signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
+        
+        self.tokenInVaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
             from: /storage/flowTokenVault
-        )!.withdraw(amount: maxAmountIn)
+        )!
+
+        self.tokenInVault <- self.tokenInVaultRef.withdraw(amount: maxAmountIn)
     }
 
     pre {
@@ -87,13 +89,26 @@ transaction(
     }
 
     execute {
-        let tokenOutVault <- self.swapper.swapExactOutput(quote: self.quote, inVault: <-self.tokenInVault)
+        // swapExactOutput returns array: [0] = output vault, [1] = leftover vault
+        let vaults: @[{FungibleToken.Vault}] <- self.swapper.swapExactOutput(quote: self.quote, inVault: <-self.tokenInVault)
+
+        let tokenOutVault <- vaults.remove(at: 0)
         self.tokenOut = tokenOutVault.balance
-        log("SwapExactOutput: requested ".concat(desiredAmountOut.toString()).concat(", received ").concat(tokenOutVault.balance.toString()))
+        log("SwapExactOutput: requested \(desiredAmountOut), received \(tokenOutVault.balance)")
+
+        let leftoverVault <- vaults.remove(at: 0)
+        if leftoverVault.balance > 0.0 {
+            log("Returning leftover: \(leftoverVault.balance)")
+            self.tokenInVaultRef.deposit(from: <- leftoverVault)
+        } else {
+            destroy leftoverVault
+        }
+
+        destroy vaults
         destroy tokenOutVault
     }
 
-    // гsing ">=" instead of "==" because AMM rounding may result in slightly more tokens than requested
+    // using ">=" instead of "==" because AMM rounding may result in slightly more tokens than requested
     post {
         self.tokenOut >= desiredAmountOut:
             "Swap output (\(self.tokenOut)) must be at least the desired amount (\(desiredAmountOut))"
