@@ -376,10 +376,13 @@ access(all) fun testSinkAndSourceGetComponentInfo() {
     // get the EVM address of the COA
     let recipient = getCOAAddressHex(atFlowAddress: user.address)
 
+    let sinkStoragePath = /storage/evmTokenSink
+    let sourceStoragePath = /storage/evmTokenSource
+
     // create Sink
     let createSinkResult = _executeTransaction(
         "./transactions/evm-token-connectors/create_sink.cdc",
-        [nil, nil, Type<@FlowToken.Vault>().identifier, recipient],
+        [nil, nil, Type<@FlowToken.Vault>().identifier, recipient, sinkStoragePath],
         user
     )
     Test.expect(createSinkResult, Test.beSucceeded())
@@ -387,7 +390,7 @@ access(all) fun testSinkAndSourceGetComponentInfo() {
     // create Source
     let createSourceResult = _executeTransaction(
         "./transactions/evm-token-connectors/create_source.cdc",
-        [nil, nil, Type<@FlowToken.Vault>().identifier],
+        [nil, nil, Type<@FlowToken.Vault>().identifier, sourceStoragePath],
         user
     )
     Test.expect(createSourceResult, Test.beSucceeded())
@@ -395,7 +398,7 @@ access(all) fun testSinkAndSourceGetComponentInfo() {
     // get Sink component info from storage
     let sinkInfoResult = _executeScript(
         "./scripts/evm-token-connectors/get_sink_component_info.cdc",
-        [user.address]
+        [user.address, sinkStoragePath]
     )
     Test.expect(sinkInfoResult, Test.beSucceeded())
     let sinkInfo = sinkInfoResult.returnValue! as! DeFiActions.ComponentInfo
@@ -403,7 +406,7 @@ access(all) fun testSinkAndSourceGetComponentInfo() {
     // get Source component info from storage
     let sourceInfoResult = _executeScript(
         "./scripts/evm-token-connectors/get_source_component_info.cdc",
-        [user.address]
+        [user.address, sourceStoragePath]
     )
     Test.expect(sourceInfoResult, Test.beSucceeded())
     let sourceInfo = sourceInfoResult.returnValue! as! DeFiActions.ComponentInfo

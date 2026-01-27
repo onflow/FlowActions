@@ -10,6 +10,7 @@ transaction(
     sourceMin: UFix64?,
     uniqueID: DeFiActions.UniqueIdentifier?,
     vaultTypeIdentifier: String,
+    storagePath: StoragePath
 ) {
     prepare(signer: auth(SaveValue, IssueStorageCapabilityController) &Account) {
         let vaultType = CompositeType(vaultTypeIdentifier)
@@ -37,6 +38,6 @@ transaction(
             feeSource: feeSource,
             uniqueID: uniqueID
         )
-        signer.storage.save(source, to: /storage/evmTokenSource)
+        signer.storage.save(source, to: storagePath)
     }
 }
