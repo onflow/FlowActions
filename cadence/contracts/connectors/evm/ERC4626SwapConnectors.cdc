@@ -184,7 +184,7 @@ access(all) contract ERC4626SwapConnectors {
             let outAmount = _quote.outAmount
 
             assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
-            assert(_quote.outType == self.outType(), message: "Quote inType mismatch")
+            assert(_quote.outType == self.outType(), message: "Quote outType mismatch")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
