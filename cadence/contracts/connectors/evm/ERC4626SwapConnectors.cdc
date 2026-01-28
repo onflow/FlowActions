@@ -3,6 +3,7 @@ import "FungibleToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
+import "FlowToken"
 import "DeFiActions"
 import "DeFiActionsUtils"
 import "ERC4626SinkConnectors"
@@ -60,10 +61,21 @@ access(all) contract ERC4626SwapConnectors {
                 "Provided asset \(asset.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
+            
             }
             self.asset = asset
             self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
                 ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            
+            let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
+            assert(
+                actualUnderlyingAddress?.equals(self.assetEVMAddress) ?? false,
+                message: "Provided asset \(asset.identifier) does not underly ERC4626 vault \(vault.toString()) - found \(actualUnderlyingAddress?.toString() ?? "nil") but expected \(self.assetEVMAddress.toString())"
+            )
+
             self.vault = vault
             self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vault)
                 ?? panic("Provided ERC4626 Vault \(vault.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
@@ -104,25 +116,47 @@ access(all) contract ERC4626SwapConnectors {
                     outAmount: 0.0
                 )
             }
-            let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
-            if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
-                let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
+            
+            // Check maximum deposit capacity first
+            let maxCapacity = self.assetSink.minimumCapacity()
+            if maxCapacity > 0.0 {
+                let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
+                if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
+                    let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
 
-                if uintRequired > uintMaxAllowed {
+                    if uintRequired > uintMaxAllowed {
+                        return SwapConnectors.BasicQuote(
+                            inType: self.asset,
+                            outType: self.vaultType,
+                            inAmount: UFix64.max,
+                            outAmount: forDesired
+                        )
+                    }
+                    
+                    let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
+                    
+                    // Cap input to maxCapacity and recalculate output if needed
+                    if ufixRequired > maxCapacity {
+                        // Required assets exceed capacity - cap at maxCapacity and calculate achievable shares
+                        let uintMaxCapacity = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(maxCapacity, erc20Address: self.assetEVMAddress)
+                        if let uintActualShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintMaxCapacity) {
+                            let ufixActualShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintActualShares, erc20Address: self.vault)
+                            return SwapConnectors.BasicQuote(
+                                inType: self.asset,
+                                outType: self.vaultType,
+                                inAmount: maxCapacity,
+                                outAmount: ufixActualShares
+                            )
+                        }
+                    }
+                    
                     return SwapConnectors.BasicQuote(
                         inType: self.asset,
                         outType: self.vaultType,
-                        inAmount: UFix64.max,
+                        inAmount: ufixRequired,
                         outAmount: forDesired
                     )
                 }
-                let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
-                return SwapConnectors.BasicQuote(
-                    inType: self.asset,
-                    outType: self.vaultType,
-                    inAmount: ufixRequired,
-                    outAmount: forDesired
-                )
             }
             return SwapConnectors.BasicQuote(
                 inType: self.asset,
