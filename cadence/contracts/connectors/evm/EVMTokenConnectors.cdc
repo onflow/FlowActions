@@ -291,6 +291,12 @@ access(all) contract EVMTokenConnectors {
             if feeVault.balance > 0.0 {
                 self.feeSource.depositCapacity(from: &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
             }
+            // feeSource should not enforce a deposit capacity limit, as it is only a vault backing a sink.
+            // Assert here to catch unexpected partial deposits.
+            assert(
+                feeVault.balance == 0.0,
+                message: "Fee sink failed to accept full balance; feeVault still contains funds"
+            )
             Burner.burn(<-feeVault)
         }
     }
