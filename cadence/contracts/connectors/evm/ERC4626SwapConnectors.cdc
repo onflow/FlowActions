@@ -213,7 +213,6 @@ access(all) contract ERC4626SwapConnectors {
             )
             assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
 
-            assert(self.assetSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Asset Sink to have capacity after depositing")
             Burner.burn(<-inVault)
 
             // get the after available shares
