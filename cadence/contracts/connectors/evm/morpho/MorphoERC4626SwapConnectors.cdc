@@ -60,7 +60,7 @@ access(all) contract MorphoERC4626SwapConnectors {
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
-                DeFiActionsUtils.definingContractIsFungibleToken(asset):
+                DeFiActionsUtils.definingContractIsFungibleToken(assetType):
                 "Provided asset \(assetType.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
