@@ -209,7 +209,9 @@ access(all) contract EVMTokenConnectors {
             return DeFiActions.ComponentInfo(
                 type: self.getType(),
                 id: self.id(),
-                innerComponents: []
+                innerComponents: [
+                    self.feeSource.getComponentInfo()
+                ]
             )
         }
         /// Sets the UniqueIdentifier of this component to the provided UniqueIdentifier, used in extending a stack to
