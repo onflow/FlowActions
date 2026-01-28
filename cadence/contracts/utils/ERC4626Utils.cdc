@@ -114,40 +114,97 @@ access(all) contract ERC4626Utils {
         return maxDeposit[0] as! UInt256
     }
 
-    /// Returns the amount of shares that would be minted for the given asset amount under current conditions
+    /// Returns the amount of assets that would be required to mint the given amount of shares
+    /// under current conditions.
     ///
     /// @param vault The address of the ERC4626 vault
-    /// @param shares The amount of shares to mint denominated in the shares' decimals
+    /// @param shares The amount of shares to mint (denominated in the share token's decimals)
     ///
-    /// @return The amount of assets that would be required to mint the given shares under current conditions. Callers
-    ///         should anticipate the address of the asset and the decimals of the asset being returned.
+    /// @return The amount of underlying assets required to mint `shares` (denominated in the
+    ///         underlying asset's decimals), or nil if the call fails.
     access(all)
     fun previewMint(vault: EVM.EVMAddress, shares: UInt256): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "previewMint(uint256)", args: [shares], gasLimit: 5_000_000)
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "previewMint(uint256)",
+            args: [shares],
+            gasLimit: 5_000_000
+        )
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
-        let previewMint = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return previewMint[0] as! UInt256
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
     }
 
-    /// Returns the amount of shares that would be minted for the given asset amount under current conditions
+    /// Returns the amount of shares that would be minted for depositing the given amount of assets
+    /// under current conditions.
     ///
     /// @param vault The address of the ERC4626 vault
-    /// @param assets The amount of assets to deposit denominated in the asset's decimals
+    /// @param assets The amount of assets to deposit (denominated in the underlying asset's decimals)
     ///
-    /// @return The amount of shares that would be minted for the given asset amount under current conditions. Callers
-    ///         should anticipate the address of the asset and the decimals of the vault shares being returned.
+    /// @return The amount of shares that would be minted (denominated in the share token's decimals),
+    ///         or nil if the call fails.
     access(all)
     fun previewDeposit(vault: EVM.EVMAddress, assets: UInt256): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "previewDeposit(uint256)", args: [assets], gasLimit: 5_000_000)
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "previewDeposit(uint256)",
+            args: [assets],
+            gasLimit: 5_000_000
+        )
         if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
             return nil
         }
-        let previewDeposit = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return previewDeposit[0] as! UInt256
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
     }
 
+    /// Returns the amount of underlying assets that would be redeemed for the given amount of shares
+    /// under current conditions.
+    ///
+    /// @param vault The address of the ERC4626 vault
+    /// @param shares The amount of shares to redeem (denominated in the share token's decimals)
+    ///
+    /// @return The amount of underlying assets that would be received (denominated in the underlying
+    ///         asset's decimals), or nil if the call fails.
+    access(all)
+    fun previewRedeem(vault: EVM.EVMAddress, shares: UInt256): UInt256? {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "previewRedeem(uint256)",
+            args: [shares],
+            gasLimit: 5_000_000
+        )
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
+    }
+
+    /// Returns the amount of shares that would be required to withdraw the given amount of assets
+    /// under current conditions.
+    ///
+    /// @param vault The address of the ERC4626 vault
+    /// @param assets The amount of assets to withdraw (denominated in the underlying asset's decimals)
+    ///
+    /// @return The amount of shares that would be burned (denominated in the share token's decimals),
+    ///         or nil if the call fails.
+    access(all)
+    fun previewWithdraw(vault: EVM.EVMAddress, assets: UInt256): UInt256? {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "previewWithdraw(uint256)",
+            args: [assets],
+            gasLimit: 5_000_000
+        )
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
+    }
     /// Performs a dry call using the calling COA
     ///
     /// @param to The address of the contract to dry call
