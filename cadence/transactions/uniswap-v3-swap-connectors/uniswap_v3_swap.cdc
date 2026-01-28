@@ -1,4 +1,6 @@
 import "FungibleToken"
+import "FungibleTokenMetadataViews"
+import "MetadataViews"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "UniswapV3SwapConnectors"
@@ -28,10 +30,11 @@ transaction(
 ) {
     let swapper: UniswapV3SwapConnectors.Swapper
     let tokenInVault: @{FungibleToken.Vault}
+    let tokenOutReceiver: &{FungibleToken.Receiver}
     let quote: {DeFiActions.Quote}
     var tokenOut: UFix64
 
-    prepare(signer: auth(Storage, IssueStorageCapabilityController, BorrowValue) &Account) {
+    prepare(signer: auth(Storage, IssueStorageCapabilityController, BorrowValue, SaveValue, PublishCapability, UnpublishCapability) &Account) {
         self.tokenOut = 0.0
 
         let coaCap = signer.capabilities.storage.issue<auth(EVM.Owner) &EVM.CadenceOwnedAccount>(/storage/evm)
@@ -63,6 +66,23 @@ transaction(
         self.tokenInVault <- signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
             from: /storage/flowTokenVault
         )!.withdraw(amount: amount)
+
+        // set up output token vault if it doesn't exist
+        let tokenOutVaultData = MetadataViews.resolveContractViewFromTypeIdentifier(
+            resourceTypeIdentifier: tokenOutType.identifier,
+            viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
+        ) as? FungibleTokenMetadataViews.FTVaultData
+            ?? panic("Could not resolve FTVaultData for \(tokenOutType.identifier)")
+
+        if signer.storage.type(at: tokenOutVaultData.storagePath) == nil {
+            signer.storage.save(<-tokenOutVaultData.createEmptyVault(), to: tokenOutVaultData.storagePath)
+            let receiverCap = signer.capabilities.storage.issue<&{FungibleToken.Vault}>(tokenOutVaultData.storagePath)
+            signer.capabilities.unpublish(tokenOutVaultData.receiverPath)
+            signer.capabilities.publish(receiverCap, at: tokenOutVaultData.receiverPath)
+        }
+
+        self.tokenOutReceiver = signer.capabilities.borrow<&{FungibleToken.Receiver}>(tokenOutVaultData.receiverPath)
+            ?? panic("Could not borrow receiver for \(tokenOutType.identifier)")
     }
 
     pre {
@@ -78,7 +98,7 @@ transaction(
         let tokenOutVault <- self.swapper.swap(quote: self.quote, inVault: <-self.tokenInVault)
         self.tokenOut = tokenOutVault.balance
         log("Swapped \(amount) -> \(tokenOutVault.balance)")
-        destroy tokenOutVault
+        self.tokenOutReceiver.deposit(from: <-tokenOutVault)
     }
 
     post {

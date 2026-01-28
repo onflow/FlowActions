@@ -79,6 +79,11 @@ access(all) fun testSwapExactInputAgainstFlowSwapV3() {
     let tokenInType = Type<@FlowToken.Vault>()
     let tokenOutType = CompositeType(USDC_TYPE_ID)!
 
+    let flowBalanceBefore = getFlowBalance(signer.address)
+    let usdcBalanceBefore = getTokenBalance(signer.address, USDC_TYPE_ID)
+    log("FLOW balance before: \(flowBalanceBefore)")
+    log("USDC balance before: \(usdcBalanceBefore)")
+
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap.cdc"),
         authorizers: [signer.address],
@@ -87,6 +92,25 @@ access(all) fun testSwapExactInputAgainstFlowSwapV3() {
     )
     let swapResult = Test.executeTransaction(swapTxn)
     Test.expect(swapResult, Test.beSucceeded())
+
+    let flowBalanceAfter = getFlowBalance(signer.address)
+    let usdcBalanceAfter = getTokenBalance(signer.address, USDC_TYPE_ID)
+    log("FLOW balance after: \(flowBalanceAfter)")
+    log("USDC balance after: \(usdcBalanceAfter)")
+
+    let flowSpent = flowBalanceBefore - flowBalanceAfter
+    Test.assert(
+        flowSpent >= swapAmount,
+        message: "Spent less FLOW than expected! Spent: \(flowSpent), expected at least: \(swapAmount)"
+    )
+    log("FLOW spent: \(flowSpent)")
+
+    let usdcReceived = usdcBalanceAfter - usdcBalanceBefore
+    Test.assert(
+        usdcReceived > 0.0,
+        message: "No USDC received from swap! Balance before: \(usdcBalanceBefore), after: \(usdcBalanceAfter)"
+    )
+    log("USDC received: \(usdcReceived)")
 }
 
 /// Test FLOW -> USDC swap using exactOutput against real FlowSwap V3
@@ -100,6 +124,11 @@ access(all) fun testSwapExactOutputAgainstFlowSwapV3() {
     let tokenInType = Type<@FlowToken.Vault>()
     let tokenOutType = CompositeType(USDC_TYPE_ID)!
 
+    let flowBalanceBefore = getFlowBalance(signer.address)
+    let usdcBalanceBefore = getTokenBalance(signer.address, USDC_TYPE_ID)
+    log("FLOW balance before: \(flowBalanceBefore)")
+    log("USDC balance before: \(usdcBalanceBefore)")
+
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_exact_output.cdc"),
         authorizers: [signer.address],
@@ -108,4 +137,47 @@ access(all) fun testSwapExactOutputAgainstFlowSwapV3() {
     )
     let swapResult = Test.executeTransaction(swapTxn)
     Test.expect(swapResult, Test.beSucceeded())
+
+    let flowBalanceAfter = getFlowBalance(signer.address)
+    let usdcBalanceAfter = getTokenBalance(signer.address, USDC_TYPE_ID)
+    log("FLOW balance after: \(flowBalanceAfter)")
+    log("USDC balance after: \(usdcBalanceAfter)")
+
+    let flowSpent = flowBalanceBefore - flowBalanceAfter
+    Test.assert(
+        flowSpent <= maxAmountIn,
+        message: "Spent more FLOW than maxAmountIn! Spent: \(flowSpent), max: \(maxAmountIn)"
+    )
+    log("FLOW spent: \(flowSpent), leftover returned: \(maxAmountIn - flowSpent)")
+
+    let usdcReceived = usdcBalanceAfter - usdcBalanceBefore
+    Test.assert(
+        usdcReceived >= desiredAmountOut,
+        message: "Received less USDC than desired! Received: \(usdcReceived), expected: \(desiredAmountOut)"
+    )
+    log("USDC received: \(usdcReceived)")
+}
+
+/// Helper to get FLOW balance for an address
+access(all) fun getFlowBalance(_ address: Address): UFix64 {
+    let result = Test.executeScript(
+        Test.readFile("../../scripts/tokens/get_balance.cdc"),
+        [address, /public/flowTokenBalance]
+    )
+    if result.status == Test.ResultStatus.succeeded {
+        return (result.returnValue as! UFix64?) ?? 0.0
+    }
+    return 0.0
+}
+
+/// Helper to get token balance for an address by type identifier
+access(all) fun getTokenBalance(_ address: Address, _ typeIdentifier: String): UFix64 {
+    let result = Test.executeScript(
+        Test.readFile("../../scripts/tokens/get_balance_by_type.cdc"),
+        [address, typeIdentifier]
+    )
+    if result.status == Test.ResultStatus.succeeded {
+        return (result.returnValue as! UFix64?) ?? 0.0
+    }
+    return 0.0
 }
