@@ -9,3 +9,4 @@ out/
 imports
 coverage.lcov
 coverage.json
+lcov.info

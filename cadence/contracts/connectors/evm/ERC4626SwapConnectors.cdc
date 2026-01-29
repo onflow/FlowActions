@@ -28,9 +28,10 @@ access(all) contract ERC4626SwapConnectors {
     /// for liquidity to flow between Cadnece & EVM. These "swaps" are performed by depositing the input asset into the
     /// ERC4626 vault and withdrawing the resulting shares from the ERC4626 vault.
     ///
-    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this Swapper only supports the
-    ///     default inType -> outType path via swap() and reverts on swapBack() since the withdrawal cannot be returned
-    ///     synchronously.
+    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this is a one-way swapper that
+    ///     only supports the default inType -> outType path via swap() and reverts on swapBack(). When used with
+    ///     SwapConnectors.SwapSink, ensure the inner sink always consumes all swapped shares (has sufficient capacity).
+    ///     If residuals remain, swapBack() will be called and the transaction will revert.
     ///
     access(all) struct Swapper : DeFiActions.Swapper {
         /// The asset type serving as the price basis in the ERC4626 vault
@@ -181,14 +182,36 @@ access(all) contract ERC4626SwapConnectors {
 
             // assign or get the quote for the swap
             let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
+            let outAmount = _quote.outAmount
 
-            // get the before available shares
+            assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
+            assert(_quote.outType == self.outType(), message: "Quote outType mismatch")
+            assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
+            assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
+
+            // --- Slippage protection: don't allow spending more than quoted ---
+            let beforeInBalance = inVault.balance
+            assert(
+                beforeInBalance <= _quote.inAmount,
+                message: "Swap input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
+            )
+
+            // Track shares available before/after to determine received shares
             let beforeAvailable = self.shareSource.minimumAvailable()
 
-            // deposit the inVault into the asset sink
+            // Deposit the inVault into the asset sink (should consume all of it)
             self.assetSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
             let remainder = inVault.balance
+            let consumedIn = beforeInBalance - remainder
+
+            // We expect full consumption in this connector's semantics.
+            // If this ever becomes "partial fill" in the future, this check + price check below
+            // ensures it still can't be worse than quoted.
+            assert(
+                consumedIn > 0.0,
+                message: "Asset sink did not consume any input."
+            )
             assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
 
             Burner.burn(<-inVault)
@@ -198,8 +221,23 @@ access(all) contract ERC4626SwapConnectors {
             assert(afterAvailable > beforeAvailable, message: "Expected ERC4626 Vault \(self.vault.toString()) to have more shares after depositing")
 
             // withdraw the available difference in shares
-            let availableDiff = afterAvailable - beforeAvailable
-            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: availableDiff)
+            let receivedShares = afterAvailable - beforeAvailable
+
+            // --- Slippage protection: ensure minimum out ---
+            assert(
+                receivedShares >= outAmount,
+                message: "Slippage: received \(receivedShares) < quote.outAmount (\(outAmount))."
+            )
+
+            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: receivedShares)
+
+            // Extra safety: ensure the vault we’re returning matches the computed delta
+            // (withdrawAvailable could theoretically return less if liquidity changed)
+            assert(
+                sharesVault.balance >= outAmount,
+                message: "Slippage: withdrawn shares \(sharesVault.balance) < outAmount (\(outAmount))."
+            )
+
             return <- sharesVault
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
