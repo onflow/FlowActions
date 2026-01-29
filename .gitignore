@@ -5,6 +5,7 @@ out/
 
 # flow
 *.pkey
+!emulator-account.pkey
 *.pem
 imports
 coverage.lcov
