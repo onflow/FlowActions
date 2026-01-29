@@ -14,10 +14,10 @@ import "ERC4626Utils"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// ERC4626SwapConnectors
+/// MorphoERC4626SwapConnectors
 ///
 /// Implements the DeFiActions.Swapper interface to swap asset tokens to 4626 shares, integrating the connector with an
-/// EVM ERC4626 Vault.
+/// EVM Morpho ERC4626 Vault.
 ///
 access(all) contract MorphoERC4626SwapConnectors {
 
@@ -265,8 +265,8 @@ access(all) contract MorphoERC4626SwapConnectors {
             let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
             let outAmount = _quote.outAmount
 
-            assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
-            assert(_quote.outType == self.outType(), message: "Quote outType mismatch")
+            assert(_quote.inType == self.inType(), message: "Swap: Quote inType mismatch")
+            assert(_quote.outType == self.outType(), message: "Swap: Quote outType mismatch")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
@@ -334,9 +334,13 @@ access(all) contract MorphoERC4626SwapConnectors {
             // assign or get a quote from the swap
             let _quote = quote ?? self.quoteOut(forProvided: residual.balance, reverse: true)
             let outAmount = _quote.outAmount
-            
-            assert(_quote.inType == self.outType(), message: "Quote inType mismatch")
-            assert(_quote.outType == self.inType(), message: "Quote outType mismatch")
+
+            // Ensure the quote represents the inverse of this connector’s forward swap:
+            // swapback must take this connector’s outType and return its inType.
+            // These checks prevent executing a quote meant for a different connector
+            // or accidentally performing a forward swap instead of a reversal.
+            assert(_quote.inType == self.outType(), message: "SwapBack: Quote inType mismatch")
+            assert(_quote.outType == self.inType(), message: "SwapBack: Quote outType mismatch")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 

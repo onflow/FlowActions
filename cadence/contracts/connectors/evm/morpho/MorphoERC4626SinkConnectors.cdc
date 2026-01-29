@@ -11,13 +11,13 @@ import "ERC4626Utils"
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ///
-/// ERC4626SinkConnectors
+/// MorphoERC4626SinkConnectors
 ///
 access(all) contract MorphoERC4626SinkConnectors {
 
     /// AssetSink
     ///
-    /// Deposits assets to an ERC4626 vault (which accepts the asset as a deposit denomination) to the contained COA's
+    /// Deposits assets to a Morpho ERC4626 vault (which accepts the asset as a deposit denomination) to the contained COA's
     /// vault share balance
     ///
     access(all) struct AssetSink : DeFiActions.Sink {
@@ -75,10 +75,6 @@ access(all) contract MorphoERC4626SinkConnectors {
                 return 0.0
             }
             let tokenSinkCapacity = self.tokenSink.minimumCapacity()
-            if tokenSinkCapacity == 0.0 {
-                return 0.0
-            }
-            // Check the ERC4626 vault has capacity to deposit the assets
             return tokenSinkCapacity
         }
         /// Deposits up to the Sink's capacity from the provided Vault
@@ -91,6 +87,7 @@ access(all) contract MorphoERC4626SinkConnectors {
             var amount = capacity <= from.balance ? capacity : from.balance
 
             // TODO: pass from through and skip the intermediary withdrawal
+            // depositCapacity can deposit less than requested (capacity/fees/bridge constraints), and it doesn’t return "actualDeposited". Without the intermediary vault there's no way to safely compute the amount
             let deposit <- from.withdraw(amount: amount)
             self.tokenSink.depositCapacity(from: &deposit as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
             if deposit.balance == amount {
@@ -129,8 +126,6 @@ access(all) contract MorphoERC4626SinkConnectors {
                 gasLimit: 1_000_000
             )!
             if depositRes.status != EVM.Status.successful {
-                // TODO: Consider unwinding the deposit & returning to the from vault
-                //      - would require {Sink, Source} instead of just Sink
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
@@ -212,7 +207,7 @@ access(all) contract MorphoERC4626SinkConnectors {
     }
     /// ShareSink
     ///
-    /// Redeems shares from an ERC4626 vault to the contained COA's underlying asset balance
+    /// Redeems shares from a Morpho ERC4626 vault to the contained COA's underlying asset balance
     ///
     access(all) struct ShareSink : DeFiActions.Sink {
         /// The share vault type serving as the price basis in the ERC4626 vault
@@ -270,10 +265,6 @@ access(all) contract MorphoERC4626SinkConnectors {
                 return 0.0
             }
             let shareSinkCapacity = self.shareSink.minimumCapacity()
-            if shareSinkCapacity == 0.0 {
-                return 0.0
-            }
-            // Check the ERC4626 vault has capacity to redeem the shares
             return shareSinkCapacity
         }
         /// Deposits up to the Sink's capacity from the provided Vault
