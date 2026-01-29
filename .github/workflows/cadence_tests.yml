@@ -26,5 +26,7 @@ jobs:
         run: echo "/root/.local/bin" >> $GITHUB_PATH
       - name: Install dependencies
         run: flow deps install --skip-alias --skip-deployments
+      - name: Run forked emulator
+        run: flow emulator --fork
       - name: Run tests
         run: make ci
