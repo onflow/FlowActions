@@ -187,6 +187,10 @@ access(all) contract ERC4626SwapConnectors {
 
             // deposit the inVault into the asset sink
             self.assetSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+
+            let remainder = inVault.balance
+            assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
+
             Burner.burn(<-inVault)
 
             // get the after available shares
