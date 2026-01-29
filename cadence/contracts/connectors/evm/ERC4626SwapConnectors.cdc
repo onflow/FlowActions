@@ -62,9 +62,8 @@ access(all) contract ERC4626SwapConnectors {
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
 
-                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
-            
             }
             self.asset = asset
             self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
