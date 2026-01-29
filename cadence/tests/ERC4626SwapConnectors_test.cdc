@@ -258,7 +258,7 @@ access(all) fun testQuoteInCapsAtMaxCapacity() {
     Test.assertEqual(quoteIn.outAmount, quoteOut.outAmount)
 }
 
-/// testQuoteInAndQuoteOutConsistencyWithCapacityLimit test that quoteIn() and quoteOut() 
+/// testQuoteInAndQuoteOutConsistencyWithCapacityLimit tests that quoteIn() and quoteOut() 
 /// return consistent results for amounts within the capacity limit.
 access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
     snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
@@ -297,7 +297,7 @@ access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
     Test.assert(quoteOut.inAmount <= maxCapacity, message: "quoteOut.inAmount should be within maxCapacity")
 }
 
-/// testQuoteInWithExactMaxCapacity test that quoteIn() correctly handles a request for shares that would require exactly maxCapacity assets.
+/// testQuoteInWithExactMaxCapacity tests that quoteIn() correctly handles a request for shares that would require exactly maxCapacity assets.
 access(all) fun testQuoteInWithExactMaxCapacity() {
     snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
 
