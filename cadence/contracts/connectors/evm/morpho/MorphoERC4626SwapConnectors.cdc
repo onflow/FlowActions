@@ -65,25 +65,23 @@ access(all) contract MorphoERC4626SwapConnectors {
             self.uniqueID = uniqueID
 
             self.vaultEVMAddress = vaultEVMAddress
-            self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vaultEVMAddress)
+            self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: self.vaultEVMAddress)
                 ?? panic("Provided ERC4626 Vault \(self.vaultEVMAddress.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
             assert(
-              DeFiActionsUtils.definingContractIsFungibleToken(self.vaultType),
-              message: "Derived vault type \(self.vaultType.identifier) not FungibleToken type"
+                DeFiActionsUtils.definingContractIsFungibleToken(self.vaultType),
+                message: "Derived vault type \(self.vaultType.identifier) not FungibleToken type"
             )
 
-            self.assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultEVMAddress)
+            self.assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: self.vaultEVMAddress)
                 ?? panic("Cannot get an underlying asset EVM address from the vault")
-
             self.assetType = FlowEVMBridgeConfig.getTypeAssociated(with: self.assetEVMAddress)
                 ?? panic("Underlying asset for vault \(self.vaultEVMAddress.toString()) (asset \(self.assetEVMAddress.toString())) is not associated with a Cadence FungibleToken - ensure the type & underlying asset contracts are associated via the VM bridge")
             assert(
-              DeFiActionsUtils.definingContractIsFungibleToken(self.assetType),
-              message: "Derived asset type \(self.assetType.identifier) not FungibleToken type"
+                DeFiActionsUtils.definingContractIsFungibleToken(self.assetType),
+                message: "Derived asset type \(self.assetType.identifier) not FungibleToken type"
             )
 
             self.assetSink = MorphoERC4626SinkConnectors.AssetSink(
-                assetType: self.assetType,
                 vaultEVMAddress: self.vaultEVMAddress,
                 coa: coa,
                 feeSource: feeSource,
@@ -98,7 +96,6 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
 
             self.shareSink = MorphoERC4626SinkConnectors.ShareSink(
-                assetType: self.assetType,
                 vaultEVMAddress: self.vaultEVMAddress,
                 coa: coa,
                 feeSource: feeSource,

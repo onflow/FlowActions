@@ -3,7 +3,9 @@ import "FungibleToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
+import "FlowToken"
 import "DeFiActions"
+import "DeFiActionsUtils"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
 
@@ -35,26 +37,33 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         init(
-            assetType: Type,
             vaultEVMAddress: EVM.EVMAddress,
             coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
-                assetType.isSubtype(of: Type<@{FungibleToken.Vault}>()):
-                "Provided asset \(assetType.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
-            self.assetType = assetType
-            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: assetType)
-                ?? panic("Provided asset \(assetType.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
             self.vaultEVMAddress = vaultEVMAddress
+
+            self.assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: self.vaultEVMAddress)
+                ?? panic("Cannot get an underlying asset EVM address from the vault")
+            self.assetType = FlowEVMBridgeConfig.getTypeAssociated(with: self.assetEVMAddress)
+                ?? panic("Underlying asset for vault \(self.vaultEVMAddress.toString()) (asset \(self.assetEVMAddress.toString())) is not associated with a Cadence FungibleToken - ensure the type & underlying asset contracts are associated via the VM bridge")
+            assert(
+                DeFiActionsUtils.definingContractIsFungibleToken(self.assetType),
+                message: "Derived asset type \(self.assetType.identifier) not FungibleToken type"
+            )
+
             self.coa = coa
             self.tokenSink = EVMTokenConnectors.Sink(
                 max: nil,
-                depositVaultType: assetType,
+                depositVaultType: self.assetType,
                 address: coa.borrow()!.address(),
                 feeSource: feeSource,
                 uniqueID: uniqueID
@@ -224,23 +233,35 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         init(
-            assetType: Type,
             vaultEVMAddress: EVM.EVMAddress,
             coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
-                assetType.isSubtype(of: Type<@{FungibleToken.Vault}>()):
-                "Provided asset \(assetType.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
-            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: assetType)
-                ?? panic("Provided asset \(assetType.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
             self.vaultEVMAddress = vaultEVMAddress
             self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vaultEVMAddress)
                 ?? panic("Provided ERC4626 Vault \(vaultEVMAddress.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
+            assert(
+                DeFiActionsUtils.definingContractIsFungibleToken(self.vaultType),
+                message: "Derived vault type \(self.vaultType.identifier) not FungibleToken type"
+            )
+
+            self.assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultEVMAddress)
+                ?? panic("Cannot get an underlying asset EVM address from the vault")
+            let assetType = FlowEVMBridgeConfig.getTypeAssociated(with: self.assetEVMAddress)
+                ?? panic("Underlying asset for vault \(self.vaultEVMAddress.toString()) (asset \(self.assetEVMAddress.toString())) is not associated with a Cadence FungibleToken - ensure the type & underlying asset contracts are associated via the VM bridge")
+            assert(
+                DeFiActionsUtils.definingContractIsFungibleToken(assetType),
+                message: "Derived asset type \(assetType.identifier) not FungibleToken type"
+            )
+
             self.coa = coa
             self.shareSink = EVMTokenConnectors.Sink(
                 max: nil,
