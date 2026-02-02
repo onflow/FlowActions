@@ -85,10 +85,6 @@ access(all) contract EVMNativeFLOWConnectors {
         /// @param from: an authorized reference to the Vault from which to deposit funds
         ///
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            if from.getType() != self.getSinkType() {
-                return // unrelated vault type
-            }
-
             // assess amount to deposit and assign COA reference
             let capacity = self.minimumCapacity()
             let amount = from.balance > capacity ? capacity : from.balance

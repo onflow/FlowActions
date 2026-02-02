@@ -38,14 +38,14 @@ access(all) contract ERC4626PriceOracles {
                 "Provided asset \(asset.identifier) is not a Vault type"
             }
             let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
+            let assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset) ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
             assert(
-                actualUnderlyingAddress?.equals(FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)!) ?? false,
+                actualUnderlyingAddress?.equals(assetEVMAddress) ?? false,
                 message: "Provided asset \(asset.identifier) does not underly ERC4626 vault \(vault.toString()) - found \(actualUnderlyingAddress?.toString() ?? "nil") but expected \(FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)?.toString() ?? "nil")"
             )
 
             self.asset = asset
-            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
-                ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            self.assetEVMAddress = assetEVMAddress
             self.vault = vault
             self.uniqueID = uniqueID
         }
