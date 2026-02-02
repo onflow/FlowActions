@@ -3,6 +3,7 @@ import "FungibleToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
+import "FlowToken"
 import "DeFiActions"
 import "DeFiActionsUtils"
 import "ERC4626SinkConnectors"
@@ -28,9 +29,10 @@ access(all) contract ERC4626SwapConnectors {
     /// for liquidity to flow between Cadnece & EVM. These "swaps" are performed by depositing the input asset into the
     /// ERC4626 vault and withdrawing the resulting shares from the ERC4626 vault.
     ///
-    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this Swapper only supports the
-    ///     default inType -> outType path via swap() and reverts on swapBack() since the withdrawal cannot be returned
-    ///     synchronously.
+    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this is a one-way swapper that
+    ///     only supports the default inType -> outType path via swap() and reverts on swapBack(). When used with
+    ///     SwapConnectors.SwapSink, ensure the inner sink always consumes all swapped shares (has sufficient capacity).
+    ///     If residuals remain, swapBack() will be called and the transaction will revert.
     ///
     access(all) struct Swapper : DeFiActions.Swapper {
         /// The asset type serving as the price basis in the ERC4626 vault
@@ -60,10 +62,20 @@ access(all) contract ERC4626SwapConnectors {
                 "Provided asset \(asset.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
             self.asset = asset
             self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
                 ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            
+            let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
+            assert(
+                actualUnderlyingAddress?.equals(self.assetEVMAddress) ?? false,
+                message: "Provided asset \(asset.identifier) does not underly ERC4626 vault \(vault.toString()) - found \(actualUnderlyingAddress?.toString() ?? "nil") but expected \(self.assetEVMAddress.toString())"
+            )
+
             self.vault = vault
             self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vault)
                 ?? panic("Provided ERC4626 Vault \(vault.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
@@ -104,18 +116,53 @@ access(all) contract ERC4626SwapConnectors {
                     outAmount: 0.0
                 )
             }
-            let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
+            
+            // Check maximum deposit capacity first
+            let maxCapacity = self.assetSink.minimumCapacity()
+            if maxCapacity > 0.0 {
+                let uintForDesired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(forDesired, erc20Address: self.vault)
+                if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
+                    let uintMaxAllowed = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
 
-            if let uintRequired = ERC4626Utils.previewMint(vault: self.vault, shares: uintForDesired) {
-                let maxAvailableRequired = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(UFix64.max, erc20Address: self.assetEVMAddress)
-                let safeUIntRequired = uintRequired < maxAvailableRequired ? uintRequired : maxAvailableRequired
-                let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(safeUIntRequired, erc20Address: self.assetEVMAddress)
-                return SwapConnectors.BasicQuote(
-                    inType: self.asset,
-                    outType: self.vaultType,
-                    inAmount: ufixRequired,
-                    outAmount: forDesired
-                )
+                    if uintRequired > uintMaxAllowed {
+                        return SwapConnectors.BasicQuote(
+                            inType: self.asset,
+                            outType: self.vaultType,
+                            inAmount: UFix64.max,
+                            outAmount: forDesired
+                        )
+                    }
+                    
+                    let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
+                    
+                    // Cap input to maxCapacity and recalculate output if needed
+                    if ufixRequired > maxCapacity {
+                        // Required assets exceed capacity - cap at maxCapacity and calculate achievable shares
+                        let uintMaxCapacity = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(maxCapacity, erc20Address: self.assetEVMAddress)
+                        if let uintActualShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintMaxCapacity) {
+                            let ufixActualShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintActualShares, erc20Address: self.vault)
+                            return SwapConnectors.BasicQuote(
+                                inType: self.asset,
+                                outType: self.vaultType,
+                                inAmount: maxCapacity,
+                                outAmount: ufixActualShares
+                            )
+                        }
+                        return SwapConnectors.BasicQuote(
+                            inType: self.asset,
+                            outType: self.vaultType,
+                            inAmount: 0.0,
+                            outAmount: 0.0
+                        )
+                    }
+                    
+                    return SwapConnectors.BasicQuote(
+                        inType: self.asset,
+                        outType: self.vaultType,
+                        inAmount: ufixRequired,
+                        outAmount: forDesired
+                    )
+                }
             }
             return SwapConnectors.BasicQuote(
                 inType: self.asset,
@@ -172,12 +219,38 @@ access(all) contract ERC4626SwapConnectors {
 
             // assign or get the quote for the swap
             let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
+            let outAmount = _quote.outAmount
 
-            // get the before available shares
+            assert(_quote.inType == self.inType(), message: "Quote inType mismatch")
+            assert(_quote.outType == self.outType(), message: "Quote outType mismatch")
+            assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
+            assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
+
+            // --- Slippage protection: don't allow spending more than quoted ---
+            let beforeInBalance = inVault.balance
+            assert(
+                beforeInBalance <= _quote.inAmount,
+                message: "Swap input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
+            )
+
+            // Track shares available before/after to determine received shares
             let beforeAvailable = self.shareSource.minimumAvailable()
 
-            // deposit the inVault into the asset sink
+            // Deposit the inVault into the asset sink (should consume all of it)
             self.assetSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+
+            let remainder = inVault.balance
+            let consumedIn = beforeInBalance - remainder
+
+            // We expect full consumption in this connector's semantics.
+            // If this ever becomes "partial fill" in the future, this check + price check below
+            // ensures it still can't be worse than quoted.
+            assert(
+                consumedIn > 0.0,
+                message: "Asset sink did not consume any input."
+            )
+            assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
+
             Burner.burn(<-inVault)
 
             // get the after available shares
@@ -185,8 +258,23 @@ access(all) contract ERC4626SwapConnectors {
             assert(afterAvailable > beforeAvailable, message: "Expected ERC4626 Vault \(self.vault.toString()) to have more shares after depositing")
 
             // withdraw the available difference in shares
-            let availableDiff = afterAvailable - beforeAvailable
-            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: availableDiff)
+            let receivedShares = afterAvailable - beforeAvailable
+
+            // --- Slippage protection: ensure minimum out ---
+            assert(
+                receivedShares >= outAmount,
+                message: "Slippage: received \(receivedShares) < quote.outAmount (\(outAmount))."
+            )
+
+            let sharesVault <- self.shareSource.withdrawAvailable(maxAmount: receivedShares)
+
+            // Extra safety: ensure the vault we’re returning matches the computed delta
+            // (withdrawAvailable could theoretically return less if liquidity changed)
+            assert(
+                sharesVault.balance >= outAmount,
+                message: "Slippage: withdrawn shares \(sharesVault.balance) < outAmount (\(outAmount))."
+            )
+
             return <- sharesVault
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose

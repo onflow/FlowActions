@@ -251,6 +251,11 @@ access(all) contract SwapConnectors {
     /// A DeFiActions connector that deposits the resulting post-conversion currency of a token swap to an inner
     /// DeFiActions Sink, sourcing funds from a deposited Vault of a pre-set Type.
     ///
+    /// NOTE: If residual tokens remain after depositing to the inner sink, swapBack() is called on the swapper to
+    ///     return them to the original vault. One-way swappers (e.g., ERC4626SwapConnectors.Swapper) that do not
+    ///     support swapBack() can still be used safely if the inner sink always consumes all swapped tokens (i.e.,
+    ///     has sufficient capacity). If residuals occur with a one-way swapper, the transaction will revert.
+    ///
     access(all) struct SwapSink : DeFiActions.Sink {
         access(self) let swapper: {DeFiActions.Swapper}
         access(self) let sink: {DeFiActions.Sink}
