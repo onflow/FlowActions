@@ -14,10 +14,6 @@ transaction (
 ) {
 	prepare(acct: auth(Storage, Capabilities, BorrowValue) &Account){
         let vaultEVMAddress = EVM.addressFromString(vaultEVMAddressHex)
-        let assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultEVMAddress)
-            ?? panic("Cannot get an underlying asset EVM address from the vault")
-        let assetType = FlowEVMBridgeConfig.getTypeAssociated(with: assetEVMAddress)
-                ?? panic("Invalid asset vault identifier: \(assetEVMAddress.toString())")
 
         let coaCap = acct.capabilities.storage.issue<auth(EVM.Owner, EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>(/storage/evm)
         let feeVault = acct.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
@@ -30,7 +26,6 @@ transaction (
             uniqueID: nil
         )
         let swapper = MorphoERC4626SwapConnectors.Swapper(
-            assetType: assetType,
             vaultEVMAddress: vaultEVMAddress,
             coa: coaCap,
             feeSource: feeSource,

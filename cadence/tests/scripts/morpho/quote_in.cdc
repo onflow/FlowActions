@@ -18,10 +18,6 @@ access(all) fun main(
     desiredShares: UFix64
 ): {DeFiActions.Quote} {
     let erc4626VaultEVMAddress = EVM.addressFromString(erc4626VaultEVMAddressHex)
-    let assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: erc4626VaultEVMAddress)
-        ?? panic("Cannot get an underlying asset EVM address from the vault")
-    let assetType = FlowEVMBridgeConfig.getTypeAssociated(with: assetEVMAddress)
-        ?? panic("Invalid asset vault identifier: \(assetEVMAddress.toString())")
 
     let acct = getAuthAccount<auth(Storage, Capabilities) &Account>(coaHost)
 
@@ -41,7 +37,6 @@ access(all) fun main(
 
     // create the Swapper
     let swapper = MorphoERC4626SwapConnectors.Swapper(
-        assetType: assetType,
         vaultEVMAddress: erc4626VaultEVMAddress,
         coa: coa,
         feeSource: feeSource,

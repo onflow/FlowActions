@@ -3,6 +3,7 @@ import "FungibleToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
+import "FlowToken"
 import "DeFiActions"
 import "DeFiActionsUtils"
 import "MorphoERC4626SinkConnectors"
@@ -25,12 +26,8 @@ access(all) contract MorphoERC4626SwapConnectors {
     ///
     /// An implementation of the DeFiActions.Swapper interface to swap assets to 4626 shares where the input token is
     /// underlying asset in the 4626 vault. Both the asset & the 4626 shares must be onboarded to the VM bridge in order
-    /// for liquidity to flow between Cadnece & EVM. These "swaps" are performed by depositing the input asset into the
+    /// for liquidity to flow between Cadence & EVM. These "swaps" are performed by depositing the input asset into the
     /// ERC4626 vault and withdrawing the resulting shares from the ERC4626 vault.
-    ///
-    /// NOTE: Since ERC4626 vaults typically do not support synchronous withdrawals, this Swapper only supports the
-    ///     default inType -> outType path via swap() and reverts on swapBack() since the withdrawal cannot be returned
-    ///     synchronously.
     ///
     access(all) struct Swapper : DeFiActions.Swapper {
         /// The asset type serving as the price basis in the ERC4626 vault
@@ -53,46 +50,59 @@ access(all) contract MorphoERC4626SwapConnectors {
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         init(
-            assetType: Type,
             vaultEVMAddress: EVM.EVMAddress,
             coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
             pre {
-                DeFiActionsUtils.definingContractIsFungibleToken(assetType):
-                "Provided asset \(assetType.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
-            self.assetType = assetType
-            self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: assetType)
-                ?? panic("Provided asset \(assetType.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            self.uniqueID = uniqueID
+
             self.vaultEVMAddress = vaultEVMAddress
             self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: vaultEVMAddress)
-                ?? panic("Provided ERC4626 Vault \(vaultEVMAddress.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
+                ?? panic("Provided ERC4626 Vault \(self.vaultEVMAddress.toString()) is not associated with a Cadence FungibleToken - ensure the type & ERC4626 contracts are associated via the VM bridge")
+            assert(
+              DeFiActionsUtils.definingContractIsFungibleToken(self.vaultType),
+              message: "Derived vault type \(self.vaultType.identifier) not FungibleToken type"
+            )
+
+            self.assetEVMAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vaultEVMAddress)
+                ?? panic("Cannot get an underlying asset EVM address from the vault")
+
+            self.assetType = FlowEVMBridgeConfig.getTypeAssociated(with: self.assetEVMAddress)
+                ?? panic("Underlying asset for vault \(self.vaultEVMAddress.toString()) (asset \(self.assetEVMAddress.toString())) is not associated with a Cadence FungibleToken - ensure the type & underlying asset contracts are associated via the VM bridge")
+            assert(
+              DeFiActionsUtils.definingContractIsFungibleToken(self.assetType),
+              message: "Derived asset type \(self.assetType.identifier) not FungibleToken type"
+            )
 
             self.assetSink = MorphoERC4626SinkConnectors.AssetSink(
-                assetType: assetType,
-                vaultEVMAddress: vaultEVMAddress,
+                assetType: self.assetType,
+                vaultEVMAddress: self.vaultEVMAddress,
                 coa: coa,
                 feeSource: feeSource,
-                uniqueID: uniqueID
+                uniqueID: self.uniqueID
             )
             self.shareSource = EVMTokenConnectors.Source(
                 min: nil,
                 withdrawVaultType: self.vaultType,
                 coa: coa,
                 feeSource: feeSource,
-                uniqueID: uniqueID
+                uniqueID: self.uniqueID
             )
 
             self.shareSink = MorphoERC4626SinkConnectors.ShareSink(
-                assetType: assetType,
-                vaultEVMAddress: vaultEVMAddress,
+                assetType: self.assetType,
+                vaultEVMAddress: self.vaultEVMAddress,
                 coa: coa,
                 feeSource: feeSource,
-                uniqueID: uniqueID
+                uniqueID: self.uniqueID
             )
 
             self.assetSource = EVMTokenConnectors.Source(
@@ -100,10 +110,9 @@ access(all) contract MorphoERC4626SwapConnectors {
                 withdrawVaultType: self.assetType,
                 coa: coa,
                 feeSource: feeSource,
-                uniqueID: uniqueID
+                uniqueID: self.uniqueID
             )
 
-            self.uniqueID = uniqueID
         }
 
         /// The type of Vault this Swapper accepts when performing a swap
@@ -295,7 +304,6 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
             assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
 
-            assert(self.assetSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Asset Sink to have capacity after depositing")
             Burner.burn(<-inVault)
 
             // get the after available shares
@@ -344,7 +352,7 @@ access(all) contract MorphoERC4626SwapConnectors {
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
-            // Track assets availbe before/after to determine received assets
+            // Track assets available before/after to determine received assets
             let beforeInBalance = residual.balance
             assert(
                 beforeInBalance <= _quote.inAmount,
@@ -362,7 +370,6 @@ access(all) contract MorphoERC4626SwapConnectors {
                 message: "Share sink did not consume any input."
             )
             assert(remainder == 0.0, message: "Share sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.")
-            assert(self.shareSink.minimumCapacity() > 0.0, message: "Expected ERC4626 Share Sink to have capacity after depositing")
             Burner.burn(<-residual)
 
             let afterAvailable = self.assetSource.minimumAvailable()
