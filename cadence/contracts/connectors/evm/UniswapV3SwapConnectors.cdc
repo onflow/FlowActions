@@ -173,12 +173,12 @@ access(all) contract UniswapV3SwapConnectors {
             )
 
             // Derive true Uniswap direction for pool math
-            let zeroForOne = self.isZeroForOne(reverse: reverse)
+            let zeroForOne = self.isZeroForOne(hopIndex: 0, reverse: reverse)
 
             // Max INPUT proxy in correct pool terms
             // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
             // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
-            let maxInEVM = self.getMaxInAmount(zeroForOne: zeroForOne)
+            let maxInEVM = self.getMaxInAmount(hopIndex: 0, zeroForOne: zeroForOne, reverse: reverse)
 
             // If clamp proxy is 0, don't clamp — it's a truncation/edge case
             var safeOutEVM = desiredOutEVM
@@ -225,7 +225,7 @@ access(all) contract UniswapV3SwapConnectors {
             // Max INPUT proxy in correct pool terms
             // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
             // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
-            let maxInEVM = self.maxInAmount(reverse: reverse)
+            let maxInEVM = self.maxInAmount(hopIndex: 0, reverse: reverse)
 
             // If clamp proxy is 0, don't clamp — it's a truncation/edge case
             var safeInEVM = providedInEVM
@@ -309,14 +309,54 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMBytes(value: out)
         }
 
-        access(self) fun getPoolAddress(): EVM.EVMAddress {
+        /// Returns the pool address for a specific hop in the path.
+        /// - hopIndex: 0-based index of the hop (0 for first hop, 1 for second, etc.)
+        /// - reverse: if true, the path is traversed in reverse order
+        /// For a path [A, B, C] with fees [fee0, fee1]:
+        ///   - Forward: hop 0 = pool(A, B, fee0), hop 1 = pool(B, C, fee1)
+        ///   - Reverse: hop 0 = pool(C, B, fee1), hop 1 = pool(B, A, fee0)
+        access(self) fun getPoolAddress(hopIndex: Int, reverse: Bool): EVM.EVMAddress {
+            let nHops = self.feePath.length
+            assert(hopIndex >= 0 && hopIndex < nHops, message: "hopIndex out of bounds: \(hopIndex), nHops: \(nHops)")
+            
+            let last = self.tokenPath.length - 1
+
+            // Determine default token pair and fee 
+            var tokenA: EVM.EVMAddress = self.tokenPath[0]
+            var tokenB: EVM.EVMAddress = self.tokenPath[1]
+            var fee: UInt32 = 0
+
+            // Determine token pair and fee for this hop based on direction
+            if reverse {
+                // Reverse traversal: start from last token, work backwards
+                // hop 0: tokenPath[last] -> tokenPath[last-1], feePath[nHops-1]
+                // hop 1: tokenPath[last-1] -> tokenPath[last-2], feePath[nHops-2]
+                let feeIdx = nHops - 1 - hopIndex
+                let startTokenIdx = last - hopIndex
+                let endTokenIdx = last - hopIndex - 1
+
+                tokenA = self.tokenPath[startTokenIdx]
+                tokenB = self.tokenPath[endTokenIdx]
+                fee = self.feePath[feeIdx]
+            } else {
+                // Forward traversal: start from first token
+                // hop 0: tokenPath[0] -> tokenPath[1], feePath[0]
+                // hop 1: tokenPath[1] -> tokenPath[2], feePath[1]
+                tokenA = self.tokenPath[hopIndex]
+                tokenB = self.tokenPath[hopIndex + 1]
+                fee = self.feePath[hopIndex]
+            }
+
             let res = self._dryCall(
                 self.factoryAddress,
                 "getPool(address,address,uint24)",
-                [ self.tokenPath[0], self.tokenPath[1], UInt256(self.feePath[0]) ],
+                [tokenA, tokenB, UInt256(fee) ],
                 120_000
             )!
-            assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
+            assert(
+                res.status == EVM.Status.successful, 
+                message: "unable to get pool: tokenA \(tokenA.toString()), tokenB \(tokenB.toString()), fee: \(fee)"
+            )
 
             // ABI return is one 32-byte word; the last 20 bytes are the address
             let word = res.data as! [UInt8]
@@ -328,15 +368,15 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        access(self) fun maxInAmount(reverse: Bool): UInt256 {
-            let zeroForOne = self.isZeroForOne(reverse: reverse)
-            return self.getMaxInAmount(zeroForOne: zeroForOne)
+        access(self) fun maxInAmount(hopIndex: Int, reverse: Bool): UInt256 {
+            let zeroForOne = self.isZeroForOne(hopIndex: hopIndex, reverse: reverse)
+            return self.getMaxInAmount(hopIndex: hopIndex, zeroForOne: zeroForOne, reverse: reverse)
         }
 
         /// Simplified max input calculation using default 6% price impact
         /// Uses current liquidity as proxy for max swappable input amount
-        access(self) fun getMaxInAmount(zeroForOne: Bool): UInt256 {
-            let poolEVMAddress = self.getPoolAddress()
+        access(self) fun getMaxInAmount(hopIndex: Int, zeroForOne: Bool, reverse: Bool): UInt256 {
+            let poolEVMAddress = self.getPoolAddress(hopIndex: hopIndex, reverse: reverse)
             
             // Helper functions
             fun wordToUInt(_ w: [UInt8]): UInt {
@@ -631,8 +671,8 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        access(self) fun isZeroForOne(reverse: Bool): Bool {
-            let pool = self.getPoolAddress()
+        access(self) fun isZeroForOne(hopIndex: Int,reverse: Bool): Bool {
+            let pool = self.getPoolAddress(hopIndex: hopIndex, reverse: reverse)
             let token0 = self.getPoolToken0(pool)
 
             // your actual input token for this swap direction:
