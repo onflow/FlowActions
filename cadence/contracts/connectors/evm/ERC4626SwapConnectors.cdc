@@ -206,6 +206,12 @@ access(all) contract ERC4626SwapConnectors {
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
+        ///
+        /// @param quote: An optional quote for the swap; if nil, a quote will be generated from quoteOut()
+        /// @param inVault: The vault containing tokens to swap into the ERC4626 vault
+        ///
+        /// @return A vault containing the resulting ERC4626 shares from the deposit
+        ///
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             if inVault.balance == 0.0 {
                 // nothing to swap - burn the inVault and return an empty outVault
@@ -276,7 +282,12 @@ access(all) contract ERC4626SwapConnectors {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        // TODO: Impl detail - accept quote that was just used by swap() but reverse the direction assuming swap() was just called
+        ///
+        /// @param quote: The quote from a previous swap() call with direction reversed, assuming swap() was just called
+        /// @param residual: The vault containing residual tokens to swap back to the original input type
+        ///
+        /// @return A vault containing the original input tokens (not supported - always panics)
+        ///
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             panic("ERC4626SwapConnectors.Swapper.swapBack() is not supported - ERC4626 Vaults do not support synchronous withdrawals")
         }

@@ -29,16 +29,18 @@ access(all) contract ERC4626SinkConnectors {
         /// The address of the ERC4626 vault
         access(self) let vault: EVM.EVMAddress
         /// The COA capability to use for the ERC4626 vault
-        access(self) let coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>
-        /// The token sink to use for the ERC4626 vault
+        access(self) let coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>
+        /// The token sink to use for bridging assets to EVM
         access(self) let tokenSink: EVMTokenConnectors.Sink
+        /// The token source to use for bridging assets back from EVM on failure recovery
+        access(self) let tokenSource: EVMTokenConnectors.Source
         /// The optional UniqueIdentifier of the ERC4626 vault
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
         init(
             asset: Type,
             vault: EVM.EVMAddress,
-            coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>,
+            coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
@@ -70,6 +72,13 @@ access(all) contract ERC4626SinkConnectors {
                 feeSource: feeSource,
                 uniqueID: uniqueID
             )
+            self.tokenSource = EVMTokenConnectors.Source(
+                min: nil,
+                withdrawVaultType: asset,
+                coa: coa,
+                feeSource: feeSource,
+                uniqueID: uniqueID
+            )
             self.uniqueID = uniqueID
         }
 
@@ -80,7 +89,6 @@ access(all) contract ERC4626SinkConnectors {
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
         access(all) fun minimumCapacity(): UFix64 {
             // Check the EVMTokenConnectors Sink has capacity to bridge the assets to EVM
-            // TODO: Update EVMTokenConnector.Sink to return 0.0 if it doesn't have fees to pay for the bridge call
             let coa = self.coa.borrow()
             if coa == nil {
                 return 0.0
@@ -108,7 +116,8 @@ access(all) contract ERC4626SinkConnectors {
             // withdraw the appropriate amount from the referenced vault & deposit to the EVMTokenConnectors Sink
             var amount = capacity <= from.balance ? capacity : from.balance
 
-            // TODO: pass from through and skip the intermediary withdrawal
+            // Intermediary withdrawal is needed to cap the amount at the ERC4626 vault capacity, since
+            // tokenSink.depositCapacity only limits by its own capacity and not the ERC4626 vault's
             let deposit <- from.withdraw(amount: amount)
             self.tokenSink.depositCapacity(from: &deposit as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
@@ -139,7 +148,14 @@ access(all) contract ERC4626SinkConnectors {
                     gasLimit: 500_000
                 )!
             if approveRes.status != EVM.Status.successful {
-                // TODO: consider more graceful handling of this error
+                // Approve failed — attempt to bridge tokens back from EVM to Cadence
+                let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
+                if recovered.balance > 0.0 {
+                    from.deposit(from: <-recovered)
+                    return
+                }
+                // Recovery failed (e.g. insufficient bridge fees) — panic to revert atomically
+                Burner.burn(<-recovered)
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
@@ -152,8 +168,24 @@ access(all) contract ERC4626SinkConnectors {
                 gasLimit: 1_000_000
             )!
             if depositRes.status != EVM.Status.successful {
-                // TODO: Consider unwinding the deposit & returning to the from vault
-                //      - would require {Sink, Source} instead of just Sink
+                // Deposit failed — revoke the approval and attempt to bridge tokens back
+                let _ = self._call(
+                    dry: false,
+                    to: self.assetEVMAddress,
+                    signature: "approve(address,uint256)",
+                    args: [self.vault, 0 as UInt256],
+                    gasLimit: 500_000
+                )
+                // If revoke failed -> recovered.balance == 0 -> 
+                // panic below reverts the entire transaction including the approval
+                let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
+                // recovered.balance may be slightly less than amount due to UFix64/UInt256 rounding and bridge-back fees
+                if recovered.balance > 0.0 {
+                    from.deposit(from: <-recovered)
+                    return
+                }
+                // Recovery failed (e.g. insufficient bridge fees) — panic to revert atomically
+                Burner.burn(<-recovered)
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }

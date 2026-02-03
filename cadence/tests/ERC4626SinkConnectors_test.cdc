@@ -130,3 +130,55 @@ access(all) fun testDepositToERC4626ViaSinkSucceeds() {
     let afterShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
     Test.assert(afterShares > beforeShares)
 }
+
+access(all) fun testDepositToPausedVaultRecoversGracefully() {
+    // mint and bridge more tokens for this test (test 1 depleted the balance)
+    let mintCalldata = String.encodeHex(EVM.encodeABIWithSignature("mint(address,uint256)",
+            [EVM.addressFromString(deployerCOAAddress), uintDepositAmount]
+        ))
+    evmCall(deployerAccount,
+        target: vaultDeploymentInfo.underlying.toString(),
+        calldata: mintCalldata,
+        gasLimit: 1_000_000,
+        value: 0,
+        beFailed: false
+    )
+    let bridgeRes = executeTransaction(
+        "./transactions/bridge/bridge_tokens_from_evm.cdc",
+        [underlyingIdentifier, uintDepositAmount],
+        deployerAccount
+    )
+    Test.expect(bridgeRes, Test.beSucceeded())
+
+    let beforeShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+
+    // pause the ERC4626 vault
+    evmCall(deployerAccount,
+        target: vaultDeploymentInfo.vault.toString(),
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("pause()", [])),
+        gasLimit: 1_000_000,
+        value: 0,
+        beFailed: false
+    )
+
+    // attempt deposit to paused vault — should not panic
+    let depositRes = _executeTransaction(
+        "./transactions/erc4626-sink-connectors/deposit_to_paused_vault.cdc",
+        [ufixDepositAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
+        deployerAccount
+    )
+    Test.expect(depositRes, Test.beSucceeded())
+
+    // verify no shares were gained
+    let afterShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
+    Test.assertEqual(beforeShares, afterShares)
+
+    // unpause the vault for cleanup
+    evmCall(deployerAccount,
+        target: vaultDeploymentInfo.vault.toString(),
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("unpause()", [])),
+        gasLimit: 1_000_000,
+        value: 0,
+        beFailed: false
+    )
+}
