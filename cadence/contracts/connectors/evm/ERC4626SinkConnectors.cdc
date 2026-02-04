@@ -150,12 +150,12 @@ access(all) contract ERC4626SinkConnectors {
             if approveRes.status != EVM.Status.successful {
                 // Approve failed — attempt to bridge tokens back from EVM to Cadence
                 let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
+                // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
+                // due to UFix64/UInt256 rounding
                 if recovered.balance > 0.0 {
                     from.deposit(from: <-recovered)
                     return
                 }
-                // Recovery failed (e.g. insufficient bridge fees) — panic to revert atomically
-                Burner.burn(<-recovered)
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
@@ -169,23 +169,23 @@ access(all) contract ERC4626SinkConnectors {
             )!
             if depositRes.status != EVM.Status.successful {
                 // Deposit failed — revoke the approval and attempt to bridge tokens back
-                let _ = self._call(
+                let revokeRes = self._call(
                     dry: false,
                     to: self.assetEVMAddress,
                     signature: "approve(address,uint256)",
                     args: [self.vault, 0 as UInt256],
                     gasLimit: 500_000
-                )
-                // If revoke failed -> recovered.balance == 0 -> 
-                // panic below reverts the entire transaction including the approval
+                )!
+                if revokeRes.status != EVM.Status.successful {
+                    panic("Failed to revoke approval after deposit failure. Vault: \(self.vault.toString()), Asset: \(self.assetEVMAddress.toString()). Error code: \(revokeRes.errorCode) Error message: \(revokeRes.errorMessage)")
+                }
                 let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
-                // recovered.balance may be slightly less than amount due to UFix64/UInt256 rounding and bridge-back fees
+                // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
+                // due to UFix64/UInt256 rounding
                 if recovered.balance > 0.0 {
                     from.deposit(from: <-recovered)
                     return
                 }
-                // Recovery failed (e.g. insufficient bridge fees) — panic to revert atomically
-                Burner.burn(<-recovered)
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
