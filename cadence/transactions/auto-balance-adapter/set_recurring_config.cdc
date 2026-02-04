@@ -53,9 +53,8 @@ transaction(
         self.autoBalancer.setRecurringConfig(self.config)
 
         // schedule the next execution
-        let err = self.autoBalancer.scheduleNextRebalance(whileExecuting: nil)
-        if err != nil {
-            panic("Failed to schedule next rebalance: \(err!)")
+        if let err = self.autoBalancer.scheduleNextRebalance(whileExecuting: nil) {
+            panic("Failed to schedule next rebalance: \(err)")
         }
     }
 }

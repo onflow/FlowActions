@@ -84,7 +84,7 @@ fun testConnectorMockSwapSucceeds() {
     let amountIn = 10.0
     let priceRatio1 = 0.5
     let priceRatio2 = 0.2
-    let mockSwapperConfigs: [{String: AnyStruct}] = [
+    let mockSwapperConfigs = [
         {
             "inVault": Type<@TokenA.Vault>(),
             "outVault": Type<@TokenB.Vault>(),
@@ -137,7 +137,7 @@ fun testConnectorMockSwapBackSucceeds() {
     let amountIn = 10.0
     let priceRatio1 = 0.5
     let priceRatio2 = 0.2
-    let mockSwapperConfigs: [{String: AnyStruct}] = [
+    let mockSwapperConfigs = [
         {
             "inVault": Type<@TokenA.Vault>(),
             "outVault": Type<@TokenB.Vault>(),

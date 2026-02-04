@@ -32,11 +32,13 @@ transaction(
             rewards: rewardInfo
         )
 
-        if depositAmount != nil {
-            let tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: rewardTokenVaultStoragePath!)
-                ?? panic("Could not borrow reference to Token Vault")
+        if let amount = depositAmount {
+            if let storagePath = rewardTokenVaultStoragePath {
+                let tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: storagePath)
+                    ?? panic("Could not borrow reference to Token Vault")
 
-            poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenVaultRef.withdraw(amount: depositAmount!))
+                poolCollection.getPool(pid: pid).extendReward(rewardTokenVault: <- tokenVaultRef.withdraw(amount: amount))
+            }
         }
     }
 }

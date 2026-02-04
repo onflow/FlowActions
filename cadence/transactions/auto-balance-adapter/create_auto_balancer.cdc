@@ -59,7 +59,7 @@ transaction(
             signer.storage.save(<-ab, to: storagePath)
             // publish public Capability
             let cap = signer.capabilities.storage.issue<&DeFiActions.AutoBalancer>(storagePath)
-            signer.capabilities.unpublish(publicPath)
+            let _ = signer.capabilities.unpublish(publicPath)
             signer.capabilities.publish(cap, at: publicPath)
 
             // issue an authorized Capability on the AutoBalancer
@@ -85,8 +85,8 @@ transaction(
     execute {
         // AutoBalancer was newly configured - set its self Capability so it can issue Sink and Sourc on itself
         // and auto-execute rebalancing using scheduled callbacks
-        if self.authCap != nil {
-            self.autoBalancer.setSelfCapability(self.authCap!)
+        if let authCap = self.authCap {
+            self.autoBalancer.setSelfCapability(authCap)
         }
     }
 }

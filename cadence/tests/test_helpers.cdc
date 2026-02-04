@@ -308,7 +308,7 @@ fun getEVMAddressHexFromEvents(_ evts: [AnyStruct], idx: Int): String {
     Test.assert(evts.length > idx, message: "Event index out of bounds")
 
     let evt = evts[idx] as? EVM.TransactionExecuted
-        ?? panic("Event at index ".concat(idx.toString()).concat(" is not a TransactionExecuted event"))
+        ?? panic("Event at index \(idx.toString()) is not a TransactionExecuted event")
     let emittedAddress = evt.contractAddress
     Test.assert(emittedAddress.length != 0, message: "Emitted .contractAddress value is empty")
 
@@ -437,20 +437,20 @@ fun setupUniswapV2(_ signer: Test.TestAccount, feeToSetter: String, wflowAddress
     let wflowAddr = EVM.addressFromString(wflowAddress)
     // deploy uniV2Factory, concatenating feeToSetter as constructor arg
     let factoryArgsBytecode = EVM.encodeABI([feeToSetter])
-    evmDeploy(signer,
+    let factoryDeployResult = evmDeploy(signer,
         bytecode: String.encodeHex(uniV2FactoryBytecode.decodeHex().concat(factoryArgsBytecode)),
-        gasLimit: UInt64(15_000_000),
-        value: UInt(0)
+        gasLimit: 15_000_000,
+        value: 0
     )
     // get the uniV2Factory address from the deployedContract value in the previously emitted event
     var txnEvents = Test.eventsOfType(Type<EVM.TransactionExecuted>())
     let factoryAddr =  EVM.addressFromString(getEVMAddressHexFromEvents(txnEvents, idx: txnEvents.length - 1))
     // deploy uniV2Router, concatenating the factory and WFLOW addresses as constructor args
     let routerArgsBytecode = EVM.encodeABI([factoryAddr, wflowAddr])
-    evmDeploy(signer,
+    let routerDeployResult = evmDeploy(signer,
         bytecode: String.encodeHex(uniV2RouterBytecode.decodeHex().concat(routerArgsBytecode)),
-        gasLimit: UInt64(15_000_000),
-        value: UInt(0)
+        gasLimit: 15_000_000,
+        value: 0
     )
     // get the router EVM address from the deployedContract value in the previously emitted event & return
     txnEvents = Test.eventsOfType(Type<EVM.TransactionExecuted>())
@@ -461,10 +461,10 @@ access(all)
 fun deployBasicERC20(_ signer: Test.TestAccount, name: String, symbol: String): String {
     let constructorArgs = EVM.encodeABI([name, symbol])
     // deploy BasicERC20
-    evmDeploy(signer,
+    let deployResult = evmDeploy(signer,
         bytecode: String.encodeHex(basicERC20Bytecode.decodeHex().concat(constructorArgs)),
-        gasLimit: UInt64(15_000_000),
-        value: UInt(0)
+        gasLimit: 15_000_000,
+        value: 0
     )
     // get the deployed contract address & return
     var txnEvents = Test.eventsOfType(Type<EVM.TransactionExecuted>())
@@ -625,7 +625,7 @@ access(all) struct MoreVaultsFacetCut {
         }
         let initDataEncoding = EVMAbiHelpers.abiDynamicBytes(self.initData.value)
 
-        let headSize: UInt256 = UInt256(32 * 4)
+        let headSize = UInt256(32 * 4)
         let selectorsOffset = headSize
         let initDataOffset = headSize + UInt256(selectorsEncoding.length)
 
@@ -649,7 +649,7 @@ access(all) struct MoreVaultsFacetCuts {
 
     access(all) fun encodedBytes(): [UInt8] {
         let count = self.cuts.length
-        var header: [[UInt8]] = [EVM.encodeABI([UInt256(count)])]
+        var header = [EVM.encodeABI([UInt256(count)])]
         var bodies: [[UInt8]] = []
         var offset = UInt256(32 * count)
 
@@ -693,10 +693,9 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress, initial
     let oracle = EVM.addressFromString(evmDeploy(deployer, bytecode: mockAaveOracleBytecode, gasLimit: 15_000_000, value: 0))
 
     // deploy the underlying feed
-    let mockAggregatorV2V3BytecodeFinal = mockAggregatorV2V3Bytecode.concat(
-        String.encodeHex(
-            EVM.encodeABI([UInt8(18), "Underlying"])
-        ))
+    let mockAggregatorV2V3BytecodeFinal = "\(mockAggregatorV2V3Bytecode)\(String.encodeHex(
+            EVM.encodeABI([18 as UInt128, "Underlying"])
+        ))"
     let underlyingFeed = EVM.addressFromString(evmDeploy(deployer,
             bytecode: mockAggregatorV2V3BytecodeFinal,
             gasLimit: 15_000_000,
@@ -705,7 +704,7 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress, initial
     // update the answer for the underlying feed
     evmCall(deployer,
         target: underlyingFeed.toString(),
-        calldata: String.encodeHex(EVM.encodeABIWithSignature("updateAnswer(int256,uint256)", [Int256(100_000_000), UInt256(0)])),
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("updateAnswer(int256,uint256)", [100_000_000, 0])),
         gasLimit: 15_000_000,
         value: 0,
         beFailed: false
@@ -724,7 +723,7 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress, initial
     evmCall(
         deployer,
         target: oracle.toString(),
-        calldata: String.encodeHex(EVM.encodeABIWithSignature("setAssetPrice(address,uint256)", [underlying, UInt256(100_000_000)])),
+        calldata: String.encodeHex(EVM.encodeABIWithSignature("setAssetPrice(address,uint256)", [underlying, 100_000_000])),
         gasLimit: 15_000_000,
         value: 0,
         beFailed: false
@@ -850,7 +849,7 @@ fun setupMoreVaults(_ deployer: Test.TestAccount, wflow: EVM.EVMAddress, initial
                 "tmMORE",
                 underlying,
                 deployerCOAAddress,
-                UInt128(0),
+                0 as UInt128,
                 1_000_000_000_000_000_000_000_000
             ])
         ))])

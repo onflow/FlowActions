@@ -20,7 +20,7 @@ transaction(
     prepare(signer: auth(BorrowValue) &Account) {
         // Determine the inteded File type based on the provided file type identifier
         let fileType = CompositeType(logoFileTypeIdentifier)
-            ?? panic("Invalid file type identifier=".concat(logoFileTypeIdentifier))
+            ?? panic("Invalid file type identifier=\(logoFileTypeIdentifier)")
         let file = FlowEVMBridgeResolver.buildFile(
                 uri: logoURI,
                 fileType: fileType,

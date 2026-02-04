@@ -21,15 +21,15 @@ access(all) var tokenAKey: String? = nil
 access(all) var tokenBKey: String? = nil
 
 // Test configuration constants
-access(all) let testDepositAmount: UFix64 = 100.0
+access(all) let testDepositAmount = 100.0
 access(all) let testTimeAdvanceSeconds: Fix64 = 10.0
 
 // Pool configuration values
-access(all) let testRps: UFix64 = 1.0
-access(all) let testSessionInterval: UFix64 = 1.0
-access(all) let testAdminSeedAmount: UFix64 = 1000.0
-access(all) let testLimitAmount: UFix64 = 1000000.0
-access(all) let testPairCreatorSeedAmount: UFix64 = 1000000.0
+access(all) let testRps = 1.0
+access(all) let testSessionInterval = 1.0
+access(all) let testAdminSeedAmount = 1000.0
+access(all) let testLimitAmount = 1000000.0
+access(all) let testPairCreatorSeedAmount = 1000000.0
 
 access(all) fun beforeEach() {
     log("================== Setting up IncrementFiIntegration test ==================")
@@ -154,12 +154,11 @@ access(all) fun beforeEach() {
     )
 
     // Get the LP token type
-    let lpTokenTypeIdentifier = "A.".concat(
+    let lpTokenTypeIdentifier = "A.\(
         (Test.eventsOfType(Type<SwapFactory.PairCreated>())[0] as! SwapFactory.PairCreated).pairAddress
             .toString()
             .slice(from: 2, upTo: incrementFiStakingAccount.address.toString().length)
-            .concat(".SwapPair.Vault")
-    )
+    ).SwapPair.Vault"
 
     stakingTokenType = CompositeType(lpTokenTypeIdentifier)!
 

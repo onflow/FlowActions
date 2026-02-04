@@ -160,7 +160,7 @@ access(all) contract IncrementFiStakingConnectors {
         ) {
             let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
                 ?? panic("Pool with ID \(pid) not found")
-            let rewardsInfo = pool!.getPoolInfo().rewardsInfo
+            let rewardsInfo = pool.getPoolInfo().rewardsInfo
 
             assert(rewardsInfo.keys.length == 1, message: "Pool with ID \(pid) has multiple reward token types, only one is supported")
             let rewardTokenType = rewardsInfo.keys[0]
@@ -307,6 +307,6 @@ access(all) contract IncrementFiStakingConnectors {
     /// @return the vault type
     ///
     access(all) fun tokenTypeIdentifierToVaultType(_ tokenType: String): Type {
-        return CompositeType(tokenType.concat(".Vault"))!
+        return CompositeType("\(tokenType).Vault")!
     }
 }

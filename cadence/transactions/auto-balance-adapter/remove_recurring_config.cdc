@@ -5,10 +5,10 @@ import "DeFiActions"
 /// @param storagePath: the storage path of the stored AutoBalancer
 ///
 transaction(storagePath: StoragePath) {
-    let autoBalancer: auth(DeFiActions.Schedule) &DeFiActions.AutoBalancer
+    let autoBalancer: auth(DeFiActions.Configure) &DeFiActions.AutoBalancer
 
     prepare(signer: auth(BorrowValue) &Account) {
-        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Schedule) &DeFiActions.AutoBalancer>(from: storagePath)
+        self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Configure) &DeFiActions.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not found in signer's storage at \(storagePath)")
     }
 

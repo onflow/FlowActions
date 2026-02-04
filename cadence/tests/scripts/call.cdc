@@ -4,7 +4,7 @@ access(all) fun getTypeArray(_ identifiers: [String]): [Type] {
     var types: [Type] = []
     for identifier in identifiers {
         let type = CompositeType(identifier)
-            ?? panic("Invalid identifier: ".concat(identifier))
+            ?? panic("Invalid identifier: \(identifier)")
         types.append(type)
     }
     return types

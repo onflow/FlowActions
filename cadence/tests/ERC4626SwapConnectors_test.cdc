@@ -18,7 +18,7 @@ access(all) var vaultIdentifier = ""
 access(all) let initialAssets: UInt256 = 1_000_000_000_000_000_000_000 // 1_000.0 tokens at 18 decimals
 access(all) var expectedInitialShares: UInt256 = initialAssets * 100 // 1_000.0 tokens at 20 decimals - decimals offset of 2
 access(all) let uintDepositAmount: UInt256 = 10_000_000_000_000_000_000 // 10.0 tokens at 18 decimals
-access(all) let ufixDepositAmount: UFix64 = 10.0
+access(all) let ufixDepositAmount = 10.0
 
 access(all) var snapshot: UInt64 = 0
 
@@ -186,7 +186,7 @@ access(all) fun testQuoteInWithLargeAmountReturnsMaxWhenOverflow() {
     Test.assertEqual(beforeTotalShares, expectedInitialShares)
     Test.assertEqual(beforeTotalAssets, initialAssets)
 
-    let donationAmount: UInt256 = initialAssets
+    let donationAmount = initialAssets
     let donateCalldata = String.encodeHex(EVM.encodeABIWithSignature("mint(address,uint256)",
             [vaultDeploymentInfo.vault, donationAmount]
         ))
@@ -231,7 +231,7 @@ access(all) fun testQuoteInCapsAtMaxCapacity() {
     log("Asset sink min capacity: \(maxCapacity)")
 
     // Request a quote for shares that would require more assets than maxCapacity
-    let largeDesiredShares: UFix64 = 100000000.0 // Very large amount of shares
+    let largeDesiredShares = 100000000.0 // Very large amount of shares
 
     let quoteInRes = executeScript(
         "./scripts/erc4626-swap-connectors/quote_in.cdc",
@@ -273,7 +273,7 @@ access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
     log("Asset sink min capacity: \(maxCapacity)")
 
     // Test with an amount below maxCapacity - should work normally
-    let normalAmount: UFix64 = 5.0
+    let normalAmount = 5.0
     
     let quoteOutRes = executeScript(
         "./scripts/erc4626-swap-connectors/quote_out.cdc",

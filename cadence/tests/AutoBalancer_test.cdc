@@ -12,12 +12,12 @@ access(all) let serviceAccount = Test.serviceAccount()
 access(all) let dfbAccount = Test.getAccount(0x0000000000000009)
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 
-access(all) let tokenAIdentifier: String = Type<@TokenA.Vault>().identifier // MockOracle's unitOfAccount
-access(all) let tokenBIdentifier: String = Type<@TokenB.Vault>().identifier
-access(all) let tokenBStartPrice: UFix64 = 2.0
+access(all) let tokenAIdentifier = Type<@TokenA.Vault>().identifier // MockOracle's unitOfAccount
+access(all) let tokenBIdentifier = Type<@TokenB.Vault>().identifier
+access(all) let tokenBStartPrice = 2.0
 // due to UFix64 precision, some amounts may be a small fraction above/below exact calculations
 // this value sets the error bars +/- expected
-access(all) let varianceThreshold: UFix64 = 0.00000001
+access(all) let varianceThreshold = 0.00000001
 
 access(all) let autoBalancerStoragePath = /storage/autoBalancerTest
 access(all) let autoBalancerPublicPath = /public/autoBalancerTest

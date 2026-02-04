@@ -46,8 +46,7 @@ access(all) contract EVMTokenConnectors {
         ) {
             pre {
                 FlowEVMBridgeConfig.getEVMAddressAssociated(with: depositVaultType) != nil:
-                "Provided type \(depositVaultType.identifier) has not been onboarded to the VM bridge - "
-                    .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
+                "Provided type \(depositVaultType.identifier) has not been onboarded to the VM bridge - Ensure the type & ERC20 contracts are associated via the VM bridge"
                 feeSource.getSinkType() == Type<@FlowToken.Vault>() && feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Provided feeSource must provide FlowToken.Vault but provides \(feeSource.getSourceType().identifier)"
             }
@@ -183,8 +182,7 @@ access(all) contract EVMTokenConnectors {
         ) {
             pre {
                 FlowEVMBridgeConfig.getEVMAddressAssociated(with: withdrawVaultType) != nil:
-                "Provided type \(withdrawVaultType.identifier) has not been onboarded to the VM bridge - "
-                    .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
+                "Provided type \(withdrawVaultType.identifier) has not been onboarded to the VM bridge - Ensure the type & ERC20 contracts are associated via the VM bridge"
                 DeFiActionsUtils.definingContractIsFungibleToken(withdrawVaultType):
                 "The contract defining Vault \(withdrawVaultType.identifier) does not conform to FungibleToken contract interface"
                 coa.check():
