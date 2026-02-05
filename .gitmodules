@@ -15,4 +15,4 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts
 [submodule "solidity/lib/More-Vaults"]
 	path = solidity/lib/More-Vaults
-	url = https://github.com/deathwing00000/More-Vaults
+	url = https://github.com/MORE-Vaults/MORE-Vaults-Core
