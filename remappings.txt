@@ -1,3 +1,4 @@
 flow-sol-utils=solidity/lib/flow-sol-utils
 forge-std/=solidity/lib/forge-std/src/
 @openzeppelincontracts/=solidity/lib/openzeppelin-contracts/
+@aave-v3-core/=solidity/lib/aave-v3-core/
