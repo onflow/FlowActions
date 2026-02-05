@@ -462,7 +462,7 @@ access(all) contract MorphoERC4626SwapConnectors {
         }
 
         access(self) fun assertInputVaultType(
-            _ vault: @{FungibleToken.Vault},
+            _ vault: &{FungibleToken.Vault},
             assetsToShares: Bool,
             context: String
         ) {
@@ -483,14 +483,15 @@ access(all) contract MorphoERC4626SwapConnectors {
             let assetsToShares = self.decideAssetsToShares(quote: quote, fallbackAssetsToShares: !self.isReversed)
 
             self.assertInputVaultType(
-                inVault,
+                &inVault as &{FungibleToken.Vault},
                 assetsToShares: assetsToShares,
                 context: "Swap"
             )
 
-            return assetsToShares
-                ? self.swapAssetsToShares(quote: quote, inVault: <-inVault)
-                : self.swapSharesToAssets(quote: quote, inVault: <-inVault)
+            if assetsToShares {
+                return <- self.swapAssetsToShares(quote: quote, inVault: <-inVault)
+            }
+            return <- self.swapSharesToAssets(quote: quote, inVault: <-inVault)
         }
 
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
@@ -506,14 +507,15 @@ access(all) contract MorphoERC4626SwapConnectors {
             let assetsToShares = self.decideAssetsToShares(quote: quote, fallbackAssetsToShares: self.isReversed)
 
             self.assertInputVaultType(
-                residual,
+                &residual as &{FungibleToken.Vault},
                 assetsToShares: assetsToShares,
                 context: "SwapBack"
             )
 
-            return assetsToShares
-                ? self.swapAssetsToShares(quote: quote, inVault: <-residual)
-                : self.swapSharesToAssets(quote: quote, inVault: <-residual)
+            if assetsToShares {
+                return <- self.swapAssetsToShares(quote: quote, inVault: <-residual)
+            }
+            return <- self.swapSharesToAssets(quote: quote, inVault: <-residual)
         }
 
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for

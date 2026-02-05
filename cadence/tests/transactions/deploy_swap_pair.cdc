@@ -8,8 +8,8 @@ transaction(swapPairCode: String) {
         signer.contracts.add(
             name: "SwapPair",
             code: swapPairCode.decodeHex(),
-            tokenAVault: TokenA.createEmptyVault(vaultType: Type<@TokenA.Vault>()),
-            tokenBVault: TokenB.createEmptyVault(vaultType: Type<@TokenB.Vault>()),
+            tokenAVault: <- TokenA.createEmptyVault(vaultType: Type<@TokenA.Vault>()),
+            tokenBVault: <- TokenB.createEmptyVault(vaultType: Type<@TokenB.Vault>()),
             stableMode: false
         )
     }
