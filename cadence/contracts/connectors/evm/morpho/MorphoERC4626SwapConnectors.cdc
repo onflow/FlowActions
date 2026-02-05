@@ -49,11 +49,16 @@ access(all) contract MorphoERC4626SwapConnectors {
         /// The optional UniqueIdentifier of the ERC4626 vault
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
+        /// If true, the Swapper is configured "reversed":
+        ///   inType = vaultType (shares), outType = assetType (assets)
+        access(self) let isReversed: Bool
+
         init(
             vaultEVMAddress: EVM.EVMAddress,
             coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?,
+            isReversed: Bool
         ) {
             pre {
                 coa.check():
@@ -62,7 +67,9 @@ access(all) contract MorphoERC4626SwapConnectors {
                 feeSource.getSourceType() == Type<@FlowToken.Vault>():
                 "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
+
             self.uniqueID = uniqueID
+            self.isReversed = isReversed
 
             self.vaultEVMAddress = vaultEVMAddress
             self.vaultType = FlowEVMBridgeConfig.getTypeAssociated(with: self.vaultEVMAddress)
@@ -109,16 +116,18 @@ access(all) contract MorphoERC4626SwapConnectors {
                 feeSource: feeSource,
                 uniqueID: self.uniqueID
             )
-
         }
 
-        /// The type of Vault this Swapper accepts when performing a swap
+        // -------------------------
+        // Direction-aware in/out
+        // -------------------------
+
         access(all) view fun inType(): Type {
-            return self.assetType
+            return self.isReversed ? self.vaultType : self.assetType
         }
-        /// The type of Vault this Swapper provides when performing a swap
+
         access(all) view fun outType(): Type {
-            return self.vaultType
+            return self.isReversed ? self.assetType : self.vaultType
         }
 
         access(self) fun quoteRequiredAssetsForShares(desiredShares: UFix64): {DeFiActions.Quote} {
@@ -187,13 +196,50 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
         }
 
+        // --------------------------------------------------------------------
+        // Direction model
+        //
+        // Canonical "forward" direction for this connector is:
+        //     assets (underlying ERC20) -> shares (ERC4626 vault token)
+        //
+        // The effective swap / quote direction is determined by TWO flags:
+        //
+        // 1. self.isReversed
+        //    - false: connector is configured in canonical forward mode
+        //    - true:  connector is configured reversed (shares -> assets)
+        //
+        // 2. reverse (method parameter)
+        //    - false: quote/swap in the connector's configured direction
+        //    - true:  quote/swap in the opposite direction
+        //
+        // The resulting direction is:
+        //
+        //     assetsToShares = (self.isReversed == reverse)
+        //
+        // Truth table:
+        //
+        //   isReversed | reverse | effective direction
+        //   -----------+---------+--------------------
+        //     false    |  false  | assets  -> shares
+        //     false    |  true   | shares  -> assets
+        //     true     |  false  | shares  -> assets
+        //     true     |  true   | assets  -> shares
+        //
+        // This same rule is used consistently for:
+        //   - quoteIn / quoteOut
+        //   - swap / swapBack (with different fallbacks)
+        // --------------------------------------------------------------------
+
         /// desired OUT amount -> required IN amount
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            return reverse
-                ? self.quoteRequiredSharesForAssets(desiredAssets: forDesired)
-                : self.quoteRequiredAssetsForShares(desiredShares: forDesired)
-        }
+            // canonical forward = assets -> shares
+            // effective assets->shares when isReversed == reverse
+            let assetsToShares = (self.isReversed == reverse)
 
+            return assetsToShares
+                ? self.quoteRequiredAssetsForShares(desiredShares: forDesired)
+                : self.quoteRequiredSharesForAssets(desiredAssets: forDesired)
+        }
         access(self) fun quoteSharesOutForAssetsIn(providedAssets: UFix64): {DeFiActions.Quote} {
             let providedAssetsEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 providedAssets,
@@ -252,27 +298,37 @@ access(all) contract MorphoERC4626SwapConnectors {
 
         /// provided IN amount -> estimated OUT amount
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            return reverse
-                ? self.quoteAssetsOutForSharesIn(providedShares: forProvided)
-                : self.quoteSharesOutForAssetsIn(providedAssets: forProvided)
+            // canonical forward = assets -> shares
+            // effective assets->shares when isReversed == reverse
+            let assetsToShares = (self.isReversed == reverse)
+
+            return assetsToShares
+                ? self.quoteSharesOutForAssetsIn(providedAssets: forProvided)
+                : self.quoteAssetsOutForSharesIn(providedShares: forProvided)
         }
+
+        // -------------------------
+        // Swap internals
+        // -------------------------
 
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(self) fun swapAssetsToShares(
+            quote: {DeFiActions.Quote}?,
+            inVault: @{FungibleToken.Vault}
+        ): @{FungibleToken.Vault} {
             if inVault.balance == 0.0 {
-                // nothing to swap - burn the inVault and return an empty outVault
                 Burner.burn(<-inVault)
                 return <- DeFiActionsUtils.getEmptyVault(self.vaultType)
             }
 
             // assign or get the quote for the swap
-            let _quote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
+            let _quote = quote ?? self.quoteSharesOutForAssetsIn(providedAssets: inVault.balance)
             let outAmount = _quote.outAmount
 
-            assert(_quote.inType == self.inType(), message: "Swap: Quote inType mismatch")
-            assert(_quote.outType == self.outType(), message: "Swap: Quote outType mismatch")
+            assert(_quote.inType == self.assetType, message: "Swap: Quote inType mismatch (expected asset)")
+            assert(_quote.outType == self.vaultType, message: "Swap: Quote outType mismatch (expected shares)")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
@@ -295,11 +351,8 @@ access(all) contract MorphoERC4626SwapConnectors {
             // We expect full consumption in this connector's semantics.
             // If this ever becomes "partial fill" in the future, this check + price check below
             // ensures it still can't be worse than quoted.
-            assert(
-                consumedIn > 0.0,
-                message: "Asset sink did not consume any input."
-            )
-            assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.") 
+            assert(consumedIn > 0.0, message: "Asset sink did not consume any input.")
+            assert(remainder == 0.0, message: "Asset sink did not consume full input; remainder: \(remainder.toString()).")
 
             Burner.burn(<-inVault)
 
@@ -327,66 +380,142 @@ access(all) contract MorphoERC4626SwapConnectors {
 
             return <- sharesVault
         }
-        /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
-        /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
-        /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            if residual.balance == 0.0 {
-                Burner.burn(<-residual)
+
+        access(self) fun swapSharesToAssets(
+            quote: {DeFiActions.Quote}?,
+            inVault: @{FungibleToken.Vault}
+        ): @{FungibleToken.Vault} {
+            if inVault.balance == 0.0 {
+                Burner.burn(<-inVault)
                 return <- DeFiActionsUtils.getEmptyVault(self.assetType)
             }
 
             // assign or get a quote from the swap
-            let _quote = quote ?? self.quoteOut(forProvided: residual.balance, reverse: true)
+            let _quote = quote ?? self.quoteAssetsOutForSharesIn(providedShares: inVault.balance)
             let outAmount = _quote.outAmount
 
             // Ensure the quote represents the inverse of this connector’s forward swap:
             // swapback must take this connector’s outType and return its inType.
             // These checks prevent executing a quote meant for a different connector
             // or accidentally performing a forward swap instead of a reversal.
-            assert(_quote.inType == self.outType(), message: "SwapBack: Quote inType mismatch")
-            assert(_quote.outType == self.inType(), message: "SwapBack: Quote outType mismatch")
+            assert(_quote.inType == self.vaultType, message: "Swap: Quote inType mismatch (expected shares)")
+            assert(_quote.outType == self.assetType, message: "Swap: Quote outType mismatch (expected asset)")
             assert(_quote.inAmount > 0.0, message: "Invalid quote: inAmount must be > 0")
             assert(outAmount > 0.0, message: "Invalid quote: outAmount must be > 0")
 
             // Track assets available before/after to determine received assets
-            let beforeInBalance = residual.balance
+            let beforeInBalance = inVault.balance
             assert(
                 beforeInBalance <= _quote.inAmount,
-                message: "SwapBack input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
+                message: "Swap input (\(beforeInBalance)) exceeds quote.inAmount (\(_quote.inAmount)). Provide an updated quote or reduce inVault balance."
             )
 
             let beforeAvailable = self.assetSource.minimumAvailable()
 
-            self.shareSink.depositCapacity(from: &residual as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-            let remainder = residual.balance
+            self.shareSink.depositCapacity(from: &inVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
+
+            let remainder = inVault.balance
             let consumedIn = beforeInBalance - remainder
 
-            assert(
-                consumedIn > 0.0,
-                message: "Share sink did not consume any input."
-            )
-            assert(remainder == 0.0, message: "Share sink did not consume full input; remainder: \(remainder.toString()). Adjust inVault balance.")
-            Burner.burn(<-residual)
+            assert(consumedIn > 0.0, message: "Share sink did not consume any input.")
+            assert(remainder == 0.0, message: "Share sink did not consume full input; remainder: \(remainder.toString()).")
+
+            Burner.burn(<-inVault)
 
             let afterAvailable = self.assetSource.minimumAvailable()
-            assert(afterAvailable > beforeAvailable, message: "Expected asset \(self.assetEVMAddress.toString()) to have more after depositing")
+            assert(afterAvailable > beforeAvailable, message: "Expected more assets after depositing")
 
             let receivedAssets = afterAvailable - beforeAvailable
 
-            assert(
-                receivedAssets >= outAmount,
-                message: "Slippage: received (\(receivedAssets)) < quote.outAmount (\(outAmount))."
-            )
-            let assetsVault <- self.assetSource.withdrawAvailable(maxAmount: receivedAssets)
+            assert(receivedAssets >= outAmount, message: "Slippage: received < quote.outAmount")
 
-            assert(
-                assetsVault.balance >= outAmount,
-                message: "Slippage: withdrawn assets (\(assetsVault.balance)) < outAmount (\(outAmount))"
-            )
+            let assetsVault <- self.assetSource.withdrawAvailable(maxAmount: receivedAssets)
+            assert(assetsVault.balance >= outAmount, message: "Slippage: withdrawn assets < outAmount")
 
             return <- assetsVault
         }
+
+        // -------------------------
+        // Direction-aware swap entrypoints
+        // -------------------------
+
+        access(self) fun quoteIndicatesAssetsToShares(_ q: {DeFiActions.Quote}): Bool {
+            return q.inType == self.assetType && q.outType == self.vaultType
+        }
+
+        access(self) fun quoteIndicatesSharesToAssets(_ q: {DeFiActions.Quote}): Bool {
+            return q.inType == self.vaultType && q.outType == self.assetType
+        }
+
+        access(self) fun decideAssetsToShares(
+            quote: {DeFiActions.Quote}?,
+            fallbackAssetsToShares: Bool
+        ): Bool {
+            if quote == nil {
+                return fallbackAssetsToShares
+            }
+            assert(
+                self.quoteIndicatesAssetsToShares(quote!) || self.quoteIndicatesSharesToAssets(quote!),
+                message: "Quote types not recognized for this connector"
+            )
+            return self.quoteIndicatesAssetsToShares(quote!)
+        }
+
+        access(self) fun assertInputVaultType(
+            _ vault: @{FungibleToken.Vault},
+            assetsToShares: Bool,
+            context: String
+        ) {
+            let expectedType = assetsToShares ? self.assetType : self.vaultType
+            assert(
+                vault.getType() == expectedType,
+                message: "\(context): input vault type mismatch. Expected \(expectedType.identifier), got \(vault.getType().identifier)"
+            )
+        }
+
+        access(all) fun swap(
+            quote: {DeFiActions.Quote}?,
+            inVault: @{FungibleToken.Vault}
+        ): @{FungibleToken.Vault} {
+            // Decide direction:
+            // - if quote provided, trust its type pair
+            // - else fall back to configured direction (isReversed)
+            let assetsToShares = self.decideAssetsToShares(quote: quote, fallbackAssetsToShares: !self.isReversed)
+
+            self.assertInputVaultType(
+                inVault,
+                assetsToShares: assetsToShares,
+                context: "Swap"
+            )
+
+            return assetsToShares
+                ? self.swapAssetsToShares(quote: quote, inVault: <-inVault)
+                : self.swapSharesToAssets(quote: quote, inVault: <-inVault)
+        }
+
+        /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
+        /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
+        /// to use multiple Flow swap protocols.
+        access(all) fun swapBack(
+            quote: {DeFiActions.Quote}?,
+            residual: @{FungibleToken.Vault}
+        ): @{FungibleToken.Vault} {
+            // Decide direction:
+            // - if quote provided, trust its type pair
+            // - else fall back to configured direction (isReversed)
+            let assetsToShares = self.decideAssetsToShares(quote: quote, fallbackAssetsToShares: self.isReversed)
+
+            self.assertInputVaultType(
+                residual,
+                assetsToShares: assetsToShares,
+                context: "SwapBack"
+            )
+
+            return assetsToShares
+                ? self.swapAssetsToShares(quote: quote, inVault: <-residual)
+                : self.swapSharesToAssets(quote: quote, inVault: <-residual)
+        }
+
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
         /// each inner component in the stack.
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
