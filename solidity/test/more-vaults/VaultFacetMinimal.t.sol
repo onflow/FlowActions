@@ -18,12 +18,23 @@ import {IVaultFacet} from "../../lib/More-Vaults/src/interfaces/facets/IVaultFac
 import {IDiamondCut} from "../../lib/More-Vaults/src/interfaces/facets/IDiamondCut.sol";
 import {MoreVaultsDiamond} from "../../lib/More-Vaults/src/MoreVaultsDiamond.sol";
 
+// NEW: these are commonly required by the 8-arg diamond constructor in newer versions
+import {DiamondLoupeFacet} from "../../lib/More-Vaults/src/facets/DiamondLoupeFacet.sol";
+import {AccessControlFacet} from "../../lib/More-Vaults/src/facets/AccessControlFacet.sol";
+import {ConfigurationFacet} from "../../lib/More-Vaults/src/facets/ConfigurationFacet.sol";
+
 contract VaultFacetMinimalTest is Test {
     MockAaveOracle internal oracle;
     MockAggregatorV2V3 internal underlyingFeed;
     VaultsRegistry internal registry;
+
     DiamondCutFacet internal diamondCutFacet;
+    DiamondLoupeFacet internal diamondLoupeFacet;
+    AccessControlFacet internal accessControlFacet;
+    ConfigurationFacet internal configurationFacet;
+
     VaultFacet internal vaultFacetImpl;
+
     MoreVaultsDiamond internal diamond;
     IVaultFacet internal vault;
 
@@ -33,6 +44,11 @@ contract VaultFacetMinimalTest is Test {
 
     address internal feeRecipient = address(0xFEE);
     address internal user = address(0xA11CE);
+
+    // roles (many versions require these)
+    address internal owner = address(this);
+    address internal factory = address(0xFAc7);
+    bool internal isHub = false;
 
     uint256 internal constant INITIAL_ASSETS = 1_000 ether;
     uint256 internal constant DEPOSIT_CAPACITY = 1_000_000 ether;
@@ -50,9 +66,12 @@ contract VaultFacetMinimalTest is Test {
         oracle.setAssetPrice(address(underlying), 1e8);
 
         registry = new VaultsRegistry();
-        registry.initialize(address(oracle), address(usdStable));
+
+        // FIX #1: correct arg order + 3 args
+        registry.initialize(owner, address(oracle), address(usdStable));
 
         diamondCutFacet = new DiamondCutFacet();
+        accessControlFacet = new AccessControlFacet(); // FIX #2: required by diamond ctor
         vaultFacetImpl = new VaultFacet();
 
         registry.addFacet(address(diamondCutFacet), _diamondCutSelectors());
@@ -68,7 +87,23 @@ contract VaultFacetMinimalTest is Test {
             )
         });
 
-        diamond = new MoreVaultsDiamond(address(diamondCutFacet), address(registry), address(wrappedNative), cuts);
+        // FIX #3: pass all 8 args, including accessControlFacetInitData
+        //
+        // NOTE: You MUST encode whatever your AccessControlFacet expects.
+        // If your AccessControlFacet has an initializer like `init(address owner)` then use abi.encode(owner).
+        // If it uses something else, adjust accordingly.
+        bytes memory accessControlFacetInitData = abi.encode(owner);
+
+        diamond = new MoreVaultsDiamond(
+            address(diamondCutFacet),
+            address(accessControlFacet),
+            address(registry),
+            address(wrappedNative),
+            factory,
+            isHub,
+            cuts,
+            accessControlFacetInitData
+        );
 
         vault = IVaultFacet(address(diamond));
 
