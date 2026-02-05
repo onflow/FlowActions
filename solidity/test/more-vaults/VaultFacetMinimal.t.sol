@@ -110,7 +110,7 @@ contract VaultFacetMinimalTest is Test {
         underlying.mint(user, INITIAL_ASSETS);
     }
 
-    function testVaultMetadata() public {
+    function testVaultMetadata() public view {
         assertEq(vault.asset(), address(underlying), "asset mismatch");
         assertEq(vault.name(), "Test More Vault");
         assertEq(vault.symbol(), "tmMORE");
