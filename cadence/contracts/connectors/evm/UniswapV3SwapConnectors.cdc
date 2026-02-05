@@ -643,8 +643,6 @@ access(all) contract UniswapV3SwapConnectors {
         /// - amount: the amount to quote
         /// - reverse: swap direction
         /// - toHopIndex: for partial path quotes. If nil, uses full path.
-        ///
-        /// For exactOutput (out=false), the path is automatically reversed as required by Uniswap.
         access(self) fun getV3QuoteRaw(out: Bool, amount: UInt256, reverse: Bool, toHopIndex: Int?): UInt256? {
             // For exactOutput, Uniswap expects path in reverse order (output -> input)
             let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: out, toHopIndex: toHopIndex)
@@ -686,7 +684,7 @@ access(all) contract UniswapV3SwapConnectors {
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
             // Build path
-            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: true, toHopIndex: nil)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, toHopIndex: nil)
 
             // Approve
             var res = self._call(
@@ -834,7 +832,9 @@ access(all) contract UniswapV3SwapConnectors {
             )!
             assert(res.status == EVM.Status.successful, message: "token0() call failed")
 
-            let word = res.data as! [UInt8]
+            let word = res.data
+            if word.length < 32 { panic("getPoolToken0: invalid ABI word length") }
+
             let addrSlice = word.slice(from: 12, upTo: 32)
             let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
             return EVM.EVMAddress(bytes: addrBytes)
