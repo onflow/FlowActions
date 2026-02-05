@@ -1,4 +1,13 @@
 {
+  "solidity/lib/More-Vaults": {
+    "rev": "33e92c306787c2babb7134e3849b9ed7d29dc0cc"
+  },
+  "solidity/lib/aave-v3-core": {
+    "tag": {
+      "name": "v1.19.4",
+      "rev": "b74526a7bc67a3a117a1963fc871b3eb8cea8435"
+    }
+  },
   "solidity/lib/flow-sol-utils": {
     "rev": "345fadb4e966a69545fa4ac86a5adbcd07814e80"
   },
