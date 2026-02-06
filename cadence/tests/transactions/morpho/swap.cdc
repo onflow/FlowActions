@@ -29,7 +29,8 @@ transaction (
             vaultEVMAddress: vaultEVMAddress,
             coa: coaCap,
             feeSource: feeSource,
-            uniqueID: nil
+            uniqueID: nil,
+            isReverse: false
         )
 
         // Withdraw the required asset amount from the user's asset vault
