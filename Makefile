@@ -12,4 +12,4 @@ lint:
 	fi
 
 .PHONY: ci
-ci: test
+ci: lint test
