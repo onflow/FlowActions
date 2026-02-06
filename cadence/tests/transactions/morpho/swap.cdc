@@ -30,7 +30,7 @@ transaction (
             coa: coaCap,
             feeSource: feeSource,
             uniqueID: nil,
-            isReverse: false
+            isReversed: false
         )
 
         // Withdraw the required asset amount from the user's asset vault

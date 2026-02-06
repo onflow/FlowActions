@@ -41,7 +41,7 @@ access(all) fun main(
         coa: coa,
         feeSource: feeSource,
         uniqueID: nil,
-        isReverse: false,
+        isReversed: false,
     )
 
     // get the quote for the desired shares
