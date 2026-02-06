@@ -47,6 +47,7 @@
 		"EVMAbiHelpers": {
 			"source": "./cadence/contracts/utils/EVMAbiHelpers.cdc",
 			"aliases": {
+				"mainnet": "a7825d405ac89518",
 				"testing": "0000000000000009"
 			}
 		},
@@ -145,6 +146,7 @@
 		"UniswapV3SwapConnectors": {
 			"source": "cadence/contracts/connectors/evm/UniswapV3SwapConnectors.cdc",
 			"aliases": {
+				"mainnet": "a7825d405ac89518",
 				"testing": "0000000000000009"
 			}
 		}
