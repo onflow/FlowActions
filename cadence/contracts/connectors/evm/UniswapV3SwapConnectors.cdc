@@ -19,30 +19,6 @@ import "EVMAbiHelpers"
 /// Supports single-hop and multi-hop swaps using exactInput / exactInputSingle and Quoter for estimates.
 ///
 access(all) contract UniswapV3SwapConnectors {
-    // (bytes,address,uint256,uint256)
-    access(all) fun encodeTuple_bytes_addr_u256_u256(
-        path: [UInt8],
-        recipient: EVM.EVMAddress,
-        amountOne: UInt256,
-        amountTwo: UInt256
-    ): [UInt8] {
-        let tupleHeadSize = 32 * 4
-
-        var head: [[UInt8]] = []
-        var tail: [[UInt8]] = []
-
-        // 1) bytes path (dynamic) -> pointer to tail, relative to start of this tuple blob
-        head.append(EVMAbiHelpers.abiWord(UInt256(tupleHeadSize)))
-        tail.append(EVMAbiHelpers.abiDynamicBytes(path))
-
-        head.append(EVMAbiHelpers.abiAddress(recipient))
-
-        head.append(EVMAbiHelpers.abiUInt256(amountOne))
-
-        head.append(EVMAbiHelpers.abiUInt256(amountTwo))
-
-        return EVMAbiHelpers.concat(head).concat(EVMAbiHelpers.concat(tail))
-    }
 
     /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
     /// maximum `UFix64` precision (8 decimal places).
@@ -86,6 +62,27 @@ access(all) contract UniswapV3SwapConnectors {
         }
 
         return FlowEVMBridgeUtils.uint256ToUFix64(value: padded, decimals: decimals)
+    }
+
+    /// ExactInputSingleParams facilitates the ABI encoding/decoding of the
+    /// Solidity tuple expected in `ISwapRouter.exactInput` function.
+    access(all) struct ExactInputSingleParams {
+        access(all) let path: EVM.EVMBytes
+        access(all) let recipient: EVM.EVMAddress
+        access(all) let amountIn: UInt256
+        access(all) let amountOutMinimum: UInt256
+
+        init(
+            path: EVM.EVMBytes,
+            recipient: EVM.EVMAddress,
+            amountIn: UInt256,
+            amountOutMinimum: UInt256
+        ) {
+            self.path = path
+            self.recipient = recipient
+            self.amountIn = amountIn
+            self.amountOutMinimum = amountOutMinimum
+        }
     }
 
     /// Swapper
@@ -439,7 +436,7 @@ access(all) contract UniswapV3SwapConnectors {
 
             let args: [AnyStruct] = [pathBytes, amount]
 
-            let res = self._dryCall(self.quoterAddress, callSig, args, 1_000_000)
+            let res = self._dryCall(self.quoterAddress, callSig, args, 10_000_000)
             if res == nil || res!.status != EVM.Status.successful { return nil }
 
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
@@ -501,9 +498,6 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outToken
             )
 
-            // exactInput((bytes,address,uint256,uint256)) selector = 0xb858183f
-            let selector: [UInt8] = [0xb8, 0x58, 0x18, 0x3f]
-
             let coaRef = self.borrowCOA()!
             let recipient: EVM.EVMAddress = coaRef.address()
 
@@ -514,26 +508,23 @@ access(all) contract UniswapV3SwapConnectors {
             assert(_chkIn.length == 32,  message: "amountIn not 32 bytes")
             assert(_chkMin.length == 32, message: "amountOutMin not 32 bytes")
 
-            // 1) Build the tuple blob (you already have this)
-            let argsBlob: [UInt8] = UniswapV3SwapConnectors.encodeTuple_bytes_addr_u256_u256(
-                path: pathBytes.value,
+            let exactInputParams = UniswapV3SwapConnectors.ExactInputSingleParams(
+                path: pathBytes,
                 recipient: recipient,
-                amountOne: evmAmountIn,
-                amountTwo: minOutUint
+                amountIn: evmAmountIn,
+                amountOutMinimum: minOutUint
             )
 
-            // 2) Head for a single dynamic arg is always 32
-            let head: [UInt8] = EVMAbiHelpers.abiWord(UInt256(32))
-
-            // 3) Final calldata = selector || head || tuple
-            let calldata: [UInt8] = selector.concat(head).concat(argsBlob)
-
+            let calldata: [UInt8] = EVM.encodeABIWithSignature(
+                "exactInput((bytes,address,uint256,uint256))",
+                [exactInputParams]
+            )
 
             // Call the router with raw calldata
             let swapRes = self._callRaw(
                 to: self.routerAddress,
                 calldata: calldata,
-                gasLimit: 2_000_000,
+                gasLimit: 10_000_000,
                 value: 0
             )!
             if swapRes.status != EVM.Status.successful {

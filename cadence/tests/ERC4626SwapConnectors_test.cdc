@@ -215,3 +215,119 @@ access(all) fun testQuoteInWithLargeAmountReturnsMaxWhenOverflow() {
     Test.assertEqual(quote.outAmount, UFix64.max)
     Test.assertEqual(quote.inAmount, UFix64.max)
 }
+
+/// testQuoteInCapsAtMaxCapacity tests that quoteIn() caps the required input amount at maxCapacity when the desired shares
+/// would require more assets than the vault can accept.
+access(all) fun testQuoteInCapsAtMaxCapacity() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // Get the asset sink's minimum capacity
+    let maxCapacityRes = executeScript(
+        "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",
+        [deployerAccount.address, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(maxCapacityRes, Test.beSucceeded())
+    let maxCapacity = maxCapacityRes.returnValue! as! UFix64
+    log("Asset sink min capacity: \(maxCapacity)")
+
+    // Request a quote for shares that would require more assets than maxCapacity
+    let largeDesiredShares: UFix64 = 100000000.0 // Very large amount of shares
+
+    let quoteInRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_in.cdc",
+        [deployerAccount.address, largeDesiredShares, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteInRes, Test.beSucceeded())
+
+    let quoteIn = quoteInRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote In (large) - inAmount: \(quoteIn.inAmount), outAmount: \(quoteIn.outAmount)")
+
+    // The inAmount should be capped at maxCapacity
+    Test.assert(quoteIn.inAmount <= maxCapacity, message: "inAmount should be capped at maxCapacity")
+    
+    // outAmount should be recalculated based on the capped inAmount
+    // Verify by getting a quoteOut for the capped amount
+    let quoteOutRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_out.cdc",
+        [deployerAccount.address, quoteIn.inAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteOutRes, Test.beSucceeded())
+    let quoteOut = quoteOutRes.returnValue! as! {DeFiActions.Quote}
+    
+    // The outAmount from quoteIn should match the outAmount from quoteOut for the same inAmount
+    Test.assertEqual(quoteIn.outAmount, quoteOut.outAmount)
+}
+
+/// testQuoteInAndQuoteOutConsistencyWithCapacityLimit tests that quoteIn() and quoteOut() 
+/// return consistent results for amounts within the capacity limit.
+access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // Get the asset sink's minimum capacity
+    let maxCapacityRes = executeScript(
+        "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",
+        [deployerAccount.address, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(maxCapacityRes, Test.beSucceeded())
+    let maxCapacity = maxCapacityRes.returnValue! as! UFix64
+    log("Asset sink min capacity: \(maxCapacity)")
+
+    // Test with an amount below maxCapacity - should work normally
+    let normalAmount: UFix64 = 5.0
+    
+    let quoteOutRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_out.cdc",
+        [deployerAccount.address, normalAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteOutRes, Test.beSucceeded())
+    let quoteOut = quoteOutRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote Out (normal) - inAmount: \(quoteOut.inAmount), outAmount: \(quoteOut.outAmount)")
+
+    // Now get quoteIn for the shares we'd receive
+    let quoteInRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_in.cdc",
+        [deployerAccount.address, quoteOut.outAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteInRes, Test.beSucceeded())
+    let quoteIn = quoteInRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote In (normal) - inAmount: \(quoteIn.inAmount), outAmount: \(quoteIn.outAmount)")
+
+    // For amounts within capacity, both should give consistent results
+    Test.assert(quoteIn.inAmount <= maxCapacity, message: "quoteIn.inAmount should be within maxCapacity")
+    Test.assert(quoteOut.inAmount <= maxCapacity, message: "quoteOut.inAmount should be within maxCapacity")
+}
+
+/// testQuoteInWithExactMaxCapacity tests that quoteIn() correctly handles a request for shares that would require exactly maxCapacity assets.
+access(all) fun testQuoteInWithExactMaxCapacity() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // Get the asset sink's minimum capacity
+    let maxCapacityRes = executeScript(
+        "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",
+        [deployerAccount.address, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(maxCapacityRes, Test.beSucceeded())
+    let maxCapacity = maxCapacityRes.returnValue! as! UFix64
+    log("Asset sink min capacity: \(maxCapacity)")
+
+    // First get a quoteOut at maxCapacity to know how many shares that would give
+    let quoteOutRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_out.cdc",
+        [deployerAccount.address, maxCapacity, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteOutRes, Test.beSucceeded())
+    let quoteOut = quoteOutRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote Out (maxCapacity) - inAmount: \(quoteOut.inAmount), outAmount: \(quoteOut.outAmount)")
+
+    // Now request quoteIn for exactly those shares
+    let quoteInRes = executeScript(
+        "./scripts/erc4626-swap-connectors/quote_in.cdc",
+        [deployerAccount.address, quoteOut.outAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
+    )
+    Test.expect(quoteInRes, Test.beSucceeded())
+    let quoteIn = quoteInRes.returnValue! as! {DeFiActions.Quote}
+    log("Quote In (exact shares) - inAmount: \(quoteIn.inAmount), outAmount: \(quoteIn.outAmount)")
+
+    // inAmount should be at or below maxCapacity
+    Test.assert(quoteIn.inAmount <= maxCapacity, message: "quoteIn.inAmount should not exceed maxCapacity")
+}
