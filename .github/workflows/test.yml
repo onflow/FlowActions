@@ -34,5 +34,5 @@ jobs:
 
       - name: Run Forge build
         run: |
-          forge build --sizes
+          forge build --sizes --via-ir --optimize
         id: build
