@@ -3,6 +3,7 @@ import "FungibleToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
+import "FlowToken"
 import "DeFiActions"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
@@ -46,10 +47,20 @@ access(all) contract ERC4626SinkConnectors {
                 "Provided asset \(asset.identifier) is not a Vault type"
                 coa.check():
                 "Provided COA Capability is invalid - need Capability<&EVM.CadenceOwnedAccount>"
+
+                feeSource.getSourceType() == Type<@FlowToken.Vault>():
+                "Invalid feeSource - given Source must provide FlowToken Vault, but provides \(feeSource.getSourceType().identifier)"
             }
             self.asset = asset
             self.assetEVMAddress = FlowEVMBridgeConfig.getEVMAddressAssociated(with: asset)
                 ?? panic("Provided asset \(asset.identifier) is not associated with ERC20 - ensure the type & ERC20 contracts are associated via the VM bridge")
+            
+            let actualUnderlyingAddress = ERC4626Utils.underlyingAssetEVMAddress(vault: vault)
+            assert(
+                actualUnderlyingAddress?.equals(self.assetEVMAddress) ?? false,
+                message: "Provided asset \(asset.identifier) does not underly ERC4626 vault \(vault.toString()) - found \(actualUnderlyingAddress?.toString() ?? "nil") but expected \(self.assetEVMAddress.toString())"
+            )
+            
             self.vault = vault
             self.coa = coa
             self.tokenSink = EVMTokenConnectors.Sink(
