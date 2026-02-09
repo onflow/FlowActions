@@ -109,8 +109,8 @@ transaction(
     }
 
     execute {
-        // swapExactOutput returns array: [0] = output vault, [1] = leftover vault
-        let vaults: @[{FungibleToken.Vault}] <- self.swapper.swapExactOutput(quote: self.quote, inVault: <-self.tokenInVault)
+        // swapExactOut returns array: [0] = output vault, [1] = leftover vault
+        let vaults <- self.swapper.swapExactOut(quote: self.quote, inVault: <-self.tokenInVault)
 
         let tokenOutVault <- vaults.remove(at: 0)
         self.tokenOut = tokenOutVault.balance
