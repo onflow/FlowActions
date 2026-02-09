@@ -120,6 +120,10 @@ access(all) contract IncrementFiSwapConnectors {
                 deadline: getCurrentBlock().timestamp
             )
         }
+        /// Exact output swaps are not supported for IncrementFi
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            panic("IncrementFiSwapConnectors.Swapper does not support swapExactOut - use swap() instead")
+        }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.

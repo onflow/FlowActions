@@ -277,13 +277,8 @@ access(all) contract UniswapV3SwapConnectors {
             return <- self._swapExactIn(exactVaultIn: <-inVault, amountOutMin: minOut, reverse: false)
         }
 
-        /// Swap using exactOutput - user specifies desired output amount, provides max input for slippage protection.
-        /// The quote.outAmount is the exact amount of output tokens desired, and quote.inAmount is the maximum input allowed.
-        /// Returns both the output tokens and any unused input tokens.
-        /// @param quote: Required quote containing outAmount (exact output desired) and inAmount (max input allowed)
-        /// @param inVault: The input vault containing tokens to swap (must have balance >= quote.inAmount)
-        /// @return Array of two vaults: [0] = output vault with exact amount, [1] = leftover vault with unused input
-        access(all) fun swapExactOutput(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+        /// Swap for exact output -> max input using Uniswap V3 exactOutput
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
             return <- self._swapExactOut(
                 vaultIn: <-inVault,
                 amountOutExact: quote.outAmount,
@@ -593,8 +588,19 @@ access(all) contract UniswapV3SwapConnectors {
             return <- outVault
         }
 
-        /// Executes exact output swap via router - user specifies desired output amount
-        /// Returns array of two vaults: [0] = output vault with exact amount, [1] = leftover input vault with unused tokens
+        /// Executes exact output swap via Uniswap V3 router.
+        /// User specifies the desired output amount and provides maximum input for slippage protection.
+        /// Unlike exactInput swaps, this returns both the exact output tokens and any unused input tokens.
+        ///
+        /// @param vaultIn: The input vault containing tokens to swap (must have balance >= amountInMax)
+        /// @param amountOutExact: The exact amount of output tokens desired
+        /// @param amountInMax: The maximum input tokens allowed (slippage protection)
+        /// @param reverse: If true, swaps in the reverse direction of the configured path
+        ///
+        /// @return Array of exactly 2 vaults:
+        ///     - [0]: Output vault with the exact amount of tokens requested (amountOutExact)
+        ///     - [1]: Leftover input vault containing any unconsumed input tokens (may be empty)
+        ///
         access(self) fun _swapExactOut(
             vaultIn: @{FungibleToken.Vault},
             amountOutExact: UFix64,
