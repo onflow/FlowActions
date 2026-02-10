@@ -34,7 +34,6 @@ transaction(
 ) {
     let swapper: UniswapV3SwapConnectors.Swapper
     let tokenInVault: @{FungibleToken.Vault}
-    let tokenInVaultRef: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
     let tokenOutReceiver: &{FungibleToken.Receiver}
     let quote: {DeFiActions.Quote}
     var tokenOut: UFix64
@@ -66,20 +65,30 @@ transaction(
             uniqueID: nil
         )
 
-        let estimatedQuote = self.swapper.quoteIn(forDesired: desiredAmountOut, reverse: false)
+        let tokenInVaultData = MetadataViews.resolveContractViewFromTypeIdentifier(
+            resourceTypeIdentifier: tokenInType.identifier,
+            viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
+        ) as? FungibleTokenMetadataViews.FTVaultData
+            ?? panic("Could not resolve FTVaultData for ".concat(tokenInType.identifier))
 
-        self.quote = SwapConnectors.BasicQuote(
-            inType: tokenInType,
-            outType: tokenOutType,
-            inAmount: maxAmountIn,
-            outAmount: desiredAmountOut
+        let tokenInReceiverCap = signer.capabilities.storage.issue<&{FungibleToken.Receiver}>(tokenInVaultData.storagePath)
+        assert(tokenInReceiverCap.check(), message: "Could not issue token-in receiver capability")
+
+        self.quote = SwapConnectors.asExactOutQuote(
+            quote: SwapConnectors.BasicQuote(
+                inType: tokenInType,
+                outType: tokenOutType,
+                inAmount: maxAmountIn,
+                outAmount: desiredAmountOut
+            ),
+            leftoverInReceiver: tokenInReceiverCap
         )
 
-        self.tokenInVaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
-            from: /storage/flowTokenVault
+        let tokenInVaultRef = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(
+            from: tokenInVaultData.storagePath
         )!
 
-        self.tokenInVault <- self.tokenInVaultRef.withdraw(amount: maxAmountIn)
+        self.tokenInVault <- tokenInVaultRef.withdraw(amount: maxAmountIn)
 
         // set up output token vault if it doesn't exist
         let tokenOutVaultData = MetadataViews.resolveContractViewFromTypeIdentifier(
@@ -109,22 +118,10 @@ transaction(
     }
 
     execute {
-        // swapExactOut returns array: [0] = output vault, [1] = leftover vault
-        let vaults <- self.swapper.swapExactOut(quote: self.quote, inVault: <-self.tokenInVault)
-
-        let tokenOutVault <- vaults.remove(at: 0)
+        // exact-out is requested through ModeQuote, while keeping swap() as the call entrypoint
+        let tokenOutVault <- self.swapper.swap(quote: self.quote, inVault: <-self.tokenInVault)
         self.tokenOut = tokenOutVault.balance
-        log("SwapExactOutput: requested \(desiredAmountOut), received \(tokenOutVault.balance)")
-
-        let leftoverVault <- vaults.remove(at: 0)
-        if leftoverVault.balance > 0.0 {
-            log("Returning leftover: \(leftoverVault.balance)")
-            self.tokenInVaultRef.deposit(from: <- leftoverVault)
-        } else {
-            destroy leftoverVault
-        }
-
-        destroy vaults
+        log("SwapExactOutput via swap(): requested \(desiredAmountOut), received \(tokenOutVault.balance)")
         self.tokenOutReceiver.deposit(from: <-tokenOutVault)
     }
 
