@@ -92,27 +92,6 @@ access(all) contract MockSwapper {
             return <- src.withdraw(amount: outAmt)
         }
 
-        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
-            pre { inVault.getType() == self.inType(): "Wrong in type \(inVault.getType().identifier) - expected \(self.inType().identifier)" }
-            let exactOutAmt = quote.outAmount
-            let requiredInAmt = exactOutAmt / self.priceRatio
-
-            // Calculate leftover
-            let leftoverAmt = inVault.balance > requiredInAmt ? inVault.balance - requiredInAmt : 0.0
-
-            // deposit only what's needed to the inVaultSource
-            let depositTo = self.inVaultSource.borrow() ?? panic("Invalid borrowed vault source")
-            let toSwap <- inVault.withdraw(amount: requiredInAmt)
-            depositTo.deposit(from: <-toSwap)
-
-            // withdraw exact output
-            let src = self.outVaultSource.borrow() ?? panic("Invalid borrowed vault source")
-            let outVault <- src.withdraw(amount: exactOutAmt)
-
-            // return [outVault, leftoverInVault]
-            return <- [<-outVault, <-inVault]
-        }
-
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre { residual.getType() == self.outType(): "Wrong out type \(residual.getType().identifier) - expected \(self.outType().identifier)" }
             let inAmt = (quote?.inAmount) ?? (residual.balance / self.priceRatio)

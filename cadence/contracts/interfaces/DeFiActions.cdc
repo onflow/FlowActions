@@ -381,50 +381,6 @@ access(all) contract DeFiActions {
                 )
             }
         }
-
-        /// Performs a swap for an exact output amount, consuming as much of the input vault as needed.
-        /// Unlike swap() which consumes the entire input vault, swapExactOut() allows specifying the desired
-        /// output amount and returns any unconsumed input tokens back to the caller.
-        ///
-        /// @param quote: Quote specifying the exact output amount desired. The quote's outType must match
-        ///     this Swapper's outType().
-        /// @param inVault: The input vault to swap from. Must be of type inType(). The vault is consumed
-        ///     and any unconsumed portion is returned in result[1].
-        ///
-        /// @return An array of exactly 2 vaults: [outVault, leftoverInVault]
-        ///     - result[0]: The output vault containing the swapped tokens (type outType())
-        ///     - result[1]: The leftover input vault containing any unconsumed input tokens (type inType()).
-        ///                  This vault may be empty if the entire input was consumed, but will always be present.
-        ///
-        access(all) fun swapExactOut(quote: {Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
-            pre {
-                inVault.getType() == self.inType():
-                "Invalid vault provided for swap - \(inVault.getType().identifier) is not \(self.inType().identifier)"
-                quote.outType == self.outType():
-                "Quote.outType type \(quote.outType.identifier) does not match the swapper outType \(self.outType().identifier)"
-            }
-
-            post {
-                result.length == 2:
-                "Invalid swap() result - must return exactly 2 vaults [outVault, leftoverInVault], got \(result.length)"
-                result[0].getType() == self.outType():
-                "Invalid swap() result[0] - \(result[0].getType().identifier) is not \(self.outType().identifier)"
-                result[1].getType() == self.inType():
-                "Invalid swap() result[1] - \(result[1].getType().identifier) is not \(self.inType().identifier)"
-                emit Swapped(
-                    inVault: before(inVault.getType().identifier),
-                    outVault: result[0].getType().identifier,
-                    inAmount: before(inVault.balance) - result[1].balance,
-                    outAmount: result[0].balance,
-                    inUUID: before(inVault.uuid),
-                    outUUID: result[0].uuid,
-                    uniqueID: self.uniqueID?.id ?? nil,
-                    swapperType: self.getType().identifier
-                )
-            }
-        }
-
-
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
