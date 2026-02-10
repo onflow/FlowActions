@@ -39,6 +39,85 @@ access(all) contract SwapConnectors {
         }
     }
 
+    /// Swap mode metadata for interpreting quote semantics in Swapper.swap().
+    access(all) enum SwapMode: UInt8 {
+        access(all) case IN
+        access(all) case OUT
+    }
+
+    /// A quote that carries swap mode metadata and a receiver capability for exact-output residual input.
+    access(all) struct ModeQuote : DeFiActions.Quote {
+        access(all) let inType: Type
+        access(all) let outType: Type
+        access(all) let inAmount: UFix64
+        access(all) let outAmount: UFix64
+        access(all) let mode: SwapMode
+        access(all) let leftoverInReceiver: Capability<&{FungibleToken.Receiver}>?
+
+        init(
+            inType: Type,
+            outType: Type,
+            inAmount: UFix64,
+            outAmount: UFix64,
+            mode: SwapMode,
+            leftoverInReceiver: Capability<&{FungibleToken.Receiver}>?
+        ) {
+            self.inType = inType
+            self.outType = outType
+            self.inAmount = inAmount
+            self.outAmount = outAmount
+            self.mode = mode
+            self.leftoverInReceiver = leftoverInReceiver
+        }
+    }
+
+    /// Returns a ModeQuote copy of any DeFiActions.Quote.
+    access(all) fun asModeQuote(
+        quote: {DeFiActions.Quote},
+        mode: SwapMode,
+        leftoverInReceiver: Capability<&{FungibleToken.Receiver}>?
+    ): ModeQuote {
+        if let modeQuote = quote as? ModeQuote {
+            return ModeQuote(
+                inType: modeQuote.inType,
+                outType: modeQuote.outType,
+                inAmount: modeQuote.inAmount,
+                outAmount: modeQuote.outAmount,
+                mode: mode,
+                leftoverInReceiver: leftoverInReceiver ?? modeQuote.leftoverInReceiver
+            )
+        }
+        return ModeQuote(
+            inType: quote.inType,
+            outType: quote.outType,
+            inAmount: quote.inAmount,
+            outAmount: quote.outAmount,
+            mode: mode,
+            leftoverInReceiver: leftoverInReceiver
+        )
+    }
+
+    /// Returns a ModeQuote configured for exact-input behavior.
+    access(all) fun asExactInQuote(quote: {DeFiActions.Quote}): ModeQuote {
+        return self.asModeQuote(
+            quote: quote,
+            mode: SwapMode.IN,
+            leftoverInReceiver: nil
+        )
+    }
+
+    /// Returns a ModeQuote configured for exact-output behavior.
+    access(all) fun asExactOutQuote(
+        quote: {DeFiActions.Quote},
+        leftoverInReceiver: Capability<&{FungibleToken.Receiver}>
+    ): ModeQuote {
+        return self.asModeQuote(
+            quote: quote,
+            mode: SwapMode.OUT,
+            leftoverInReceiver: leftoverInReceiver
+        )
+    }
+
     /// MultiSwapperQuote
     ///
     /// A MultiSwapper specific DeFiActions.Quote implementation allowing for callers to set the Swapper used in
@@ -174,13 +253,53 @@ access(all) contract SwapConnectors {
         /// requested and the optimal Swapper used to fulfill the swap.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            if quote != nil {
+                if let modeQuote = quote as? ModeQuote {
+                    if modeQuote.mode == SwapMode.OUT {
+                        let residualReceiverCap = modeQuote.leftoverInReceiver
+                            ?? panic("Exact-out quote requires a valid leftoverInReceiver capability")
+                        let residualReceiver = residualReceiverCap.borrow()
+                            ?? panic("Exact-out quote contains an invalid leftoverInReceiver capability")
+
+                        let estimate = self.quoteIn(forDesired: modeQuote.outAmount, reverse: false) as! MultiSwapperQuote
+                        let routedQuote = MultiSwapperQuote(
+                            inType: estimate.inType,
+                            outType: estimate.outType,
+                            inAmount: modeQuote.inAmount,
+                            outAmount: modeQuote.outAmount,
+                            swapperIndex: estimate.swapperIndex
+                        )
+                        let optimalSwapper = &self.swappers[routedQuote.swapperIndex] as &{DeFiActions.Swapper}
+                        let vaults <- optimalSwapper.swapExactOut(quote: routedQuote, inVault: <-inVault)
+
+                        let outVault <- vaults.remove(at: 0)
+                        let leftoverInVault <- vaults.remove(at: 0)
+                        destroy vaults
+
+                        if leftoverInVault.balance > 0.0 {
+                            residualReceiver.deposit(from: <-leftoverInVault)
+                        } else {
+                            Burner.burn(<-leftoverInVault)
+                        }
+
+                        return <-outVault
+                    }
+                }
+            }
             return <-self._swap(quote: quote, from: <-inVault, reverse: false)
         }
         /// Swap for exact output using the optimal inner Swapper
         access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
             var multiQuote = quote as? MultiSwapperQuote
             if multiQuote == nil || multiQuote!.swapperIndex >= self.swappers.length {
-                multiQuote = self.quoteIn(forDesired: quote.outAmount, reverse: false) as! MultiSwapperQuote
+                let estimate = self.quoteIn(forDesired: quote.outAmount, reverse: false) as! MultiSwapperQuote
+                multiQuote = MultiSwapperQuote(
+                    inType: estimate.inType,
+                    outType: estimate.outType,
+                    inAmount: quote.inAmount,
+                    outAmount: quote.outAmount,
+                    swapperIndex: estimate.swapperIndex
+                )
             }
             let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DeFiActions.Swapper}
             return <- optimalSwapper.swapExactOut(quote: multiQuote!, inVault: <-inVault)

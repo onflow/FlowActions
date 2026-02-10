@@ -273,6 +273,30 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Swap exact input -> min output using Uniswap V3 exactInput (default behavior)
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            if quote != nil {
+                if let modeQuote = quote as? SwapConnectors.ModeQuote {
+                    if modeQuote.mode == SwapConnectors.SwapMode.OUT {
+                        let residualReceiverCap = modeQuote.leftoverInReceiver
+                            ?? panic("Exact-out quote requires a valid leftoverInReceiver capability")
+                        let residualReceiver = residualReceiverCap.borrow()
+                            ?? panic("Exact-out quote contains an invalid leftoverInReceiver capability")
+                        let vaults <- self.swapExactOut(quote: modeQuote, inVault: <-inVault)
+
+                        let outVault <- vaults.remove(at: 0)
+                        let leftoverInVault <- vaults.remove(at: 0)
+                        destroy vaults
+
+                        if leftoverInVault.balance > 0.0 {
+                            residualReceiver.deposit(from: <-leftoverInVault)
+                        } else {
+                            Burner.burn(<-leftoverInVault)
+                        }
+
+                        return <-outVault
+                    }
+                }
+            }
+
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- self._swapExactIn(exactVaultIn: <-inVault, amountOutMin: minOut, reverse: false)
         }
