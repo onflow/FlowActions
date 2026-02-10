@@ -85,6 +85,27 @@ access(all) contract UniswapV3SwapConnectors {
         }
     }
 
+    /// ExactOutputSingleParams facilitates the ABI encoding/decoding of the
+    /// Solidity tuple expected in `ISwapRouter.exactOutput` function.
+    access(all) struct ExactOutputSingleParams {
+        access(all) let path: EVM.EVMBytes
+        access(all) let recipient: EVM.EVMAddress
+        access(all) let amountOut: UInt256
+        access(all) let amountInMax: UInt256
+
+        init(
+            path: EVM.EVMBytes,
+            recipient: EVM.EVMAddress,
+            amountOut: UInt256,
+            amountInMax: UInt256
+        ) {
+            self.path = path
+            self.recipient = recipient
+            self.amountOut = amountOut
+            self.amountInMax = amountInMax
+        }
+    }
+
     /// Swapper
     access(all) struct Swapper: DeFiActions.Swapper {
         access(all) let routerAddress: EVM.EVMAddress
@@ -250,10 +271,20 @@ access(all) contract UniswapV3SwapConnectors {
             )
         }
 
-        /// Swap exact input -> min output using Uniswap V3 exactInput/Single
+        /// Swap exact input -> min output using Uniswap V3 exactInput (default behavior)
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- self._swapExactIn(exactVaultIn: <-inVault, amountOutMin: minOut, reverse: false)
+        }
+
+        /// Swap for exact output -> max input using Uniswap V3 exactOutput
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            return <- self._swapExactOut(
+                vaultIn: <-inVault,
+                amountOutExact: quote.outAmount,
+                amountInMax: quote.inAmount,
+                reverse: false
+            )
         }
 
         /// Swap back (exact input of residual -> min output)
@@ -555,6 +586,132 @@ access(all) contract UniswapV3SwapConnectors {
             // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
             return <- outVault
+        }
+
+        /// Executes exact output swap via Uniswap V3 router.
+        /// User specifies the desired output amount and provides maximum input for slippage protection.
+        /// Unlike exactInput swaps, this returns both the exact output tokens and any unused input tokens.
+        ///
+        /// @param vaultIn: The input vault containing tokens to swap (must have balance >= amountInMax)
+        /// @param amountOutExact: The exact amount of output tokens desired
+        /// @param amountInMax: The maximum input tokens allowed (slippage protection)
+        /// @param reverse: If true, swaps in the reverse direction of the configured path
+        ///
+        /// @return Array of exactly 2 vaults:
+        ///     - [0]: Output vault with the exact amount of tokens requested (amountOutExact)
+        ///     - [1]: Leftover input vault containing any unconsumed input tokens (may be empty)
+        ///
+        access(self) fun _swapExactOut(
+            vaultIn: @{FungibleToken.Vault},
+            amountOutExact: UFix64,
+            amountInMax: UFix64,
+            reverse: Bool
+        ): @[{FungibleToken.Vault}] {
+            let inVaultType = vaultIn.getType()
+            let id = self.uniqueID?.id?.toString() ?? "UNASSIGNED"
+            let idType = self.uniqueID?.getType()?.identifier ?? "UNASSIGNED"
+            let coa = self.borrowCOA()
+                ?? panic("Invalid COA Capability in V3 Swapper \(self.getType().identifier) ID \(idType)#\(id)")
+
+            // Bridge fee: need 3x for exactOutput (deposit input + withdraw output + withdraw leftover)
+            let bridgeFeeBalance = EVM.Balance(attoflow: 0)
+            bridgeFeeBalance.setFLOW(flow: 3.0 * FlowEVMBridgeUtils.calculateBridgeFee(bytes: 256))
+            let feeVault <- coa.withdraw(balance: bridgeFeeBalance)
+            let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
+
+            // I/O tokens
+            let inToken = reverse ? self.tokenPath[self.tokenPath.length - 1] : self.tokenPath[0]
+            let outToken = reverse ? self.tokenPath[0] : self.tokenPath[self.tokenPath.length - 1]
+
+            // Convert amounts to EVM units
+            let evmAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountOutExact, erc20Address: outToken)
+            let evmAmountInMax = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountInMax, erc20Address: inToken)
+
+            // Bridge input to EVM (the full max amount)
+            let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(vaultIn.balance, erc20Address: inToken)
+            coa.depositTokens(vault: <-vaultIn, feeProvider: feeVaultRef)
+
+            // Build path - for exactOutput, the path must be reversed (tokenOut -> ... -> tokenIn)
+            let pathBytes = self._buildPathBytes(reverse: !reverse)
+
+            // Approve the max input amount
+            var res = self._call(
+                to: inToken,
+                signature: "approve(address,uint256)",
+                args: [self.routerAddress, evmAmountInMax],
+                gasLimit: 120_000,
+                value: 0
+            )!
+            if res.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
+            }
+
+            let coaRef = self.borrowCOA()!
+            let recipient: EVM.EVMAddress = coaRef.address()
+
+            // optional dev guards
+            let _chkInMax  = EVMAbiHelpers.abiUInt256(evmAmountInMax)
+            let _chkOut = EVMAbiHelpers.abiUInt256(evmAmountOut)
+            assert(_chkInMax.length == 32,  message: "amountInMax not 32 bytes")
+            assert(_chkOut.length == 32, message: "amountOut not 32 bytes")
+
+
+            let exactOutputParams = UniswapV3SwapConnectors.ExactOutputSingleParams(
+                path: pathBytes,
+                recipient: recipient,
+                amountOut: evmAmountOut,
+                amountInMax: evmAmountInMax
+            )
+
+            let calldata: [UInt8] = EVM.encodeABIWithSignature(
+                "exactOutput((bytes,address,uint256,uint256))",
+                [exactOutputParams]
+            )
+
+            // Call the router with raw calldata
+            let swapRes = self._callRaw(
+                to: self.routerAddress,
+                calldata: calldata,
+                gasLimit: 10_000_000,
+                value: 0
+            )!
+            if swapRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError(
+                    EVMAbiHelpers.toHex(calldata),
+                    swapRes, self.routerAddress, idType, id, self.getType()
+                )
+            }
+
+            // exactOutput returns the actual amount of input tokens used
+            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
+            let amountInUsed: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
+
+            // Calculate leftover input tokens in COA
+            let leftoverIn = evmAmountIn > amountInUsed ? evmAmountIn - amountInUsed : UInt256(0)
+
+            // Floor leftover to quantum-aligned amount to avoid bridge rounding errors
+            // For tokens with >8 decimals, the quantum is 10^(decimals-8)
+            let inTokenAddr = self.inToken(reverse)
+            let inTokenDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: inTokenAddr)
+            var flooredLeftover = leftoverIn
+            if inTokenDecimals > 8 && leftoverIn > 0 {
+                let quantumExp: UInt8 = inTokenDecimals - 8
+                let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+                let remainder: UInt256 = leftoverIn % quantum
+                flooredLeftover = leftoverIn - remainder
+            }
+
+            // Withdraw the exact output amount back to Flow
+            let outVault <- coa.withdrawTokens(type: reverse ? self.inType() : self.outType(), amount: evmAmountOut, feeProvider: feeVaultRef)
+
+            // Withdraw leftover input tokens back to Flow (floored to avoid rounding errors)
+            let leftoverVault <- coa.withdrawTokens(type: inVaultType, amount: flooredLeftover, feeProvider: feeVaultRef)
+
+            // Handle leftover fee vault
+            self._handleRemainingFeeVault(<-feeVault)
+
+            // Return array: [0] = output, [1] = leftover
+            return <- [<- outVault, <- leftoverVault]
         }
 
         /* --- Helpers --- */

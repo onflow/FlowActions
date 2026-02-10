@@ -327,6 +327,11 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
             return <-lpTokenVault
         }
 
+        /// Exact output swaps are not supported for LP Zapper
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            panic("IncrementFi LP Zapper does not support swapExactOut - use swap() instead")
+        }
+
         /// Converts back LP token to inToken
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let pairPublicRef = self.getPairPublicRef()

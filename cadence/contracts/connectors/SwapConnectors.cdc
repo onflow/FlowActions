@@ -176,6 +176,15 @@ access(all) contract SwapConnectors {
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             return <-self._swap(quote: quote, from: <-inVault, reverse: false)
         }
+        /// Swap for exact output using the optimal inner Swapper
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            var multiQuote = quote as? MultiSwapperQuote
+            if multiQuote == nil || multiQuote!.swapperIndex >= self.swappers.length {
+                multiQuote = self.quoteIn(forDesired: quote.outAmount, reverse: false) as! MultiSwapperQuote
+            }
+            let optimalSwapper = &self.swappers[multiQuote!.swapperIndex] as &{DeFiActions.Swapper}
+            return <- optimalSwapper.swapExactOut(quote: multiQuote!, inVault: <-inVault)
+        }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
@@ -482,6 +491,10 @@ access(all) contract SwapConnectors {
         ///
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             return <- self._swap(quote: quote, from: <-inVault, reverse: false)
+        }
+        /// Exact output swaps are not supported for SequentialSwapper
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            panic("SequentialSwapper does not support swapExactOut - use swap() with quoteIn() instead")
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Callers should be careful
         /// to ensure the resulting output meets their expectations given the provided residual.balance.

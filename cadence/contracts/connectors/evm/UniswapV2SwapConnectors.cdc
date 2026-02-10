@@ -169,6 +169,11 @@ access(all) contract UniswapV2SwapConnectors {
             return <-self.swapExactTokensForTokens(exactVaultIn: <-inVault, amountOutMin: amountOutMin, reverse: false)
         }
 
+        /// Exact output swaps are not supported for UniswapV2
+        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
+            panic("UniswapV2SwapConnectors.Swapper does not support swapExactOut - use swap() instead")
+        }
+
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
