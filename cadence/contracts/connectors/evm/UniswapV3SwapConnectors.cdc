@@ -536,9 +536,10 @@ access(all) contract UniswapV3SwapConnectors {
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
             let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
 
+            let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
-                FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.outType())
-                ?? panic("out token \(self.outType().identifier) is not bridged")
+                FlowEVMBridgeConfig.getEVMAddressAssociated(with: outVaultType)
+                ?? panic("out token \(outVaultType.identifier) is not bridged")
 
             let outUFix = self._toCadenceOut(
                 amountOut,
@@ -550,7 +551,7 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outTokenEVMAddress
             )
             // Withdraw output back to Flow
-            let outVault <- coa.withdrawTokens(type: self.outType(), amount: safeAmountOut, feeProvider: feeVaultRef)
+            let outVault <- coa.withdrawTokens(type: outVaultType, amount: safeAmountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
             self._handleRemainingFeeVault(<-feeVault)
