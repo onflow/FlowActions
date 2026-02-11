@@ -1,4 +1,4 @@
-#test_fork(network: "mainnet", height: 141119000)
+#test_fork(network: "mainnet", height: nil)
 
 import Test
 

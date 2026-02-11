@@ -280,9 +280,6 @@ access(all) contract ERC4626SwapConnectors {
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             panic("ERC4626SwapConnectors.Swapper.swapBack() is not supported - ERC4626 Vaults do not support synchronous withdrawals")
         }
-        access(all) fun swapExactOut(quote: {DeFiActions.Quote}, inVault: @{FungibleToken.Vault}): @[{FungibleToken.Vault}] {
-            panic("ERC4626SwapConnectors.Swapper.swapExactOut() is not supported - use swap() instead")
-        }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
         /// each inner component in the stack.
         access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
