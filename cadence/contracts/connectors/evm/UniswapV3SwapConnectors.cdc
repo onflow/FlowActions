@@ -21,16 +21,6 @@ import "EVMAmountUtils"
 ///
 access(all) contract UniswapV3SwapConnectors {
 
-    /// Delegates to EVMAmountUtils.toCadenceOut — round down for output amounts
-    access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        return EVMAmountUtils.toCadenceOut(amt, decimals: decimals)
-    }
-
-    /// Delegates to EVMAmountUtils.toCadenceIn — round up for input amounts
-    access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        return EVMAmountUtils.toCadenceIn(amt, decimals: decimals)
-    }
-
     /// ExactInputSingleParams facilitates the ABI encoding/decoding of the
     /// Solidity tuple expected in `ISwapRouter.exactInput` function.
     access(all) struct ExactInputSingleParams {
@@ -573,15 +563,13 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// OUT amounts: round down to UFix64 precision
         access(self) fun _toCadenceOut(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
-            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
-            return UniswapV3SwapConnectors.toCadenceOutWithDecimals(amt, decimals: decimals)
+            return EVMAmountUtils.toCadenceOutForToken(amt, erc20Address: erc20Address)
         }
 
         /// IN amounts: round up to the next UFix64 such that the ERC20 conversion
         /// (via ufix64ToUInt256) is >= the original UInt256 amount.
         access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
-            let decimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: erc20Address)
-            return UniswapV3SwapConnectors.toCadenceInWithDecimals(amt, decimals: decimals)
+            return EVMAmountUtils.toCadenceInForToken(amt, erc20Address: erc20Address)
         }
         access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
             // token0() selector = 0x0dfe1681

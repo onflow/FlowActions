@@ -54,6 +54,15 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"EVMAmountUtils": {
+			"source": "./cadence/contracts/connectors/evm/EVMAmountUtils.cdc",
+			"aliases": {
+				"mainnet": "6d888f175c158410",
+				"mainnet-fork": "6d888f175c158410",
+				"testing": "0000000000000009",
+				"testnet": "0b11b1848a8aa2c0"
+			}
+		},
 		"EVMNativeFLOWConnectors": {
 			"source": "cadence/contracts/connectors/evm/EVMNativeFLOWConnectors.cdc",
 			"aliases": {
@@ -781,6 +790,13 @@
 				"location": "emulator-account.pkey"
 			}
 		},
+		"mainnet-fork-evm-amount-utils": {
+			"address": "6d888f175c158410",
+			"key": {
+				"type": "file",
+				"location": "emulator-account.pkey"
+			}
+		},
 		"mainnet-fork-morpho-erc4626-connectors": {
 			"address": "251032a66e9700ef",
 			"key": {
@@ -983,7 +999,8 @@
 			],
 			"mainnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActions"
+				"DeFiActions",
+				"EVMAmountUtils"
 			],
 			"mainnet-erc4626-connectors": [
 				"ERC4626Utils",
@@ -1022,6 +1039,9 @@
 				"ERC4626SinkConnectors",
 				"ERC4626SwapConnectors"
 			],
+			"mainnet-fork-evm-amount-utils": [
+				"EVMAmountUtils"
+			],
 			"mainnet-fork-morpho-erc4626-connectors": [
 				"MorphoERC4626SwapConnectors",
 				"MorphoERC4626SinkConnectors"
@@ -1033,7 +1053,8 @@
 			],
 			"testnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActions"
+				"DeFiActions",
+				"EVMAmountUtils"
 			],
 			"testnet-erc4626-connectors": [
 				"ERC4626Utils",
