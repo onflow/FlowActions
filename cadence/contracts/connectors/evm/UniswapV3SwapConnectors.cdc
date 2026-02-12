@@ -8,6 +8,7 @@ import "FlowEVMBridgeConfig"
 import "DeFiActions"
 import "SwapConnectors"
 import "EVMAbiHelpers"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -20,48 +21,14 @@ import "EVMAbiHelpers"
 ///
 access(all) contract UniswapV3SwapConnectors {
 
-    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding down** to the
-    /// maximum `UFix64` precision (8 decimal places).
-    ///
-    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
-    /// - For `decimals > 8`, this floors the ERC20 amount to the nearest multiple of
-    ///   `quantum = 10^(decimals - 8)` so the result round-trips safely:
-    ///   `ufix64ToUInt256(result) <= amt`.
+    /// Delegates to EVMAmountUtils.toCadenceOut — round down for output amounts
     access(all) fun toCadenceOutWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        if decimals <= 8 {
-            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
-        }
-
-        let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
-        let remainder: UInt256 = amt % quantum
-        let floored: UInt256 = amt - remainder
-
-        return FlowEVMBridgeUtils.uint256ToUFix64(value: floored, decimals: decimals)
+        return EVMAmountUtils.toCadenceOut(amt, decimals: decimals)
     }
 
-    /// Convert an ERC20 `UInt256` amount into a Cadence `UFix64` **by rounding up** to the
-    /// smallest representable value at `UFix64` precision (8 decimal places).
-    ///
-    /// - For `decimals <= 8`, the value is exactly representable, so this is a direct conversion.
-    /// - For `decimals > 8`, this ceils the ERC20 amount to the next multiple of
-    ///   `quantum = 10^(decimals - 8)` (unless already exact), ensuring:
-    ///   `ufix64ToUInt256(result) >= amt`, and the increase is `< quantum`.
+    /// Delegates to EVMAmountUtils.toCadenceIn — round up for input amounts
     access(all) fun toCadenceInWithDecimals(_ amt: UInt256, decimals: UInt8): UFix64 {
-        if decimals <= 8 {
-            return FlowEVMBridgeUtils.uint256ToUFix64(value: amt, decimals: decimals)
-        }
-
-        let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
-
-        let remainder: UInt256 = amt % quantum
-        var padded: UInt256 = amt
-        if remainder != 0 {
-            padded = amt + (quantum - remainder)
-        }
-
-        return FlowEVMBridgeUtils.uint256ToUFix64(value: padded, decimals: decimals)
+        return EVMAmountUtils.toCadenceIn(amt, decimals: decimals)
     }
 
     /// ExactInputSingleParams facilitates the ABI encoding/decoding of the

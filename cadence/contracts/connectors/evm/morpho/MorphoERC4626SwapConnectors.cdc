@@ -10,6 +10,7 @@ import "MorphoERC4626SinkConnectors"
 import "SwapConnectors"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -142,9 +143,10 @@ access(all) contract MorphoERC4626SwapConnectors {
                     erc20Address: self.assetEVMAddress
                 )
                 let requiredAssetsEVMSafe = requiredAssetsEVM < maxAssetsEVM ? requiredAssetsEVM : maxAssetsEVM
-                let requiredAssets = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                let assetDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress)
+                let requiredAssets = EVMAmountUtils.toCadenceIn(
                     requiredAssetsEVMSafe,
-                    erc20Address: self.assetEVMAddress
+                    decimals: assetDecimals
                 )
 
                 return SwapConnectors.BasicQuote(
@@ -175,9 +177,10 @@ access(all) contract MorphoERC4626SwapConnectors {
                     erc20Address: self.vaultEVMAddress
                 )
                 let requiredSharesEVMSafe = requiredSharesEVM < maxSharesEVM ? requiredSharesEVM : maxSharesEVM
-                let requiredShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                let shareDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.vaultEVMAddress)
+                let requiredShares = EVMAmountUtils.toCadenceIn(
                     requiredSharesEVMSafe,
-                    erc20Address: self.vaultEVMAddress
+                    decimals: shareDecimals
                 )
 
                 return SwapConnectors.BasicQuote(
@@ -247,9 +250,10 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
 
             if let sharesOutEVM = ERC4626Utils.previewDeposit(vault: self.vaultEVMAddress, assets: providedAssetsEVM) {
-                let sharesOut = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                let shareDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.vaultEVMAddress)
+                let sharesOut = EVMAmountUtils.toCadenceOut(
                     sharesOutEVM,
-                    erc20Address: self.vaultEVMAddress
+                    decimals: shareDecimals
                 )
 
                 return SwapConnectors.BasicQuote(
@@ -275,9 +279,10 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
 
             if let assetsOutEVM = ERC4626Utils.previewRedeem(vault: self.vaultEVMAddress, shares: providedSharesEVM) {
-                let assetsOut = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(
+                let assetDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress)
+                let assetsOut = EVMAmountUtils.toCadenceOut(
                     assetsOutEVM,
-                    erc20Address: self.assetEVMAddress
+                    decimals: assetDecimals
                 )
 
                 return SwapConnectors.BasicQuote(
@@ -427,10 +432,32 @@ access(all) contract MorphoERC4626SwapConnectors {
 
             let receivedAssets = afterAvailable - beforeAvailable
 
-            assert(receivedAssets >= outAmount, message: "Slippage: received < quote.outAmount")
+            // Derive the expected output from previewRedeem of the actual consumed shares rather
+            // than the quote's outAmount. The quote may have been generated via quoteIn (using
+            // previewWithdraw which rounds up shares), then passed through MultiSwapper which
+            // preserves the desired outAmount. Since redeem rounds down assets (vault-favorable),
+            // the actual output can be less than the quoted outAmount. Using previewRedeem of the
+            // consumed shares gives the correct floor for the slippage check.
+            let consumedSharesEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                consumedIn,
+                erc20Address: self.vaultEVMAddress
+            )
+            var expectedOut = outAmount
+            if let previewOutEVM = ERC4626Utils.previewRedeem(vault: self.vaultEVMAddress, shares: consumedSharesEVM) {
+                let assetDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress)
+                let previewOut = EVMAmountUtils.toCadenceOut(
+                    previewOutEVM,
+                    decimals: assetDecimals
+                )
+                if previewOut < expectedOut {
+                    expectedOut = previewOut
+                }
+            }
+
+            assert(receivedAssets >= expectedOut, message: "Slippage: received < quote.outAmount")
 
             let assetsVault <- self.assetSource.withdrawAvailable(maxAmount: receivedAssets)
-            assert(assetsVault.balance >= outAmount, message: "Slippage: withdrawn assets < outAmount")
+            assert(assetsVault.balance >= expectedOut, message: "Slippage: withdrawn assets < outAmount")
 
             return <- assetsVault
         }
