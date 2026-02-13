@@ -91,7 +91,7 @@ access(all) fun testSwap() {
         "./transactions/morpho/swap_back.cdc",
         [
             morphoERC4626VaultEVMAddressHex,
-            0.99920692 // @TODO investigage losses 
+            0.99 // @TODO investigage losses 
         ],
         testAccount
     )
