@@ -3,7 +3,10 @@
 		"BandOracleConnectors": {
 			"source": "cadence/contracts/connectors/band-oracle/BandOracleConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000007"
+				"mainnet": "e36ef556b8b5d955",
+				"mainnet-fork": "e36ef556b8b5d955",
+				"testing": "0000000000000007",
+				"testnet": "bb76ea2f8aad74a0"
 			}
 		},
 		"DeFiActions": {
@@ -11,7 +14,8 @@
 			"aliases": {
 				"mainnet": "6d888f175c158410",
 				"mainnet-fork": "6d888f175c158410",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "0b11b1848a8aa2c0"
 			}
 		},
 		"DeFiActionsUtils": {
@@ -19,25 +23,35 @@
 			"aliases": {
 				"mainnet": "6d888f175c158410",
 				"mainnet-fork": "6d888f175c158410",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "0b11b1848a8aa2c0"
 			}
 		},
 		"ERC4626PriceOracles": {
 			"source": "./cadence/contracts/connectors/evm/ERC4626PriceOracles.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "04f5ae6bef48c1fc",
+				"mainnet-fork": "04f5ae6bef48c1fc",
+				"testing": "0000000000000009",
+				"testnet": "7014dcffa1f14186"
 			}
 		},
 		"ERC4626SinkConnectors": {
 			"source": "./cadence/contracts/connectors/evm/ERC4626SinkConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "04f5ae6bef48c1fc",
+				"mainnet-fork": "04f5ae6bef48c1fc",
+				"testing": "0000000000000009",
+				"testnet": "7014dcffa1f14186"
 			}
 		},
 		"ERC4626SwapConnectors": {
 			"source": "./cadence/contracts/connectors/evm/ERC4626SwapConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "04f5ae6bef48c1fc",
+				"mainnet-fork": "04f5ae6bef48c1fc",
+				"testing": "0000000000000009",
+				"testnet": "7014dcffa1f14186"
 			}
 		},
 		"ERC4626Utils": {
@@ -45,28 +59,35 @@
 			"aliases": {
 				"mainnet": "04f5ae6bef48c1fc",
 				"mainnet-fork": "04f5ae6bef48c1fc",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "7014dcffa1f14186"
 			}
 		},
 		"EVMAbiHelpers": {
 			"source": "./cadence/contracts/utils/EVMAbiHelpers.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "a7825d405ac89518",
+				"mainnet-fork": "a7825d405ac89518",
+				"testing": "0000000000000009",
+				"testnet": "3ebb7d2595e97cd2"
 			}
 		},
 		"EVMAmountUtils": {
 			"source": "./cadence/contracts/connectors/evm/EVMAmountUtils.cdc",
 			"aliases": {
-				"mainnet": "6d888f175c158410",
-				"mainnet-fork": "6d888f175c158410",
+				"mainnet": "43c9e8bfec507db4",
+				"mainnet-fork": "43c9e8bfec507db4",
 				"testing": "0000000000000009",
-				"testnet": "0b11b1848a8aa2c0"
+				"testnet": "67402f29666f7b29"
 			}
 		},
 		"EVMNativeFLOWConnectors": {
 			"source": "cadence/contracts/connectors/evm/EVMNativeFLOWConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "1a771b21fcceadc2",
+				"mainnet-fork": "1a771b21fcceadc2",
+				"testing": "0000000000000009",
+				"testnet": "bee3f3636cec263a"
 			}
 		},
 		"EVMTokenConnectors": {
@@ -74,7 +95,8 @@
 			"aliases": {
 				"mainnet": "1a771b21fcceadc2",
 				"mainnet-fork": "1a771b21fcceadc2",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "bee3f3636cec263a"
 			}
 		},
 		"FungibleTokenConnectors": {
@@ -82,7 +104,8 @@
 			"aliases": {
 				"mainnet": "0c237e1265caa7a3",
 				"mainnet-fork": "0c237e1265caa7a3",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "4cd02f8de4122c84"
 			}
 		},
 		"IncrementFiFlashloanConnectors": {
@@ -126,7 +149,8 @@
 			"aliases": {
 				"mainnet": "251032a66e9700ef",
 				"mainnet-fork": "251032a66e9700ef",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "71144a1aff6b7148"
 			}
 		},
 		"MorphoERC4626SwapConnectors": {
@@ -134,7 +158,8 @@
 			"aliases": {
 				"mainnet": "251032a66e9700ef",
 				"mainnet-fork": "251032a66e9700ef",
-				"testing": "0000000000000009"
+				"testing": "0000000000000009",
+				"testnet": "71144a1aff6b7148"
 			}
 		},
 		"SwapConnectors": {
@@ -142,7 +167,8 @@
 			"aliases": {
 				"mainnet": "e1a479f0cb911df9",
 				"mainnet-fork": "e1a479f0cb911df9",
-				"testing": "0000000000000007"
+				"testing": "0000000000000007",
+				"testnet": "ad228f1c13a97ec1"
 			}
 		},
 		"TestTokenMinter": {
@@ -180,7 +206,10 @@
 		"UniswapV3SwapConnectors": {
 			"source": "cadence/contracts/connectors/evm/UniswapV3SwapConnectors.cdc",
 			"aliases": {
-				"testing": "0000000000000009"
+				"mainnet": "a7825d405ac89518",
+				"mainnet-fork": "a7825d405ac89518",
+				"testing": "0000000000000009",
+				"testnet": "3ebb7d2595e97cd2"
 			}
 		}
 	},
@@ -775,6 +804,14 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
+		"mainnet-evm-amount-utils": {
+			"address": "43c9e8bfec507db4",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
 		"mainnet-evm-token-connectors": {
 			"address": "1a771b21fcceadc2",
 			"key": {
@@ -791,7 +828,7 @@
 			}
 		},
 		"mainnet-fork-evm-amount-utils": {
-			"address": "6d888f175c158410",
+			"address": "43c9e8bfec507db4",
 			"key": {
 				"type": "file",
 				"location": "emulator-account.pkey"
@@ -833,6 +870,14 @@
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-morpho-erc4626-connectors": {
+			"address": "71144a1aff6b7148",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
 		"mainnet-originator": {
@@ -884,6 +929,14 @@
 		},
 		"testnet-erc4626-connectors": {
 			"address": "7014dcffa1f14186",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-evm-amount-utils": {
+			"address": "67402f29666f7b29",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -999,14 +1052,16 @@
 			],
 			"mainnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActions",
-				"EVMAmountUtils"
+				"DeFiActions"
 			],
 			"mainnet-erc4626-connectors": [
 				"ERC4626Utils",
 				"ERC4626PriceOracles",
 				"ERC4626SinkConnectors",
 				"ERC4626SwapConnectors"
+			],
+			"mainnet-evm-amount-utils": [
+				"EVMAmountUtils"
 			],
 			"mainnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
@@ -1020,6 +1075,10 @@
 				"IncrementFiSwapConnectors",
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
+			],
+			"mainnet-morpho-erc4626-connectors": [
+				"MorphoERC4626SwapConnectors",
+				"MorphoERC4626SinkConnectors"
 			],
 			"mainnet-swap-connectors": [
 				"SwapConnectors"
@@ -1053,14 +1112,20 @@
 			],
 			"testnet-defi-actions": [
 				"DeFiActionsUtils",
-				"DeFiActions",
-				"EVMAmountUtils"
+				"DeFiActions"
 			],
 			"testnet-erc4626-connectors": [
 				"ERC4626Utils",
 				"ERC4626PriceOracles",
 				"ERC4626SinkConnectors",
 				"ERC4626SwapConnectors"
+			],
+			"testnet-evm-amount-utils": [
+				"EVMAmountUtils"
+			],
+			"testnet-morpho-erc4626-connectors": [
+				"MorphoERC4626SwapConnectors",
+				"MorphoERC4626SinkConnectors"
 			],
 			"testnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
