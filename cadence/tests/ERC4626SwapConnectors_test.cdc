@@ -99,6 +99,12 @@ access(all) fun setup() {
     )
     Test.expect(err, Test.beNil())
     err = Test.deployContract(
+        name: "EVMAmountUtils",
+        path: "../contracts/connectors/evm/EVMAmountUtils.cdc",
+        arguments: [],
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
         name: "ERC4626SinkConnectors",
         path: "../contracts/connectors/evm/ERC4626SinkConnectors.cdc",
         arguments: [],
