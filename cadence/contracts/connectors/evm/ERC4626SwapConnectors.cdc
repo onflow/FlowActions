@@ -10,6 +10,7 @@ import "ERC4626SinkConnectors"
 import "SwapConnectors"
 import "EVMTokenConnectors"
 import "ERC4626Utils"
+import "EVMAmountUtils"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -133,14 +134,14 @@ access(all) contract ERC4626SwapConnectors {
                         )
                     }
                     
-                    let ufixRequired = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintRequired, erc20Address: self.assetEVMAddress)
+                    let ufixRequired = EVMAmountUtils.toCadenceInForToken(uintRequired, erc20Address: self.assetEVMAddress)
                     
                     // Cap input to maxCapacity and recalculate output if needed
                     if ufixRequired > maxCapacity {
                         // Required assets exceed capacity - cap at maxCapacity and calculate achievable shares
                         let uintMaxCapacity = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(maxCapacity, erc20Address: self.assetEVMAddress)
                         if let uintActualShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintMaxCapacity) {
-                            let ufixActualShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintActualShares, erc20Address: self.vault)
+                            let ufixActualShares = EVMAmountUtils.toCadenceOutForToken(uintActualShares, erc20Address: self.vault)
                             return SwapConnectors.BasicQuote(
                                 inType: self.asset,
                                 outType: self.vaultType,
@@ -188,7 +189,7 @@ access(all) contract ERC4626SwapConnectors {
 
             
             if let uintShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintForProvided) {
-                let ufixShares = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintShares, erc20Address: self.vault)
+                let ufixShares = EVMAmountUtils.toCadenceOutForToken(uintShares, erc20Address: self.vault)
                 return SwapConnectors.BasicQuote(
                     inType: self.asset,
                     outType: self.vaultType,
