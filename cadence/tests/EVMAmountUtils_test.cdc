@@ -26,14 +26,14 @@ access(all) fun roundTrip(_ x: UFix64, decimals: UInt8): UInt256 {
 }
 
 access(all) fun quantum(decimals: UInt8): UInt256 {
-    if decimals <= 8 { return UInt256(1) }
+    if decimals <= 8 { return 1 }
     return FlowEVMBridgeUtils.pow(base: 10, exponent: decimals - 8)
 }
 
 access(all) fun test_decimals_le_8_exact_roundtrip_in_and_out() {
     // decimals 6: every unit is representable
     let decimals: UInt8 = 6
-    let amt: UInt256 = UInt256(123_456_789) // 123.456789 with 6 decimals
+    let amt: UInt256 = 123_456_789 // 123.456789 with 6 decimals
 
     let uIn = EVMAmountUtils.toCadenceIn(amt, decimals: decimals)
     let uOut = EVMAmountUtils.toCadenceOut(amt, decimals: decimals)
@@ -48,7 +48,7 @@ access(all) fun test_decimals_gt_8_out_is_floor_to_quantum() {
     let q = quantum(decimals: decimals)
 
     // choose an amt that's not divisible by q
-    let amt: UInt256 = UInt256(1000) * q + UInt256(123) // remainder 123
+    let amt: UInt256 = 1000 * q + 123 // remainder 123
 
     let uOut = EVMAmountUtils.toCadenceOut(amt, decimals: decimals)
     let back = roundTrip(uOut, decimals: decimals)
@@ -63,7 +63,7 @@ access(all) fun test_decimals_gt_8_in_is_ceil_to_quantum_minimal() {
     let q = quantum(decimals: decimals)
 
     // not divisible by q
-    let amt: UInt256 = UInt256(1000) * q + UInt256(123)
+    let amt: UInt256 = 1000 * q + 123
 
     let uIn = EVMAmountUtils.toCadenceIn(amt, decimals: decimals)
     let back = roundTrip(uIn, decimals: decimals)
@@ -77,7 +77,7 @@ access(all) fun test_decimals_gt_8_in_exact_if_already_multiple_of_quantum() {
     let decimals: UInt8 = 18
     let q = quantum(decimals: decimals)
 
-    let amt: UInt256 = UInt256(1000) * q // exact multiple
+    let amt: UInt256 = 1000 * q // exact multiple
     let uIn = EVMAmountUtils.toCadenceIn(amt, decimals: decimals)
     let back = roundTrip(uIn, decimals: decimals)
 
