@@ -521,6 +521,17 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outTokenEVMAddress
             )
 
+            // Defensive: ensure the router respected amountOutMinimum.
+            // Under normal operation the V3 router reverts when output < min, but guard
+            // against a buggy or malicious router contract.
+            assert(
+                amountOutMin == 0.0 || outUFix >= amountOutMin,
+                message: "UniswapV3SwapConnectors: swap output "
+                    .concat(outUFix.toString())
+                    .concat(" < amountOutMin ")
+                    .concat(amountOutMin.toString())
+            )
+
             /// Quoting exact output then swapping exact input can overshoot by up to 0.00000001 (1 UFix64 quantum)
             /// when the pool's effective exchange rate is near 1:1.
             ///
