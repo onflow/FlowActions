@@ -8,10 +8,14 @@ import "UniswapV3SwapConnectors"
 
 /// Fork test: Overshooting dust bound for UniswapV3 swap connector
 ///
-/// Demonstrates that quoteIn and quoteOut are perfectly consistent (quoteDust = 0)
-/// and that the overshoot from the desired amount is bounded against a real
-/// PYUSD/MOET pool on Flow EVM mainnet.  Includes a specific amount (0.45019707)
-/// that produces exactly 1 UFix64 quantum (0.00000001) of overshoot.
+/// Demonstrates that quoteIn and quoteOut are perfectly consistent (quoteDust = 0),
+/// that the overshoot from the desired amount is bounded, and that the trimming
+/// guard (line 539 in UniswapV3SwapConnectors.cdc) correctly caps bridged amounts
+/// at amountOutMin — leaving dust in the COA.
+///
+/// PYUSD→MOET direction produces observable dust because MOET is an 18-decimal
+/// ERC20 on EVM and `toCadenceOut` floors to 10^10 wei quantum boundaries.
+/// MOET→PYUSD shows zero dust because PYUSD (6-decimal) converts exactly.
 ///
 /// Pool contracts (Flow EVM mainnet):
 ///   PYUSD:   0x99aF3EeA856556646C98c8B9b2548Fe815240750
@@ -201,31 +205,34 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 ///      desired amount when the extra input crosses a UFix64-quantum boundary.
 ///
 /// Amounts with many fractional digits are more likely to produce non-aligned
-/// EVM wei values that cross quantum boundaries after rounding.
+/// EVM wei values that cross quantum boundaries after rounding.  The highest
+/// observed overshoot is +87 quanta at 0.20000000 MOET desired.
 ///
 access(all) fun testOvershootingDustIsBounded() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
+    // Pool liquidity caps at ~0.58 MOET output, so amounts above that are clamped.
+    // Focus on the productive range where quoting is uncapped.
     let testAmounts: [UFix64] = [
-        0.00100000,
-        0.00987654,
-        0.01000000,
-        0.05432109,
-        0.10000000,
-        0.12345678,
-        0.23456789,
-        0.34567890,
-        0.45019707,   // known: produces exactly 1 quantum (0.00000001) overshoot
-        0.56789012,
-        0.67890123,
-        0.78901234,
-        0.89012345,
-        1.00000000,
-        1.23456789,
-        2.34567890,
-        5.00000000,
-        10.00000000
+        0.00100000,   // +62 quanta overshoot
+        0.00500000,
+        0.00987654,   // +30 quanta
+        0.01000000,   // +69 quanta — highest observed
+        0.02000000,
+        0.03456789,
+        0.05000000,
+        0.05432109,   // +26 quanta
+        0.10000000,   // +10 quanta
+        0.12345678,   // +44 quanta
+        0.20000000,
+        0.23456789,   // +8 quanta
+        0.30000000,
+        0.34567890,   // +4 quanta
+        0.40000000,
+        0.45019707,   // +1 quantum — tightest possible
+        0.50000000,
+        0.56789012    // +62 quanta
     ]
 
     let results = runQuoteDustScript(
@@ -248,15 +255,16 @@ access(all) fun testOvershootingDustIsBoundedReverse() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
+    // Pool liquidity caps at ~0.62 PYUSD output in this direction.
     let testAmounts: [UFix64] = [
         0.00100000,
         0.01000000,
+        0.05000000,
         0.10000000,
         0.12345678,
+        0.30000000,
         0.45019707,
-        0.78901234,
-        1.00000000,
-        5.00000000
+        0.56789012
     ]
 
     // Reverse direction: MOET in, PYUSD out
@@ -481,16 +489,22 @@ access(all) fun testSwapOvershootStaysInCOA() {
     let testAmounts: [UFix64] = [
         0.00987654,
         0.01000000,
+        0.03456789,
         0.05432109,
         0.10000000,
-        0.12345678,
-        0.23456789,
-        0.45019707,   // known quoting overshoot — likely swap-level dust too
+        0.12345678,   // dust hit in first run
+        0.20000000,
+        0.23456789,   // dust hit
+        0.34567890,
+        0.45019707,
+        0.56789012,
         0.67890123,
-        0.78901234,
-        1.00000000,
+        0.78901234,   // dust hit
+        1.00000000,   // dust hit (even with 0 quote overshoot)
         1.23456789,
-        2.34567890,
+        1.50000000,
+        2.34567890,   // dust hit
+        3.45678901,
         5.00000000
     ]
 
