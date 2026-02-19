@@ -1,4 +1,4 @@
-#test_fork(network: "mainnet", height: nil)
+#test_fork(network: "mainnet", height: 142_691_298)
 
 import Test
 
@@ -29,7 +29,7 @@ access(all) let QUOTER     = "0x370A8DF17742867a44e56223EC20D82092242C85"
 access(all) let PYUSD      = "0x99aF3EeA856556646C98c8B9b2548Fe815240750"
 access(all) let MOET       = "0x213979bB8A9A86966999b3AA797C1fcf3B967ae2"
 access(all) let POOL_FEE: UInt32 = 100   // 1 % fee tier
-access(all) let V2_ROUTER  = "0xf45AFe28fd5519d5f8C1d4787a4D5f724C0eFa4d" // PunchSwap V2
+access(all) let MOET_DEPLOYER: Address = 0x6b00ff876c299c61 // MOET contract deployer (has Minter)
 
 // --- Setup --------------------------------------------------------------------
 
@@ -193,22 +193,39 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 /// Proves that quoteIn and quoteOut are consistent (quoteDust = 0) and that
 /// the overshoot from the desired amount is non-negative for PYUSD -> MOET.
 ///
-/// The amount 0.45019707 is specifically chosen to produce exactly 1 UFix64
-/// quantum (0.00000001) of overshoot, demonstrating the tightest possible
-/// rounding surplus.
+/// MOET is an 18-decimal ERC20 on EVM, so `toCadenceOut` floors to the nearest
+/// 10^10 wei (1 UFix64 quantum = 0.00000001).  The overshoot arises because:
+///   1. `quoteIn` calls exactOutput → ceils the raw input → runs a forward
+///      exactInput quote with the ceiled input.
+///   2. The forward quote may return slightly more output than the original
+///      desired amount when the extra input crosses a UFix64-quantum boundary.
+///
+/// Amounts with many fractional digits are more likely to produce non-aligned
+/// EVM wei values that cross quantum boundaries after rounding.
 ///
 access(all) fun testOvershootingDustIsBounded() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
     let testAmounts: [UFix64] = [
-        0.001,
-        0.01,
-        0.1,
-        0.45019707,   // produces exactly 1 quantum (0.00000001) overshoot
-        1.0,
-        5.0,
-        10.0
+        0.00100000,
+        0.00987654,
+        0.01000000,
+        0.05432109,
+        0.10000000,
+        0.12345678,
+        0.23456789,
+        0.34567890,
+        0.45019707,   // known: produces exactly 1 quantum (0.00000001) overshoot
+        0.56789012,
+        0.67890123,
+        0.78901234,
+        0.89012345,
+        1.00000000,
+        1.23456789,
+        2.34567890,
+        5.00000000,
+        10.00000000
     ]
 
     let results = runQuoteDustScript(
@@ -223,15 +240,23 @@ access(all) fun testOvershootingDustIsBounded() {
 
 /// Same test in the reverse direction (MOET -> PYUSD) to cover swapBack path.
 ///
+/// PYUSD is a 6-decimal ERC20 (≤8), so `toCadenceOut` is an exact conversion.
+/// Overshoot here comes solely from the V3 pool math's rounding (exactOutput
+/// rounds input UP, exactInput rounds output DOWN), not from UFix64 quantisation.
+///
 access(all) fun testOvershootingDustIsBoundedReverse() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
     let testAmounts: [UFix64] = [
-        0.001,
-        0.01,
-        0.1,
-        1.0
+        0.00100000,
+        0.01000000,
+        0.10000000,
+        0.12345678,
+        0.45019707,
+        0.78901234,
+        1.00000000,
+        5.00000000
     ]
 
     // Reverse direction: MOET in, PYUSD out
@@ -245,95 +270,64 @@ access(all) fun testOvershootingDustIsBoundedReverse() {
     assertQuoteDust(results: results)
 }
 
-// --- Swap test helpers --------------------------------------------------------
+// --- MOET minting helper ------------------------------------------------------
 
-/// Runs the swap dust test transaction with V2 provisioning:
-///   1. On first call: Provisions tokenIn via PunchSwap V2 (FlowToken -> WFLOW -> tokenIn)
-///   2. For each test amount: runs quoteIn + swap and records metrics
-///   3. Stores result at /storage/swapDustResult after each swap
+/// Mints MOET and saves to signer's /storage/testTokenInVault using the MOET
+/// deployer's Minter. Works on forked emulator because signatures aren't verified.
 ///
-/// Returns rows of:
-///   [desiredOut, quoteInAmount, quoteOutAmount, vaultBalance, coaDustBefore, coaDustAfter]
-///
-access(all) fun runSwapDustTest(
-    signer: Test.TestAccount,
-    tokenIn: String,
-    tokenOut: String,
-    provisionFlowAmount: UFix64,
-    testAmounts: [UFix64]
-): [[UFix64]] {
-    var results: [[UFix64]] = []
-
-    // Loop through test amounts, calling transaction once per amount
-    for i, desiredOut in testAmounts {
-        // Only provision on first call
-        let provisionAmount = i == 0 ? provisionFlowAmount : 0.0
-
-        let txn = Test.Transaction(
-            code: Test.readFile(
-                "../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_dust_test.cdc"
-            ),
-            authorizers: [signer.address],
-            signers: [signer],
-            arguments: [
-                FACTORY,
-                ROUTER,
-                QUOTER,
-                tokenIn,
-                tokenOut,
-                POOL_FEE,
-                V2_ROUTER,
-                provisionAmount,
-                desiredOut
-            ]
-        )
-        let txnResult = Test.executeTransaction(txn)
-        Test.expect(txnResult, Test.beSucceeded())
-
-        // Read result from account storage
-        let script = Test.readFile(
-            "../scripts/uniswap-v3-swap-connectors/read_swap_dust_result.cdc"
-        )
-        let result = Test.executeScript(script, [signer.address])
-        Test.expect(result, Test.beSucceeded())
-        results.append(result.returnValue as! [UFix64])
-    }
-
-    // Cleanup: destroy stored vault
-    let cleanupTxn = Test.Transaction(
-        code: Test.readFile("../transactions/cleanup_test_vault.cdc"),
-        authorizers: [signer.address],
-        signers: [signer],
-        arguments: []
+access(all) fun mintMOETToTestVault(signer: Test.TestAccount, amount: UFix64) {
+    let moetDeployer = Test.getAccount(MOET_DEPLOYER)
+    let txn = Test.Transaction(
+        code: Test.readFile(
+            "../transactions/uniswap-v3-swap-connectors/mint_moet_to_test_vault.cdc"
+        ),
+        authorizers: [moetDeployer.address, signer.address],
+        signers: [moetDeployer, signer],
+        arguments: [amount]
     )
-    Test.executeTransaction(cleanupTxn)
-
-    return results
+    let txnResult = Test.executeTransaction(txn)
+    Test.expect(txnResult, Test.beSucceeded())
 }
 
-/// Runs the swap overshoot test transaction with token transfer from holder:
-///   1. On first call: Transfers tokenIn from holder and bridges to Cadence
-///   2. For each test amount: runs quoteIn + swap and records metrics
-///   3. Stores result at /storage/swapDustResult after each swap
+// --- PYUSD provisioning helper ------------------------------------------------
+
+/// Provisions PYUSD by minting MOET and swapping to PYUSD via V3.
+/// After this call, signer's /storage/testTokenInVault contains PYUSD.
+///
+access(all) fun provisionPYUSD(signer: Test.TestAccount, moetMintAmount: UFix64, moetSwapAmount: UFix64) {
+    // Step 1: Mint MOET to testTokenInVault
+    mintMOETToTestVault(signer: signer, amount: moetMintAmount)
+
+    // Step 2: Swap MOET→PYUSD via V3
+    let txn = Test.Transaction(
+        code: Test.readFile(
+            "../transactions/uniswap-v3-swap-connectors/provision_pyusd_via_v3.cdc"
+        ),
+        authorizers: [signer.address],
+        signers: [signer],
+        arguments: [FACTORY, ROUTER, QUOTER, MOET, PYUSD, POOL_FEE, moetSwapAmount]
+    )
+    let txnResult = Test.executeTransaction(txn)
+    Test.expect(txnResult, Test.beSucceeded())
+}
+
+// --- Swap test helpers --------------------------------------------------------
+
+/// Runs swap tests with the token already provisioned in /storage/testTokenInVault.
+/// For each test amount: runs quoteIn + swap and records metrics.
 ///
 /// Returns rows of:
 ///   [desiredOut, quoteInAmount, quoteOutAmount, vaultBalance, coaDustBefore, coaDustAfter]
 ///
-access(all) fun runSwapOvershootTest(
+access(all) fun runSwapTests(
     signer: Test.TestAccount,
     tokenIn: String,
     tokenOut: String,
-    provisionAmount: UFix64,
-    holderAddr: String,
     testAmounts: [UFix64]
 ): [[UFix64]] {
     var results: [[UFix64]] = []
 
-    // Loop through test amounts, calling transaction once per amount
-    for i, desiredOut in testAmounts {
-        // Only provision on first call
-        let provAmount = i == 0 ? provisionAmount : 0.0
-
+    for desiredOut in testAmounts {
         let txn = Test.Transaction(
             code: Test.readFile(
                 "../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_overshoot_test.cdc"
@@ -347,15 +341,14 @@ access(all) fun runSwapOvershootTest(
                 tokenIn,
                 tokenOut,
                 POOL_FEE,
-                provAmount,
-                holderAddr,
+                0.0,
+                "0x0000000000000000000000000000000000000000",
                 desiredOut
             ]
         )
         let txnResult = Test.executeTransaction(txn)
         Test.expect(txnResult, Test.beSucceeded())
 
-        // Read result from account storage
         let script = Test.readFile(
             "../scripts/uniswap-v3-swap-connectors/read_swap_dust_result.cdc"
         )
@@ -364,7 +357,6 @@ access(all) fun runSwapOvershootTest(
         results.append(result.returnValue as! [UFix64])
     }
 
-    // Cleanup: destroy stored vault
     let cleanupTxn = Test.Transaction(
         code: Test.readFile("../transactions/cleanup_test_vault.cdc"),
         authorizers: [signer.address],
@@ -378,12 +370,8 @@ access(all) fun runSwapOvershootTest(
 
 /// Asserts swap dust/overshoot properties for each result row.
 ///
-/// Overshoot/dust can occur from rounding during quoting and swapping.
-/// The key finding: any overshoot beyond what was quoted stays in the COA.
-///
 /// Verifies:
 ///   - vaultBalance == quoteOutAmount (caller gets exactly what was quoted)
-///   - quoteOutAmount >= desiredOut (may overshoot due to input rounding)
 ///   - coaDustAfter >= coaDustBefore (overshoot/dust accumulates in COA)
 ///
 access(all) fun assertSwapDust(results: [[UFix64]]) {
@@ -400,8 +388,6 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
         let coaDustBefore    = row[4]
         let coaDustAfter     = row[5]
 
-        // Skip amounts where swap was not performed (quote failed or insufficient balance)
-        // Transaction records 0.0 for amounts when canSwap = false
         if quoteInAmount == 0.0 || quoteOutAmount == 0.0 || vaultBalance == 0.0 {
             skippedCount = skippedCount + 1
             let reason = quoteInAmount == 0.0 || quoteOutAmount == 0.0
@@ -414,19 +400,16 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
 
         testedCount = testedCount + 1
 
-        // Total overshoot from desired amount (quoting overshoot)
         let overshoot = quoteOutAmount >= desiredOut
             ? quoteOutAmount - desiredOut
             : 0.0
         totalOvershoot = totalOvershoot + overshoot
 
-        // Dust that stayed in COA (swap dust beyond quote)
         let dustInCOA = coaDustAfter >= coaDustBefore
             ? coaDustAfter - coaDustBefore
             : 0.0
         totalDustInCOA = totalDustInCOA + dustInCOA
 
-        // Log swap details
         log("---")
         log("[SWAP] Desired: ".concat(desiredOut.toString())
             .concat(", Quote: ").concat(quoteOutAmount.toString())
@@ -436,10 +419,8 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
         log("  COA balance => ".concat(coaDustBefore.toString())
             .concat(" → ").concat(coaDustAfter.toString()))
 
-        // Assert: vault balance matches quote exactly
         Test.assertEqual(quoteOutAmount, vaultBalance)
 
-        // Assert: COA dust never decreases (overshoot/dust accumulates)
         Test.assert(coaDustAfter >= coaDustBefore,
             message: "COA output-token balance decreased — overshoot/dust should accumulate in COA")
     }
@@ -452,67 +433,75 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
 
 // --- Swap tests ---------------------------------------------------------------
 
-/// Proves that actual V3 swaps return a vault with balance == quote.outAmount
-/// and that any overshoot dust stays in the COA (never bridged to the caller).
-///
-/// Provisions PYUSD via PunchSwap V2 (FlowToken -> WFLOW -> PYUSD), then
-/// swaps PYUSD -> MOET via the V3 connector for several desired output amounts.
+/// Baseline: MOET → PYUSD swaps produce zero COA dust because PYUSD is a
+/// 6-decimal ERC20 (≤8 decimals), so `toCadenceOut` is an exact conversion
+/// with no quantum-boundary rounding.
 ///
 access(all) fun testSwapDustStaysInCOA() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
+    // Provision MOET via minting
+    mintMOETToTestVault(signer: signer, amount: 100.0)
+
     let testAmounts: [UFix64] = [
         0.01,
         0.1,
-        0.45019707,   // produces exactly 1 quantum (0.00000001) overshoot in quoting
         1.0
     ]
 
-    let results = runSwapDustTest(
+    let results = runSwapTests(
         signer: signer,
-        tokenIn: PYUSD,
-        tokenOut: MOET,
-        provisionFlowAmount: 50.0,
+        tokenIn: MOET,
+        tokenOut: PYUSD,
         testAmounts: testAmounts
     )
 
     assertSwapDust(results: results)
 }
 
-/// Demonstrates visible overshoot accumulation in COA with different amounts.
+/// Demonstrates the trimming guard in action on PYUSD → MOET swaps.
 ///
-/// Provisions PYUSD via PunchSwap V2, then tests PYUSD -> MOET swaps
-/// with amounts likely to produce visible overshoot.
-/// The test verifies that:
-///   1. The returned vault contains exactly the quoted amount
-///   2. Quoting overshoot (quote > desired) goes to the caller
-///   3. Swap dust (actual > quote) accumulates in the COA
+/// MOET is an 18-decimal ERC20, so `toCadenceOut` floors actual output to the
+/// nearest 10^10 wei (1 UFix64 quantum).  When the router produces even slightly
+/// more output than the quoter predicted — because ceiled input crosses a
+/// quantum boundary — the trimming guard caps the bridged amount at
+/// `amountOutMin` and the excess stays in the COA.
+///
+/// Many fractional amounts are tested to maximise the chance of hitting
+/// quantum-boundary crossings that produce observable dust.
 ///
 access(all) fun testSwapOvershootStaysInCOA() {
     let signer = Test.getAccount(0x47f544294e3b7656)
     ensureCOA(signer)
 
-    // Use amounts that are more likely to produce visible overshoot
+    // Provision PYUSD: mint MOET then swap to PYUSD via V3
+    provisionPYUSD(signer: signer, moetMintAmount: 200.0, moetSwapAmount: 100.0)
+
     let testAmounts: [UFix64] = [
-        0.1,
-        0.5,
-        1.5,
-        3.0
+        0.00987654,
+        0.01000000,
+        0.05432109,
+        0.10000000,
+        0.12345678,
+        0.23456789,
+        0.45019707,   // known quoting overshoot — likely swap-level dust too
+        0.67890123,
+        0.78901234,
+        1.00000000,
+        1.23456789,
+        2.34567890,
+        5.00000000
     ]
 
-    let results = runSwapDustTest(
+    // PYUSD → MOET direction: 18-decimal output triggers trimming guard
+    let results = runSwapTests(
         signer: signer,
         tokenIn: PYUSD,
         tokenOut: MOET,
-        provisionFlowAmount: 20.0,  // Reduced to avoid running out of FLOW
         testAmounts: testAmounts
     )
 
     assertSwapDust(results: results)
 }
 
-// NOTE: MOET -> PYUSD swap tests are not included because:
-// - V2 router (PunchSwap) has insufficient liquidity for WFLOW -> MOET provisioning
-// - Quoting tests already demonstrate overshoot behavior in both directions
-// - The PYUSD -> MOET swap tests above comprehensively show COA dust accumulation
