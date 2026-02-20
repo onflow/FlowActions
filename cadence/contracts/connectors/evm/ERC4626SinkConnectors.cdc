@@ -149,11 +149,7 @@ access(all) contract ERC4626SinkConnectors {
                 )!
             if approveRes.status != EVM.Status.successful {
                 // Approve failed — attempt to bridge tokens back from EVM to Cadence
-                let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
-                // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
-                // due to UFix64/UInt256 rounding
-                if recovered.balance > 0.0 {
-                    from.deposit(from: <-recovered)
+                if self._bridgeTokenBackOnRevert(amount: amount, receiver: from) {
                     return
                 }
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
@@ -179,11 +175,7 @@ access(all) contract ERC4626SinkConnectors {
                 if revokeRes.status != EVM.Status.successful {
                     panic("Failed to revoke approval after deposit failure. Vault: \(self.vault.toString()), Asset: \(self.assetEVMAddress.toString()). Error code: \(revokeRes.errorCode) Error message: \(revokeRes.errorMessage)")
                 }
-                let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
-                // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
-                // due to UFix64/UInt256 rounding
-                if recovered.balance > 0.0 {
-                    from.deposit(from: <-recovered)
+                if self._bridgeTokenBackOnRevert(amount: amount, receiver: from) {
                     return
                 }
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
@@ -234,6 +226,27 @@ access(all) contract ERC4626SinkConnectors {
                     : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
             }
             return nil
+        }
+        /// Attempts to bridge tokens back from EVM to Cadence when an operation fails.
+        /// If successful, deposits the recovered tokens to the receiver vault and returns true.
+        /// If unsuccessful (no tokens recovered), destroys the empty vault and returns false.
+        ///
+        /// @param amount: the maximum amount of assets to recover
+        /// @param receiver: the vault to deposit recovered tokens into
+        ///
+        /// @return true if tokens were recovered and deposited, false otherwise
+        ///
+        access(self)
+        fun _bridgeTokenBackOnRevert(amount: UFix64, receiver: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}): Bool {
+            let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
+            // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
+            // due to UFix64/UInt256 rounding
+            if recovered.balance > 0.0 {
+                receiver.deposit(from: <-recovered)
+                return true
+            }
+            Burner.burn(<-recovered)
+            return false
         }
         /// Returns an error message for a failed approve call
         ///
