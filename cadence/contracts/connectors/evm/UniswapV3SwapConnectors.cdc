@@ -545,11 +545,6 @@ access(all) contract UniswapV3SwapConnectors {
             /// Cap at amountOutMin so only the expected amount is bridged; dust stays in the COA.
             let bridgeUFix = outUFix > amountOutMin && amountOutMin > 0.0 ? amountOutMin : outUFix
             let dust = outUFix > bridgeUFix ? outUFix - bridgeUFix : 0.0
-            if dust > 0.0 {
-                log("UniswapV3SwapConnectors: dust=".concat(dust.toString())
-                    .concat(" capped (outUFix=").concat(outUFix.toString())
-                    .concat(", bridged=").concat(bridgeUFix.toString()).concat(")"))
-            }
             let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 bridgeUFix,
                 erc20Address: outTokenEVMAddress
