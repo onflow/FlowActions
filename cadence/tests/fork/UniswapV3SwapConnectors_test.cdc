@@ -1,4 +1,4 @@
-#test_fork(network: "mainnet", height: 141227391)
+#test_fork(network: "mainnet", height: 142038853)
 
 import Test
 import "FlowToken"
@@ -53,6 +53,14 @@ access(all) fun setup() {
     err = Test.deployContract(
         name: "EVMAbiHelpers",
         path: "../../contracts/utils/EVMAbiHelpers.cdc",
+        arguments: []
+    )
+    Test.expect(err, Test.beNil())
+    Test.commitBlock()
+
+    err = Test.deployContract(
+        name: "EVMAmountUtils",
+        path: "../../contracts/connectors/evm/EVMAmountUtils.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
