@@ -21,8 +21,8 @@ import "UniswapV3SwapConnectors"
 ///   PYUSD:   0x99aF3EeA856556646C98c8B9b2548Fe815240750
 ///   MOET:    0x213979bB8A9A86966999b3AA797C1fcf3B967ae2
 ///   Factory: 0xca6d7Bb03334bBf135902e1d919a5feccb461632
-///   Quoter:  0xeEDC6Ff75e1b10B903D9013c358e446a73d35341
-///   Router:  0x370A8DF17742867a44e56223EC20D82092242C85
+///   Router:  0xeEDC6Ff75e1b10B903D9013c358e446a73d35341
+///   Quoter:  0x370A8DF17742867a44e56223EC20D82092242C85
 ///
 
 // --- Addresses ----------------------------------------------------------------
