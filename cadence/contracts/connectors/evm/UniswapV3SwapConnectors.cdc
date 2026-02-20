@@ -372,7 +372,6 @@ access(all) contract UniswapV3SwapConnectors {
                 // Approximation: √P' ≈ √P * (1 - priceImpact/2)
                 let sqrtMultiplier: UInt256 = 10000 - (bps / 2)
                 let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
-                let deltaSqrt: UInt256 = sqrtPriceX96_256 - sqrtPriceNew
                 
                 // Uniswap V3 spec: getAmount0Delta
                 // Δx = L * (√P - √P') / (√P * √P')
@@ -526,10 +525,7 @@ access(all) contract UniswapV3SwapConnectors {
             // against a buggy or malicious router contract.
             assert(
                 amountOutMin == 0.0 || outUFix >= amountOutMin,
-                message: "UniswapV3SwapConnectors: swap output "
-                    .concat(outUFix.toString())
-                    .concat(" < amountOutMin ")
-                    .concat(amountOutMin.toString())
+                message: "UniswapV3SwapConnectors: swap output \(outUFix.toString()) < amountOutMin \(amountOutMin.toString())"
             )
 
             /// Quoting exact output then swapping exact input can overshoot by up to 0.00000001 (1 UFix64 quantum)

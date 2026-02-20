@@ -32,7 +32,7 @@ access(all) let ROUTER     = "0xeEDC6Ff75e1b10B903D9013c358e446a73d35341"
 access(all) let QUOTER     = "0x370A8DF17742867a44e56223EC20D82092242C85"
 access(all) let PYUSD      = "0x99aF3EeA856556646C98c8B9b2548Fe815240750"
 access(all) let MOET       = "0x213979bB8A9A86966999b3AA797C1fcf3B967ae2"
-access(all) let POOL_FEE: UInt32 = 100   // 1 % fee tier
+access(all) let POOL_FEE: UInt32 = 100   // 0.01% fee tier
 access(all) let MOET_DEPLOYER: Address = 0x6b00ff876c299c61 // MOET contract deployer (has Minter)
 
 // --- Setup --------------------------------------------------------------------
