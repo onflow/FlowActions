@@ -93,6 +93,8 @@ access(all) contract EVMNativeFLOWConnectors {
             }
 
             // deposit tokens
+            // Safe to force-cast to @FlowToken.Vault because DeFiActions.Sink interface
+            // precondition ensures from.getType() == self.getSinkType() (which is @FlowToken.Vault)
             self.address.deposit(from: <-from.withdraw(amount: amount) as! @FlowToken.Vault)
         }
     }
