@@ -243,7 +243,7 @@ access(all) contract UniswapV3SwapConnectors {
                 if hopIdx > 0 {
                     // Use getV3QuoteRaw with partial path (exactOutput) to translate
                     // hopMaxIn (in hop's input token) back to initial input token
-                    let translatedAmount = self.getV3QuoteRaw(out: false, amount: hopMaxIn, reverse: reverse, toHopIndex: hopIdx)
+                    let translatedAmount = self.getV3QuoteRaw(out: false, amount: hopMaxIn, reverse: reverse, numHops: hopIdx)
                     
                     if translatedAmount == nil {
                         // Cannot translate, skip this hop's constraint
@@ -282,7 +282,7 @@ access(all) contract UniswapV3SwapConnectors {
         /// Build Uniswap V3 path bytes.
         ///
         /// - reverse: path direction (false = A->B->C->D, true = D->C->B->A)
-        /// - toHopIndex: number of hops to include. If nil, includes all hops (full path).
+        /// - numHops: number of hops to include. If nil, includes all hops (full path).
         /// - exactOutput:
         ///     - false → normal path order (used for exactInput & standard quoting)
         ///     - true  → reversed partial path (used for quoteExactOutput)
@@ -294,47 +294,46 @@ access(all) contract UniswapV3SwapConnectors {
         /// Normal path (exactInput & forward quoting):
         ///
         /// For forward swap (A -> B -> C -> D):
-        ///   - toHopIndex=nil: need to quote A -> B -> C -> D, want D amount,
+        ///   - numHops=nil: need to quote A -> B -> C -> D, want D amount,
         ///                     path: A | f0 | B | f1 | C | f2 | D
-        ///   - toHopIndex=1:   need to quote A -> B, want B amount,
+        ///   - numHops=1:   need to quote A -> B, want B amount,
         ///                     path: A | f0 | B
-        ///   - toHopIndex=2:   need to quote A -> B -> C, want C amount,
+        ///   - numHops=2:   need to quote A -> B -> C, want C amount,
         ///                     path: A | f0 | B | f1 | C
         ///
         /// For reverse swap (D -> C -> B -> A):
-        ///   - toHopIndex=nil: need to quote D -> C -> B -> A, want A amount,
+        ///   - numHops=nil: need to quote D -> C -> B -> A, want A amount,
         ///                     path: D | f2 | C | f1 | B | f0 | A
-        ///   - toHopIndex=1:   need to quote D -> C, want C amount,
+        ///   - numHops=1:   need to quote D -> C, want C amount,
         ///                     path: D | f2 | C
-        ///   - toHopIndex=2:   need to quote D -> C -> B, want B amount,
+        ///   - numHops=2:   need to quote D -> C -> B, want B amount,
         ///                     path: D | f2 | C | f1 | B
         ///
         /// Exact output path (quoteExactOutput):
         ///
         /// For forward swap (A -> B -> C -> D):
-        ///   - toHopIndex=nil: need to quote D -> C -> B -> A, want A amount,
+        ///   - numHops=nil: need to quote D -> C -> B -> A, want A amount,
         ///                     path: D | f2 | C | f1 | B | f0 | A
-        ///   - toHopIndex=1:   need to quote B -> A, want A amount,
+        ///   - numHops=1:   need to quote B -> A, want A amount,
         ///                     path: B | f0 | A
-        ///   - toHopIndex=2:   need to quote C -> B -> A, want A amount,
+        ///   - numHops=2:   need to quote C -> B -> A, want A amount,
         ///                     path: C | f1 | B | f0 | A
         ///
         /// For reverse swap (D -> C -> B -> A):
-        ///   - toHopIndex=nil: need to quote A -> B -> C -> D, want D amount,
+        ///   - numHops=nil: need to quote A -> B -> C -> D, want D amount,
         ///                     path: A | f0 | B | f1 | C | f2 | D
-        ///   - toHopIndex=1:   need to quote D -> C, want C amount,
+        ///   - numHops=1:   need to quote D -> C, want C amount,
         ///                     path: C | f2 | D
-        ///   - toHopIndex=2:   need to quote D -> C -> B, want B amount,
+        ///   - numHops=2:   need to quote D -> C -> B, want B amount,
         ///                     path: B | f1 | C | f2 | D
         ///
         access(self) fun _buildPathBytes(
             reverse: Bool,
             exactOutput: Bool,
-            toHopIndex: Int?,
+            numHops: Int?,
         ): EVM.EVMBytes {
-            if toHopIndex != nil {
-                let hopIndex = toHopIndex! 
-                assert(hopIndex >= 0 && hopIndex < self.feePath.length, message:"hopIndex out of bounds: \(hopIndex), nHops: \(self.feePath.length)")
+            if let nHops = numHops {
+                assert(nHops >= 1 && nHops <= self.feePath.length, message: "numHops out of bounds: path supports up to \(self.feePath.length), got: \(nHops)")
             }
 
             var out: [UInt8] = []
@@ -360,14 +359,14 @@ access(all) contract UniswapV3SwapConnectors {
 
             let nHops = self.feePath.length
             let last = self.tokenPath.length - 1
-            let hopsToInclude = toHopIndex ?? nHops
+            let hopsToInclude = numHops ?? nHops
 
             // Exact output (reversed path)
             if exactOutput {
                 if reverse {
                     // Reverse swap direction: D -> C -> B -> A
                     // Initial input is tokenPath[last], hop 1's input is tokenPath[last-1], etc.
-                    // For toHopIndex=1: output is tokenPath[last-1]=C, input is tokenPath[last]=D
+                    // For numHops=1: output is tokenPath[last-1]=C, input is tokenPath[last]=D
                     // Path: C | f2 | D
 
                     // Start with the output token (the input token of the target hop)
@@ -386,7 +385,7 @@ access(all) contract UniswapV3SwapConnectors {
                 } else {
                     // Forward swap direction: A -> B -> C -> D
                     // Initial input is tokenPath[0], hop 1's input is tokenPath[1], etc.
-                    // For toHopIndex=1: output is tokenPath[1]=B, input is tokenPath[0]=A
+                    // For numHops=1: output is tokenPath[1]=B, input is tokenPath[0]=A
                     // Path: B | f0 | A
 
                     // Start with the output token (the input token of the target hop)
@@ -577,7 +576,7 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Quote using the Uniswap V3 Quoter via dryCall (returns UFix64)
         access(self) fun getV3Quote(out: Bool, amount: UInt256, reverse: Bool): UFix64? {
-            let result = self.getV3QuoteRaw(out: out, amount: amount, reverse: reverse, toHopIndex: nil)
+            let result = self.getV3QuoteRaw(out: out, amount: amount, reverse: reverse, numHops: nil)
             if result == nil {
                 return nil
             }
@@ -599,10 +598,10 @@ access(all) contract UniswapV3SwapConnectors {
         /// - out: true for quoteExactInput (get output amount), false for quoteExactOutput (get input amount)
         /// - amount: the amount to quote
         /// - reverse: swap direction
-        /// - toHopIndex: for partial path quotes. If nil, uses full path.
-        access(self) fun getV3QuoteRaw(out: Bool, amount: UInt256, reverse: Bool, toHopIndex: Int?): UInt256? {
+        /// - numHops: for partial path quotes. If nil, uses full path.
+        access(self) fun getV3QuoteRaw(out: Bool, amount: UInt256, reverse: Bool, numHops: Int?): UInt256? {
             // For exactOutput, Uniswap expects path in reverse order (output -> input)
-            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: out, toHopIndex: toHopIndex)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: out, numHops: numHops)
 
             let callSig = out
                 ? "quoteExactInput(bytes,uint256)"
@@ -641,7 +640,7 @@ access(all) contract UniswapV3SwapConnectors {
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
             // Build path
-            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, toHopIndex: nil)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, numHops: nil)
 
             // Approve
             var res = self._call(
