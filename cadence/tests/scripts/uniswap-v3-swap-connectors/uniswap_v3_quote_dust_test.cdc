@@ -36,9 +36,9 @@ fun main(
     let tokenOut = EVM.addressFromString(tokenOutAddr)
 
     let inVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenIn)
-        ?? panic("Token-in EVM address not associated with a Cadence type via FlowEVMBridgeConfig: ".concat(tokenInAddr))
+        ?? panic("Token-in EVM address not associated with a Cadence type via FlowEVMBridgeConfig: \(tokenInAddr)")
     let outVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenOut)
-        ?? panic("Token-out EVM address not associated with a Cadence type via FlowEVMBridgeConfig: ".concat(tokenOutAddr))
+        ?? panic("Token-out EVM address not associated with a Cadence type via FlowEVMBridgeConfig: \(tokenOutAddr)")
 
     let swapper = UniswapV3SwapConnectors.Swapper(
         factoryAddress: factory,
