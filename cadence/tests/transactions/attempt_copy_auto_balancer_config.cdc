@@ -6,7 +6,7 @@ import "DeFiActions"
 transaction(victimAddress: Address, victimPublicPath: PublicPath, attackerStoragePath: StoragePath) {
     
     let victimConfig: DeFiActions.AutoBalancerRecurringConfig
-    let attackerAB: &DeFiActions.AutoBalancer
+    let attackerAB: auth(DeFiActions.Configure) &DeFiActions.AutoBalancer
     
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController) &Account) {
         // get victim's AutoBalancer
@@ -15,7 +15,7 @@ transaction(victimAddress: Address, victimPublicPath: PublicPath, attackerStorag
         self.victimConfig = victimAB.getRecurringConfig() ?? panic("Victim AutoBalancer does not have a recurring config")
 
         // get attacker's AutoBalancer
-        self.attackerAB = signer.storage.borrow<&DeFiActions.AutoBalancer>(from: attackerStoragePath)
+        self.attackerAB = signer.storage.borrow<auth(DeFiActions.Configure) &DeFiActions.AutoBalancer>(from: attackerStoragePath)
             ?? panic("Attacker AutoBalancer was not found in signer's storage at \(attackerStoragePath)")
     }
 

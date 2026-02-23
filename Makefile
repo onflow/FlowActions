@@ -4,12 +4,8 @@ test:
 
 .PHONY: lint
 lint:
-	@output=$$(flow cadence lint $$(find cadence -name "*.cdc" -not -path "*/tests/transactions/attempt_copy_auto_balancer_config.cdc") 2>&1); \
-	echo "$$output"; \
-	if echo "$$output" | grep -qE "[1-9][0-9]* problems"; then \
-		echo "Lint failed: problems found"; \
-  		exit 1; \
-	fi
+	find cadence -name "*.cdc" | xargs flow cadence lint \
+		| tee /dev/stderr | tail -n2 | grep -q "Lint passed"
 
 .PHONY: ci
 ci: lint test
