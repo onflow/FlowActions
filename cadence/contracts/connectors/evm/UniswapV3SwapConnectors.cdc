@@ -162,11 +162,29 @@ access(all) contract UniswapV3SwapConnectors {
             // ExactOutput quote: how much IN required for safeOutEVM OUT
             let amountInCadence = self.getV3Quote(out: false, amount: safeOutEVM, reverse: reverse)
 
+            // Refine outAmount: the ceiled input may produce more output than safeOutCadence
+            // because (a) UFix64 ceiling rounds the input up and (b) the pool's exactOutput/
+            // exactInput math is not perfectly invertible.  Do a follow-up exactInput quote
+            // with the ceiled input so that quoteIn.outAmount matches what a subsequent
+            // quoteOut(forProvided: ceiledInput) would return.  This keeps quote-level dust
+            // bounded at ≤ 1 UFix64 quantum (0.00000001).
+            var refinedOutCadence = safeOutCadence
+            if let inCadence = amountInCadence {
+                let inToken = self.inToken(reverse)
+                let ceiledInEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                    inCadence,
+                    erc20Address: inToken
+                )
+                if let forwardOut = self.getV3Quote(out: true, amount: ceiledInEVM, reverse: reverse) {
+                    refinedOutCadence = forwardOut
+                }
+            }
+
             return SwapConnectors.BasicQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: amountInCadence ?? 0.0,
-                outAmount: amountInCadence != nil ? safeOutCadence : 0.0
+                outAmount: amountInCadence != nil ? refinedOutCadence : 0.0
             )
         }
 
@@ -354,7 +372,6 @@ access(all) contract UniswapV3SwapConnectors {
                 // Approximation: √P' ≈ √P * (1 - priceImpact/2)
                 let sqrtMultiplier: UInt256 = 10000 - (bps / 2)
                 let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
-                let deltaSqrt: UInt256 = sqrtPriceX96_256 - sqrtPriceNew
                 
                 // Uniswap V3 spec: getAmount0Delta
                 // Δx = L * (√P - √P') / (√P * √P')
@@ -503,11 +520,36 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outTokenEVMAddress
             )
 
+            // Defensive: ensure the router respected amountOutMinimum.
+            // Under normal operation the V3 router reverts when output < min, but guard
+            // against a buggy or malicious router contract.
+            assert(
+                amountOutMin == 0.0 || outUFix >= amountOutMin,
+                message: "UniswapV3SwapConnectors: swap output \(outUFix.toString()) < amountOutMin \(amountOutMin.toString())"
+            )
+
+            /// Quoting exact output then swapping exact input can overshoot by up to 0.00000001 (1 UFix64 quantum)
+            /// when the pool's effective exchange rate is near 1:1.
+            ///
+            /// UFix64 has 8 decimals; EVM tokens typically have 18. One UFix64 step = 10^10 wei.
+            ///
+            /// Example (pool price 1 FLOW = 2 USDC, want 10 USDC out):
+            ///   1. Quoter says need 5,000000002000000000 FLOW wei
+            ///   2. Ceil to UFix64:  5,000000010000000000  (overshoot: 8e9 wei)
+            ///   3. exactInput swaps the ceiled amount; extra 8e9 FLOW wei × 2 = 16e9 USDC wei extra
+            ///   4. Actual output:  10,000000016000000000 USDC wei
+            ///   5. Floor to UFix64: 10.00000001 USDC  (quoted 10.00000000)
+            ///
+            /// The overshoot is always non-negative (ceiled input >= what pool needs).
+            /// It surfaces when the extra output crosses a 10^10 wei quantum boundary.
+            /// Cap at amountOutMin so only the expected amount is bridged; dust stays in the COA.
+            let bridgeUFix = outUFix > amountOutMin && amountOutMin > 0.0 ? amountOutMin : outUFix
+            let dust = outUFix > bridgeUFix ? outUFix - bridgeUFix : 0.0
             let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                outUFix,
+                bridgeUFix,
                 erc20Address: outTokenEVMAddress
             )
-            // Withdraw output back to Flow
+            // Withdraw output back to Flow; sub-quantum remainder and any overshoot stay in COA
             let outVault <- coa.withdrawTokens(type: outVaultType, amount: safeAmountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
