@@ -241,7 +241,8 @@ access(all) contract ERC4626SinkConnectors {
             let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
             // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
             // due to UFix64/UInt256 rounding
-            if recovered.balance > 0.0 {
+            let tolerance = 0.00000001
+            if recovered.balance >= amount - tolerance {
                 receiver.deposit(from: <-recovered)
                 return true
             }
