@@ -585,6 +585,14 @@
 				"testnet": "dfc20aee650fcbdf"
 			}
 		},
+		"MOET": {
+			"source": "mainnet://6b00ff876c299c61.MOET",
+			"aliases": {
+				"mainnet": "6b00ff876c299c61",
+				"mainnet-fork": "6b00ff876c299c61",
+				"testing": "0000000000000008"
+			}
+		},
 		"MetadataViews": {
 			"source": "mainnet://1d7e57aa55817448.MetadataViews",
 			"hash": "b290b7906d901882b4b62e596225fb2f10defb5eaaab4a09368f3aee0e9c18b1",
