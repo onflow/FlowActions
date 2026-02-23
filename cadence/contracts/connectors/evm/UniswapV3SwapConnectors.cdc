@@ -601,7 +601,7 @@ access(all) contract UniswapV3SwapConnectors {
         /// - numHops: for partial path quotes. If nil, uses full path.
         access(self) fun getV3QuoteRaw(out: Bool, amount: UInt256, reverse: Bool, numHops: Int?): UInt256? {
             // For exactOutput, Uniswap expects path in reverse order (output -> input)
-            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: out, numHops: numHops)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: !out, numHops: numHops)
 
             let callSig = out
                 ? "quoteExactInput(bytes,uint256)"

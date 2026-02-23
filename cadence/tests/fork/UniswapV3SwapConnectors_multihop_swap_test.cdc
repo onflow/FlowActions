@@ -12,17 +12,27 @@ access(all) let QuoterV2 = "0x370A8DF17742867a44e56223EC20D82092242C85"
 // Type identifier: A.<bridge_address>.EVMVMBridgedToken_<evm_token_address_lowercase>.Vault
 
 // WBTC on Flow EVM: 717dae2baf7656be9a9b01dee31d571a9d4c9579
-access(all) let WBTC_TYPE_ID = "A.1e4aa0b87d10b141.EVMVMBridgedToken_717dae2baf7656be9a9b01dee31d571a9d4c9579.Vault"
+access(all) let WBTC_TOKEN_ID = "A.1e4aa0b87d10b141.EVMVMBridgedToken_717dae2baf7656be9a9b01dee31d571a9d4c9579.Vault"
 // WETH on Flow EVM - 2f6f07cdcf3588944bf4c42ac74ff24bf56e7590
-access(all) let WETH_TYPE_ID= "A.1e4aa0b87d10b141.EVMVMBridgedToken_2f6f07cdcf3588944bf4c42ac74ff24bf56e7590.Vault"
+access(all) let WETH_TOKEN_ID= "A.1e4aa0b87d10b141.EVMVMBridgedToken_2f6f07cdcf3588944bf4c42ac74ff24bf56e7590.Vault"
 // USDF (USD Flow) on Flow EVM - 2aabea2058b5ac2d339b163c6ab6f2b6d53aabed
-access(all) let USDF_TYPE_ID = "A.1e4aa0b87d10b141.EVMVMBridgedToken_2aabea2058b5ac2d339b163c6ab6f2b6d53aabed.Vault"
+access(all) let USDF_TOKEN_ID = "A.1e4aa0b87d10b141.EVMVMBridgedToken_2aabea2058b5ac2d339b163c6ab6f2b6d53aabed.Vault"
+
+access(all) let USDF = CompositeType(USDF_TOKEN_ID)!
+access(all) let WETH = CompositeType(WETH_TOKEN_ID)!
+access(all) let WBTC = CompositeType(WBTC_TOKEN_ID)!
 
 access(all) let WBTC_STORAGE_PATH=/storage/EVMVMBridgedToken_717dae2baf7656be9a9b01dee31d571a9d4c9579Vault
+access(all) let WETH_STORAGE_PATH=/storage/EVMVMBridgedToken_2f6f07cdcf3588944bf4c42ac74ff24bf56e7590Vault
 access(all) let USDF_STORAGE_PATH=/storage/EVMVMBridgedToken_2aabea2058b5ac2d339b163c6ab6f2b6d53aabedVault
 
 access(all) let WBTC_PUBLIC_PATH=/public/EVMVMBridgedToken_717dae2baf7656be9a9b01dee31d571a9d4c9579Receiver
+access(all) let WETH_PUBLIC_PATH=/public/EVMVMBridgedToken_2f6f07cdcf3588944bf4c42ac74ff24bf56e7590Receiver
 access(all) let USDF_PUBLIC_PATH=/public/EVMVMBridgedToken_2aabea2058b5ac2d339b163c6ab6f2b6d53aabedReceiver
+
+access(all) let WBTC_HOLDER = Test.getAccount(0x47f544294e3b7656)
+access(all) let USDF_HOLDER = Test.getAccount(0x40cd27ac5893644a)
+access(all) let WETH_HOLDER = Test.getAccount(0x47f544294e3b7656)
 
 /// Deploys all required contracts for the UniswapV3SwapConnectors test suite.
 access(all) fun setup() {
@@ -75,41 +85,29 @@ access(all) fun setup() {
     Test.commitBlock()
 }
 
-// testMultiHopSwapExecution tests suite validates multi-hop swap functionality using Uniswap V3
+// testMultiHopSwapForward tests suite validates multi-hop swap functionality using Uniswap V3
 // on Flow EVM. It forks Flow mainnet at a specific block height to test
 // against real on-chain state and liquidity pools.
 //
-// Test Account: 0x47f544294e3b7656 (WBTC holder on mainnet)
 // Swap Path: WBTC → WETH → USDF (2-hop swap)
-access(all) fun testMultiHopSwapExecution() {
-    // 0x47f544294e3b7656 - WBTC holder
-    let signer = Test.getAccount(0x47f544294e3b7656)
+access(all) fun testMultiHopSwapForward() {
+    let user = WBTC_HOLDER
     let amount = 0.0001
-
-    let USDF = CompositeType(USDF_TYPE_ID)!
-    let WETH = CompositeType(WETH_TYPE_ID)!
-    let WBTC = CompositeType(WBTC_TYPE_ID)!
     
-    let tokenPath: [Type] = [WBTC, WETH, USDF]
+    let tokenPath = [WBTC, WETH, USDF]
     let feePath: [UInt32] = [3000, 3000]
 
     // First, setup the output vault for USDF
-    var setupVaultTxn = Test.Transaction(
-        code: Test.readFile("../../transactions/fungible-tokens/setup_generic_vault.cdc"),
-        authorizers: [signer.address],
-        signers: [signer],
-        arguments: [USDF_TYPE_ID]
-    )
-    var setupResult = Test.executeTransaction(setupVaultTxn)
+    var setupResult = setupGeneriVault(signer: user, tokenIdentifier: USDF_TOKEN_ID)
     Test.expect(setupResult, Test.beSucceeded())
 
-    let WBTCBalanceBefore = getBalance(address: signer.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
-    let USDFBalanceBefore: UFix64 = getBalance(address: signer.address, vaultPublicPath: USDF_PUBLIC_PATH)!
+    let WBTCBalanceBefore = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let USDFBalanceBefore = getBalance(address: user.address, vaultPublicPath: USDF_PUBLIC_PATH)!
 
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/evm/uniswap-v3-swap-connectors/uniswap_v3_swap.cdc"),
-        authorizers: [signer.address],
-        signers: [signer],
+        authorizers: [user.address],
+        signers: [user],
         arguments: [
             amount,
             UniswapV3Factory,
@@ -125,8 +123,8 @@ access(all) fun testMultiHopSwapExecution() {
     let result = Test.executeTransaction(swapTxn)
     Test.expect(result, Test.beSucceeded())
 
-    let WBTCBalanceAfter = getBalance(address: signer.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
-    let USDFBalanceAfter = getBalance(address: signer.address, vaultPublicPath: USDF_PUBLIC_PATH)!
+    let WBTCBalanceAfter = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let USDFBalanceAfter = getBalance(address: user.address, vaultPublicPath: USDF_PUBLIC_PATH)!
 
     let WBTCSpent = WBTCBalanceBefore - WBTCBalanceAfter
     Test.assert(WBTCSpent >= amount, message: "Spent less WBTC than expected! Spent: \(WBTCSpent), expected at least: \(amount)")
@@ -137,10 +135,141 @@ access(all) fun testMultiHopSwapExecution() {
     log("USDC received: \(usdcReceived)")
 }
 
+// testReverseMultiHopSwapBack validates reverse-direction execution of a
+// multi-hop swap using swapBack (reverse=true).
+//
+// Swap path: USDF -> WETH -> WBTC
+access(all) fun testReverseMultiHopSwapBack() {
+    let user = USDF_HOLDER
+    let tokenPath = [WBTC, WETH, USDF]
+    let feePath: [UInt32] = [3000, 3000]
+
+    //setup the output vault for WBTC
+    var setupResult = setupGeneriVault(signer: user, tokenIdentifier: WBTC_TOKEN_ID)
+    Test.expect(setupResult, Test.beSucceeded())
+
+    let WBTCBefore = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let USDFBefore = getBalance(address: user.address, vaultPublicPath: USDF_PUBLIC_PATH)!
+    Test.assert(USDFBefore > 0.0, message: "No USDF on account")
+
+    // reverse swap (swapBack) — USDF → WETH → WBTC
+    let reverseAmount = USDFBefore * 0.9
+
+    let reverseSwapTxn = Test.Transaction(
+        code: Test.readFile("../../transactions/evm/uniswap-v3-swap-connectors/uniswap_v3_swap_back.cdc"),
+        authorizers: [user.address],
+        signers: [user],
+        arguments: [
+            reverseAmount, UniswapV3Factory, SwapRouter02, QuoterV2,
+            tokenPath, feePath, WBTC_STORAGE_PATH, USDF_STORAGE_PATH
+        ]
+    )
+    let reverseResult = Test.executeTransaction(reverseSwapTxn)
+    Test.expect(reverseResult, Test.beSucceeded())
+
+    let WBTCAfter = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let USDFAfter = getBalance(address: user.address, vaultPublicPath: USDF_PUBLIC_PATH)!
+
+    let wbtcRecovered = WBTCAfter - WBTCBefore
+    let usdfSpent = USDFBefore - USDFAfter
+
+    Test.assert(wbtcRecovered > 0.0, message: "No WBTC recovered from reverse swap")
+    Test.assert(usdfSpent > 0.0, message: "No USDF spent in reverse swap")
+    log("Reverse multi-hop: spent \(usdfSpent) USDF, recovered \(wbtcRecovered) WBTC")
+}
+
+// testSingleHopSwapForward validates the simplest forward swap path using
+// a single-hop Uniswap V3 pool on Flow EVM.
+//
+// Swap Path: WBTC → WETH
+access(all) fun testSingleHopSwapForward() {
+    let user = WBTC_HOLDER
+    let amount = 0.0001
+
+    let tokenPath= [WBTC, WETH]
+    let feePath: [UInt32] = [3000]
+
+    var setupResult = setupGeneriVault(signer: user, tokenIdentifier: WETH_TOKEN_ID)
+    Test.expect(setupResult, Test.beSucceeded())
+
+    let WBTCBefore = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let WETHBefore = getBalance(address: user.address, vaultPublicPath: WETH_PUBLIC_PATH)!
+
+    let swapTxn = Test.Transaction(
+        code: Test.readFile("../../transactions/evm/uniswap-v3-swap-connectors/uniswap_v3_swap.cdc"),
+        authorizers: [user.address],
+        signers: [user],
+        arguments: [
+            amount, UniswapV3Factory, SwapRouter02, QuoterV2,
+            tokenPath, feePath, WBTC_STORAGE_PATH, WETH_STORAGE_PATH
+        ]
+    )
+    let result = Test.executeTransaction(swapTxn)
+    Test.expect(result, Test.beSucceeded())
+
+    let WBTCAfter = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let WETHAfter = getBalance(address: user.address, vaultPublicPath: WETH_PUBLIC_PATH)!
+
+    Test.assert(WBTCBefore - WBTCAfter >= amount, message: "WBTC not spent")
+    Test.assert(WETHAfter - WETHBefore > 0.0, message: "No WETH received")
+    log("Single-hop forward: spent \(WBTCBefore - WBTCAfter) WBTC, received \(WETHAfter - WETHBefore) WETH")
+}
+
+// testSingleHopReverseSwapBack validates reverse-direction swapping for a
+// single-hop path using swapBack (reverse=true).
+//
+// Reverse execution path: WETH → WBTC
+access(all) fun testSingleHopReverseSwapBack() {
+    let user = WETH_HOLDER
+    let tokenPath = [WBTC, WETH]
+    let feePath: [UInt32] = [3000]
+
+    var setupResult = setupGeneriVault(signer: user, tokenIdentifier: WBTC_TOKEN_ID)
+    Test.expect(setupResult, Test.beSucceeded())
+
+    let WBTCBefore = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let WETHBefore = getBalance(address: user.address, vaultPublicPath: WETH_PUBLIC_PATH)!
+
+    // reverse swap — WETH → WBTC
+    let amount = WETHBefore / 2.0
+
+    let reverseSwapTxn = Test.Transaction(
+        code: Test.readFile("../../transactions/evm/uniswap-v3-swap-connectors/uniswap_v3_swap_back.cdc"),
+        authorizers: [user.address],
+        signers: [user],
+        arguments: [
+            amount, UniswapV3Factory, SwapRouter02, QuoterV2,
+            tokenPath, feePath, WBTC_STORAGE_PATH, WETH_STORAGE_PATH
+        ]
+    )
+    Test.expect(Test.executeTransaction(reverseSwapTxn), Test.beSucceeded())
+
+    let WBTCAfter = getBalance(address: user.address, vaultPublicPath: WBTC_PUBLIC_PATH)!
+    let WETHAfter = getBalance(address: user.address, vaultPublicPath: WETH_PUBLIC_PATH)!
+
+    let WBTCRecovered = WBTCAfter - WBTCBefore
+    let WETHSpent = WETHBefore - WETHAfter
+
+    Test.assert(WETHBefore - WETHAfter >= amount, message: "WETH not spent")
+    Test.assert(WBTCAfter - WBTCBefore > 0.0, message: "No BTC received")
+    log("Single-hop reverse: recovered \(WBTCAfter - WBTCBefore) WBTC")
+}
+
 /// getBalance retrieves the balance of a fungible token vault via its public capability.
 access(all)
 fun getBalance(address: Address, vaultPublicPath: PublicPath): UFix64? {
     let res = Test.executeScript(Test.readFile("../../scripts/tokens/get_balance.cdc"), [address, vaultPublicPath])
     Test.expect(res, Test.beSucceeded())
     return res.returnValue as! UFix64?
+}
+
+access(all)
+fun setupGeneriVault(signer: Test.TestAccount, tokenIdentifier: String): Test.TransactionResult {
+    let txn = Test.Transaction(
+        code: Test.readFile("../../transactions/fungible-tokens/setup_generic_vault.cdc"),
+        authorizers: [signer.address],
+        signers: [signer],
+        arguments: [tokenIdentifier]
+    )
+    return Test.executeTransaction(txn)
 }
