@@ -228,26 +228,22 @@ access(all) contract ERC4626SinkConnectors {
             return nil
         }
         /// Attempts to bridge tokens back from EVM to Cadence when an operation fails.
-        /// If successful, deposits the recovered tokens to the receiver vault and returns true.
-        /// If unsuccessful (no tokens recovered), destroys the empty vault and returns false.
+        /// Always deposits whatever was recovered into the receiver vault.
         ///
         /// @param amount: the maximum amount of assets to recover
         /// @param receiver: the vault to deposit recovered tokens into
         ///
-        /// @return true if tokens were recovered and deposited, false otherwise
+        /// @return true if the full amount was recovered (within rounding tolerance), false if only partial or zero
         ///
         access(self)
         fun _bridgeTokenBackOnRevert(amount: UFix64, receiver: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}): Bool {
-            let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
             // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
             // due to UFix64/UInt256 rounding
+            let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
             let tolerance = 0.00000001
-            if recovered.balance >= amount - tolerance {
-                receiver.deposit(from: <-recovered)
-                return true
-            }
-            Burner.burn(<-recovered)
-            return false
+            let recoveredAmount = recovered.balance
+            receiver.deposit(from: <-recovered)
+            return recoveredAmount >= amount - tolerance ? true : false
         }
         /// Returns an error message for a failed approve call
         ///
