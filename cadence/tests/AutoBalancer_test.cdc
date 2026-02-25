@@ -188,7 +188,7 @@ access(all) fun test_ExecutionCallbackRuns() {
     let createdEvts = Test.eventsOfType(Type<DeFiActions.CreatedAutoBalancer>())
     Test.assertEqual(1, createdEvts.length)
     let createdEvt = createdEvts[0] as! DeFiActions.CreatedAutoBalancer
-    let balancerUUID = createdEvt.uuid
+    let balancerUUID = createdEvt.uniqueID ?? 0
 
     let interval: UInt64 = 10
     let executionEffort: UInt64 = 1_000
