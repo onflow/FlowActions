@@ -144,6 +144,12 @@
 				"testing": "0000000000000009"
 			}
 		},
+		"ExecutionCallbackRecorder": {
+			"source": "cadence/tests/contracts/ExecutionCallbackRecorder.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"MorphoERC4626SinkConnectors": {
 			"source": "cadence/contracts/connectors/evm/morpho/MorphoERC4626SinkConnectors.cdc",
 			"aliases": {
