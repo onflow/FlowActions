@@ -243,7 +243,7 @@ access(all) contract ERC4626SinkConnectors {
             let tolerance = 0.00000001
             let recoveredAmount = recovered.balance
             receiver.deposit(from: <-recovered)
-            return recoveredAmount >= amount - tolerance ? true : false
+            return recoveredAmount + tolerance >= amount
         }
         /// Returns an error message for a failed approve call
         ///
