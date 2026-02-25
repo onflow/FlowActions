@@ -1079,7 +1079,7 @@ access(all) contract DeFiActions {
             if let cap = self._executionCallback {
                 if cap.check() {
                     if let callback = cap.borrow() {
-                        callback.onExecuted(balancerUUID: self.uuid)
+                        callback.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
                     }
                 }
             }
