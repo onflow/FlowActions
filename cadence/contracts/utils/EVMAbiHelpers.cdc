@@ -91,18 +91,6 @@ access(all) contract EVMAbiHelpers {
         return out
     }
 
-    access(all) fun toHex(_ bytes: [UInt8]): String {
-        let hex: [String] = ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]
-        var out = ""
-        var i = 0
-        while i < bytes.length {
-            let b = bytes[i]
-            out = out.concat(hex[Int(b / 16)]).concat(hex[Int(b % 16)])
-            i = i + 1
-        }
-        return out
-    }
-
     // Represents one ABI argument chunk
     access(all) struct ABIArg {
         access(all) let isDynamic: Bool
