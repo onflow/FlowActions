@@ -516,7 +516,7 @@ access(all) contract UniswapV3SwapConnectors {
             fun wordToUIntN(_ w: [UInt8], _ nBits: Int): UInt {
                 let full = wordToUInt(w)
                 if nBits >= 256 { return full }
-                let mask = (1 as UInt << UInt(nBits)) - 1
+                let mask: UInt = (1 << UInt(nBits)) - 1
                 return full & mask
             }
             fun words(_ data: [UInt8]): [[UInt8]] {
@@ -553,8 +553,8 @@ access(all) contract UniswapV3SwapConnectors {
             
             // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
-            let bps = 600 as UInt256
-            let Q96 = 0x1000000000000000000000000 as UInt256
+            let bps: UInt256 = 600
+            let Q96: UInt256 = 0x1000000000000000000000000
             let sqrtPriceX96_256 = UInt256(sqrtPriceX96)
             let L_256 = UInt256(L)
             
@@ -572,13 +572,13 @@ access(all) contract UniswapV3SwapConnectors {
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
                 let num1 = L_256 * bps
                 let num2 = num1 * Q96
-                let den = 20000 as UInt256 * sqrtPriceNew
+                let den: UInt256 = 20000 * sqrtPriceNew
                 maxAmount = den == 0 ? 0 : num2 / den
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
                 // Formula: Δy = L * (√P' - √P)
                 // Approximation: √P' ≈ √P * (1 + priceImpact/2)
-                let sqrtMultiplier = 10000 as UInt256 + (bps / 2)
+                let sqrtMultiplier: UInt256 = 10000 + (bps / 2)
                 let sqrtPriceNew = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
                 let deltaSqrt = sqrtPriceNew - sqrtPriceX96_256
                 

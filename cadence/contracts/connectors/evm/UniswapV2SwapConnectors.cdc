@@ -216,7 +216,10 @@ access(all) contract UniswapV2SwapConnectors {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // bridge the provided to the COA's EVM address
-            let inTokenAddress = reverse ? self.addressPath[self.addressPath.length - 1] : self.addressPath[0]
+            let inTokenAddress =
+                reverse
+                ? self.addressPath[self.addressPath.length - 1]
+                : self.addressPath[0]
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 exactVaultIn.balance,
                 erc20Address: inTokenAddress
@@ -238,7 +241,13 @@ access(all) contract UniswapV2SwapConnectors {
             // perform the swap
             res = self.call(to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", // amountIn, amountOutMin, path, to, deadline (timestamp)
-                args: [evmAmountIn, 0, (reverse ? self.addressPath.reverse() : self.addressPath), coa.address(), UInt256(getCurrentBlock().timestamp)],
+                args: [
+                    evmAmountIn,
+                    0,
+                    reverse ? self.addressPath.reverse() : self.addressPath,
+                    coa.address(),
+                    UInt256(getCurrentBlock().timestamp)
+                ],
                 gasLimit: 1_000_000,
                 value: 0,
                 dryCall: false

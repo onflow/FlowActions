@@ -194,10 +194,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         ///
         access(self)
         fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.Result): String {
-            let s1 = "Failed to approve ERC4626 vault \(self.vaultEVMAddress.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()). ";
-            let s2 = "approvee: \(self.vaultEVMAddress.toString()), amount: \(uintAmount). ";
-            let s3 = "Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)";
-            return "\(s1)\(s2)\(s3)"
+            return "Failed to approve ERC4626 vault \(self.vaultEVMAddress.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()), approvee: \(self.vaultEVMAddress.toString()), amount: \(uintAmount). Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)"
         }
         /// Returns an error message for a failed deposit call
         ///
@@ -210,10 +207,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(self)
         fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.Result): String {
             let coaHex = self.coa.borrow()!.address().toString()
-            let s1 = "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vaultEVMAddress.toString()). ";
-            let s2 = "amount: \(uintAmount), to: \(coaHex). ";
-            let s3 = "Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)";
-            return "\(s1)\(s2)\(s3)"
+            return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vaultEVMAddress.toString()), amount: \(uintAmount), to: \(coaHex). Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)"
         }
     }
     /// ShareSink
@@ -390,10 +384,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(self)
         fun _redeemErrorMessage(ufixShares: UFix64, uintShares: UInt256, redeemRes: EVM.Result): String {
             let coaHex = self.coa.borrow()!.address().toString()
-            let s1 = "Failed to redeem \(ufixShares) shares \(self.vaultEVMAddress.toString()) from ERC4626 vault for \(self.assetEVMAddress.toString()). ";
-            let s2 = "amount: \(uintShares), to: \(coaHex). ";
-            let s3 = "Error code: \(redeemRes.errorCode) Error message: \(redeemRes.errorMessage)";
-            return "\(s1)\(s2)\(s3)"
+            return "Failed to redeem \(ufixShares) shares \(self.vaultEVMAddress.toString()) from ERC4626 vault for \(self.assetEVMAddress.toString()), amount: \(uintShares), to: \(coaHex). Error code: \(redeemRes.errorCode) Error message: \(redeemRes.errorMessage)"
         }
     }
 }
