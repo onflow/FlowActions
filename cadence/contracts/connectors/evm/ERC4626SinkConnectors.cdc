@@ -132,7 +132,6 @@ access(all) contract ERC4626SinkConnectors {
             // approve the ERC4626 vault to spend the assets on deposit
             let uintAmount = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amount, erc20Address: self.assetEVMAddress)
             let approveRes = self._call(
-                    dry: false,
                     to: self.assetEVMAddress,
                     signature: "approve(address,uint256)",
                     args: [self.vault, uintAmount],
@@ -145,7 +144,6 @@ access(all) contract ERC4626SinkConnectors {
 
             // deposit the assets to the ERC4626 vault
             let depositRes = self._call(
-                dry: false,
                 to: self.vault,
                 signature: "deposit(uint256,address)",
                 args: [uintAmount, self.coa.borrow()!.address()],
@@ -184,22 +182,20 @@ access(all) contract ERC4626SinkConnectors {
         access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
             self.uniqueID = id
         }
-        /// Performs a dry call to the ERC4626 vault
+        /// Performs a call to the ERC4626 vault
         ///
         /// @param to The address of the ERC4626 vault
         /// @param signature The signature of the function to call
         /// @param args The arguments to pass to the function
         /// @param gasLimit The gas limit to use for the call
         ///
-        /// @return The result of the dry call or `nil` if the COA capability is invalid
+        /// @return The result of `nil` if the COA capability is invalid
         access(self)
-        fun _call(dry: Bool, to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result? {
+        fun _call(to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result? {
             let calldata = EVM.encodeABIWithSignature(signature, args)
             let valueBalance = EVM.Balance(attoflow: 0)
             if let coa = self.coa.borrow() {
-                return dry
-                    ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                    : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
             }
             return nil
         }

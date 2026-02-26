@@ -116,10 +116,6 @@ access(all) contract EVMTokenConnectors {
         /// @param from: an authorized reference to the Vault from which to deposit funds
         ///
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            if from.getType() != self.depositVaultType {
-                return // unrelated vault type
-            }
-
             // assess amount to deposit
             let capacity = self.minimumCapacity()
             let amount = from.balance > capacity ? capacity : from.balance
@@ -135,6 +131,7 @@ access(all) contract EVMTokenConnectors {
             let fees <- self.feeSource.withdrawAvailable(maxAmount: feeAmount)
 
             // deposit tokens and handle remaining fees
+            // vault type validation is enforced by the DeFiActions.Sink interface precondition (from.getType() == self.getSinkType())
             FlowEVMBridge.bridgeTokensToEVM(
                 vault: <-from.withdraw(amount: amount),
                 to: self.address,

@@ -129,13 +129,9 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outToken
             )
 
-            // Derive true Uniswap direction for pool math
-            let zeroForOne = self.isZeroForOne(reverse: reverse)
-
-            // Max INPUT proxy in correct pool terms
-            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
-            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
-            let maxInEVM = self.getMaxInAmount(zeroForOne: zeroForOne)
+            // For multi-hop paths, find the effective max input by considering all hops.
+            // The bottleneck is the hop with the smallest capacity when translated to input terms.
+            let maxInEVM = self.getEffectiveMaxInput(reverse: reverse)
 
             // If clamp proxy is 0, don't clamp — it's a truncation/edge case
             var safeOutEVM = desiredOutEVM
@@ -197,10 +193,9 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: inToken
             )
 
-            // Max INPUT proxy in correct pool terms
-            // TODO: Multi-hop clamp currently uses the first pool (tokenPath[0]/[1]) even in reverse;
-            // consider clamping per-hop or disabling clamp when tokenPath.length > 2.
-            let maxInEVM = self.maxInAmount(reverse: reverse)
+            // For multi-hop paths, find the effective max input by considering all hops.
+            // The bottleneck is the hop with the smallest capacity when translated to input terms.
+            let maxInEVM = self.getEffectiveMaxInput(reverse: reverse)
 
             // If clamp proxy is 0, don't clamp — it's a truncation/edge case
             var safeInEVM = providedInEVM
@@ -225,6 +220,69 @@ access(all) contract UniswapV3SwapConnectors {
             )
         }
 
+        /// Calculates the effective maximum input for the entire path by finding the bottleneck hop.
+        /// For multi-hop swaps, each hop has its own max input capacity based on liquidity.
+        /// We translate each hop's capacity back to the initial input token terms
+        /// and find the minimum.
+        ///
+        /// For a path A -> B -> C (forward):
+        ///   - Hop 0: maxIn0 is already in terms of token A
+        ///   - Hop 1: maxIn1 is in terms of token B, need to translate to token A via quoteExactOutput
+        ///
+        /// For a path C -> B -> A (reverse):
+        ///   - Hop 0: maxIn0 is in terms of token C
+        ///   - Hop 1: maxIn1 is in terms of token B, need to translate to token C via quoteExactOutput
+        access(self) fun getEffectiveMaxInput(reverse: Bool): UInt256 {
+            let nHops = self.feePath.length
+
+            // For single-hop, just return the first hop's max
+            if nHops == 1 {
+                return self.getMaxInForHop(hopIndex: 0, reverse: reverse)
+            }
+
+            // Start with no limit
+            var effectiveMaxIn: UInt256 = 0
+
+            // Process each hop
+            var hopIdx = 0
+            while hopIdx < nHops {
+                // Get the max input for this hop (in terms of its input token)
+                let hopMaxIn = self.getMaxInForHop(hopIndex: hopIdx, reverse: reverse)
+
+                if hopMaxIn == 0 {
+                    // Skip if this hop returns 0
+                    hopIdx = hopIdx + 1
+                    continue
+                }
+
+                var translatedMaxIn = hopMaxIn
+
+                // If not the first hop, translate back to initial input token
+                if hopIdx > 0 {
+                    // Use getV3QuoteRaw with partial path (exactOutput) to translate
+                    // hopMaxIn (in hop's input token) back to initial input token
+                    let translatedAmount = self.getV3QuoteRaw(out: false, amount: hopMaxIn, reverse: reverse, numHops: hopIdx)
+                    
+                    if translatedAmount == nil {
+                        // Cannot translate, skip this hop's constraint
+                        hopIdx = hopIdx + 1
+                        continue
+                    }
+                    
+                    translatedMaxIn = translatedAmount!
+                }
+
+                // Update effective max (take minimum)
+                if translatedMaxIn > 0 && (effectiveMaxIn == 0 || translatedMaxIn < effectiveMaxIn) {
+                    effectiveMaxIn = translatedMaxIn
+                }
+
+                hopIdx = hopIdx + 1
+            }
+
+            return effectiveMaxIn
+        }
+
         /// Swap exact input -> min output using Uniswap V3 exactInput/Single
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
@@ -239,9 +297,63 @@ access(all) contract UniswapV3SwapConnectors {
 
         /* --- Core swap / quote internals --- */
 
-        /// Build Uniswap V3 path bytes:
-        /// token0(20) | fee0(3) | token1(20) | fee1(3) | token2(20) | ...
-        access(self) fun _buildPathBytes(reverse: Bool): EVM.EVMBytes {
+        /// Build Uniswap V3 path bytes.
+        ///
+        /// - reverse: path direction (false = A->B->C->D, true = D->C->B->A)
+        /// - numHops: number of hops to include. If nil, includes all hops (full path).
+        /// - exactOutput:
+        ///     - false → normal path order (used for exactInput & standard quoting)
+        ///     - true  → reversed partial path (used for quoteExactOutput)
+        ///
+        /// Path format: token(20) | fee(3) | token(20) | fee(3) | token(20) | ...
+        ///
+        /// Examples for tokenPath [A, B, C, D] with fees [f0, f1, f2]:
+        ///
+        /// Normal path (exactInput & forward quoting):
+        ///
+        /// For forward swap (A -> B -> C -> D):
+        ///   - numHops=nil: need to quote A -> B -> C -> D, want D amount,
+        ///                     path: A | f0 | B | f1 | C | f2 | D
+        ///   - numHops=1:   need to quote A -> B, want B amount,
+        ///                     path: A | f0 | B
+        ///   - numHops=2:   need to quote A -> B -> C, want C amount,
+        ///                     path: A | f0 | B | f1 | C
+        ///
+        /// For reverse swap (D -> C -> B -> A):
+        ///   - numHops=nil: need to quote D -> C -> B -> A, want A amount,
+        ///                     path: D | f2 | C | f1 | B | f0 | A
+        ///   - numHops=1:   need to quote D -> C, want C amount,
+        ///                     path: D | f2 | C
+        ///   - numHops=2:   need to quote D -> C -> B, want B amount,
+        ///                     path: D | f2 | C | f1 | B
+        ///
+        /// Exact output path (quoteExactOutput):
+        ///
+        /// For forward swap (A -> B -> C -> D):
+        ///   - numHops=nil: need to quote D -> C -> B -> A, want A amount,
+        ///                     path: D | f2 | C | f1 | B | f0 | A
+        ///   - numHops=1:   need to quote B -> A, want A amount,
+        ///                     path: B | f0 | A
+        ///   - numHops=2:   need to quote C -> B -> A, want A amount,
+        ///                     path: C | f1 | B | f0 | A
+        ///
+        /// For reverse swap (D -> C -> B -> A):
+        ///   - numHops=nil: need to quote A -> B -> C -> D, want D amount,
+        ///                     path: A | f0 | B | f1 | C | f2 | D
+        ///   - numHops=1:   need to quote D -> C, want C amount,
+        ///                     path: C | f2 | D
+        ///   - numHops=2:   need to quote D -> C -> B, want B amount,
+        ///                     path: B | f1 | C | f2 | D
+        ///
+        access(self) fun _buildPathBytes(
+            reverse: Bool,
+            exactOutput: Bool,
+            numHops: Int?,
+        ): EVM.EVMBytes {
+            if let nHops = numHops {
+                assert(nHops >= 1 && nHops <= self.feePath.length, message: "numHops out of bounds: path supports up to \(self.feePath.length), got: \(nHops)")
+            }
+
             var out: [UInt8] = []
 
             // helper to append address bytes
@@ -265,33 +377,107 @@ access(all) contract UniswapV3SwapConnectors {
 
             let nHops = self.feePath.length
             let last = self.tokenPath.length - 1
+            let hopsToInclude = numHops ?? nHops
 
-            // choose first token based on direction
+            // Exact output (reversed path)
+            if exactOutput {
+                if reverse {
+                    // Reverse swap direction: D -> C -> B -> A
+                    // Initial input is tokenPath[last], hop 1's input is tokenPath[last-1], etc.
+                    // For numHops=1: output is tokenPath[last-1]=C, input is tokenPath[last]=D
+                    // Path: C | f2 | D
+
+                    // Start with the output token (the input token of the target hop)
+                    let outputIdx = last - hopsToInclude
+                    appendAddr(self.tokenPath[outputIdx])
+
+                    // Walk backwards through hops until we reach the initial input token
+                    var i = hopsToInclude - 1
+                    while i >= 0 {
+                        let feeIdx = nHops - 1 - i
+                        let tokenIdx = last - i
+                        appendFee(self.feePath[feeIdx])
+                        appendAddr(self.tokenPath[tokenIdx])
+                        i = i - 1
+                    }
+                } else {
+                    // Forward swap direction: A -> B -> C -> D
+                    // Initial input is tokenPath[0], hop 1's input is tokenPath[1], etc.
+                    // For numHops=1: output is tokenPath[1]=B, input is tokenPath[0]=A
+                    // Path: B | f0 | A
+
+                    // Start with the output token (the input token of the target hop)
+                    appendAddr(self.tokenPath[hopsToInclude])
+
+                    // Walk backwards through hops until we reach the initial input token
+                    var i = hopsToInclude - 1
+                    while i >= 0 {
+                        appendFee(self.feePath[i])
+                        appendAddr(self.tokenPath[i])
+                        i = i - 1
+                    }
+                }
+
+                return EVM.EVMBytes(value: out)
+            }
+
+            // Normal path (forward encoding)
+
+            // Start token depends on direction:
+            //   forward → tokenPath[0]
+            //   reverse → tokenPath[last]
             let first = reverse ? self.tokenPath[last] : self.tokenPath[0]
             appendAddr(first)
 
             var i = 0
-            while i < nHops {
+            while i < hopsToInclude {
                 let feeIdx = reverse ? (nHops - 1 - i) : i
                 let nextIdx = reverse ? (last - (i + 1)) : (i + 1)
 
                 appendFee(self.feePath[feeIdx])
                 appendAddr(self.tokenPath[nextIdx])
-
                 i = i + 1
             }
 
             return EVM.EVMBytes(value: out)
         }
 
-        access(self) fun getPoolAddress(): EVM.EVMAddress {
+        /// Returns the pool address for a specific hop in the path.
+        /// - hopIndex: 0-based index of the hop (0 for first hop, 1 for second, etc.)
+        /// - reverse: if true, the path is traversed in reverse order
+        /// For a path [A, B, C] with fees [fee0, fee1]:
+        ///   - Forward: hop 0 = pool(A, B, fee0), hop 1 = pool(B, C, fee1)
+        ///   - Reverse: hop 0 = pool(C, B, fee1), hop 1 = pool(B, A, fee0)
+        access(self) fun getPoolAddress(hopIndex: Int, reverse: Bool): EVM.EVMAddress {
+            pre {
+                hopIndex >= 0 && hopIndex < self.feePath.length: "hopIndex out of bounds: \(hopIndex), nHops: \(self.feePath.length)"
+            }
+
+            let nHops = self.feePath.length
+            let last = self.tokenPath.length - 1
+
+            let tokenA = reverse
+                ? self.tokenPath[last - hopIndex]
+                : self.tokenPath[hopIndex]
+
+            let tokenB = reverse
+                ? self.tokenPath[last - hopIndex - 1]
+                : self.tokenPath[hopIndex + 1]
+
+            let fee = reverse
+                ? self.feePath[nHops - 1 - hopIndex]
+                : self.feePath[hopIndex]
+
             let res = self._dryCall(
                 self.factoryAddress,
                 "getPool(address,address,uint24)",
-                [ self.tokenPath[0], self.tokenPath[1], UInt256(self.feePath[0]) ],
+                [ tokenA, tokenB, UInt256(fee) ],
                 120_000
             )!
-            assert(res.status == EVM.Status.successful, message: "unable to get pool: token0 \(self.tokenPath[0].toString()), token1 \(self.tokenPath[1].toString()), feePath: self.feePath[0]")
+            assert(
+                res.status == EVM.Status.successful,
+                message: "unable to get pool: tokenA \(tokenA.toString()), tokenB \(tokenB.toString()), fee: \(fee)"
+            )
 
             // ABI return is one 32-byte word; the last 20 bytes are the address
             let word = res.data
@@ -303,15 +489,22 @@ access(all) contract UniswapV3SwapConnectors {
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        access(self) fun maxInAmount(reverse: Bool): UInt256 {
-            let zeroForOne = self.isZeroForOne(reverse: reverse)
-            return self.getMaxInAmount(zeroForOne: zeroForOne)
+        /// Get max input amount for a specific hop
+        access(self) fun getMaxInForHop(hopIndex: Int, reverse: Bool): UInt256 {
+            // Derive true Uniswap direction for pool math
+            let zeroForOne = self.isZeroForOne(hopIndex: hopIndex, reverse: reverse)
+
+            return self.getMaxInAmount(
+                hopIndex: hopIndex,
+                zeroForOne: zeroForOne,
+                reverse: reverse
+            )
         }
 
         /// Simplified max input calculation using default 6% price impact
         /// Uses current liquidity as proxy for max swappable input amount
-        access(self) fun getMaxInAmount(zeroForOne: Bool): UInt256 {
-            let poolEVMAddress = self.getPoolAddress()
+        access(self) fun getMaxInAmount(hopIndex: Int, zeroForOne: Bool, reverse: Bool): UInt256 {
+            let poolEVMAddress = self.getPoolAddress(hopIndex: hopIndex, reverse: reverse)
             
             // Helper functions
             fun wordToUInt(_ w: [UInt8]): UInt {
@@ -398,11 +591,34 @@ access(all) contract UniswapV3SwapConnectors {
             return maxAmount
         }
 
-        /// Quote using the Uniswap V3 Quoter via dryCall
+        /// Quote using the Uniswap V3 Quoter via dryCall (returns UFix64)
         access(self) fun getV3Quote(out: Bool, amount: UInt256, reverse: Bool): UFix64? {
-            // For exactOutput, the path must be reversed (tokenOut -> ... -> tokenIn)
-            let pathReverse = out ? reverse : !reverse
-            let pathBytes = self._buildPathBytes(reverse: pathReverse)
+            let result = self.getV3QuoteRaw(out: out, amount: amount, reverse: reverse, numHops: nil)
+            if result == nil {
+                return nil
+            }
+
+            let ercAddr = out
+                ? self.outToken(reverse)
+                : self.inToken(reverse)
+
+            // out == true  => quoteExactInput  => result is an OUT amount => floor
+            // out == false => quoteExactOutput => result is an IN amount  => ceil
+            if out {
+                return self._toCadenceOut(result!, erc20Address: ercAddr)
+            } else {
+                return self._toCadenceIn(result!, erc20Address: ercAddr)
+            }
+        }
+
+        /// Quote using the Uniswap V3 Quoter via dryCall (returns raw UInt256)
+        /// - out: true for quoteExactInput (get output amount), false for quoteExactOutput (get input amount)
+        /// - amount: the amount to quote
+        /// - reverse: swap direction
+        /// - numHops: for partial path quotes. If nil, uses full path.
+        access(self) fun getV3QuoteRaw(out: Bool, amount: UInt256, reverse: Bool, numHops: Int?): UInt256? {
+            // For exactOutput, Uniswap expects path in reverse order (output -> input)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: !out, numHops: numHops)
 
             let callSig = out
                 ? "quoteExactInput(bytes,uint256)"
@@ -415,19 +631,8 @@ access(all) contract UniswapV3SwapConnectors {
 
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
             if decoded.length == 0 { return nil }
-            let uintAmt = decoded[0] as! UInt256
 
-            let ercAddr = out
-                ? self.outToken(reverse)
-                : self.inToken(reverse)
-
-            // out == true  => quoteExactInput  => result is an OUT amount => floor
-            // out == false => quoteExactOutput => result is an IN amount  => ceil
-            if out {
-                return self._toCadenceOut(uintAmt, erc20Address: ercAddr)
-            } else {
-                return self._toCadenceIn(uintAmt, erc20Address: ercAddr)
-            }
+            return decoded[0] as! UInt256
         }
 
         /// Executes exact input swap via router
@@ -452,7 +657,7 @@ access(all) contract UniswapV3SwapConnectors {
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
             // Build path
-            let pathBytes = self._buildPathBytes(reverse: reverse)
+            let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, numHops: nil)
 
             // Approve
             var res = self._call(
@@ -613,6 +818,7 @@ access(all) contract UniswapV3SwapConnectors {
         access(self) fun _toCadenceIn(_ amt: UInt256, erc20Address: EVM.EVMAddress): UFix64 {
             return EVMAmountUtils.toCadenceInForToken(amt, erc20Address: erc20Address)
         }
+
         access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
             // token0() selector = 0x0dfe1681
             let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81]
@@ -624,17 +830,21 @@ access(all) contract UniswapV3SwapConnectors {
             assert(res.status == EVM.Status.successful, message: "token0() call failed")
 
             let word = res.data
+            if word.length < 32 { panic("getPoolToken0: invalid ABI word length") }
+
             let addrSlice = word.slice(from: 12, upTo: 32)
             let addrBytes = addrSlice.toConstantSized<[UInt8; 20]>()!
             return EVM.EVMAddress(bytes: addrBytes)
         }
 
-        access(self) fun isZeroForOne(reverse: Bool): Bool {
-            let pool = self.getPoolAddress()
+        access(self) fun isZeroForOne(hopIndex: Int, reverse: Bool): Bool {
+            let pool = self.getPoolAddress(hopIndex: hopIndex, reverse: reverse)
             let token0 = self.getPoolToken0(pool)
 
             // your actual input token for this swap direction:
-            let inToken = self.inToken(reverse)
+            let inToken = reverse
+                ? self.tokenPath[self.tokenPath.length - 1 - hopIndex]
+                : self.tokenPath[hopIndex]
 
             return inToken.equals(token0)
         }

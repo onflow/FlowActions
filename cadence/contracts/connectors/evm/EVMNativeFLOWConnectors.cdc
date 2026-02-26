@@ -85,10 +85,6 @@ access(all) contract EVMNativeFLOWConnectors {
         /// @param from: an authorized reference to the Vault from which to deposit funds
         ///
         access(all) fun depositCapacity(from: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}) {
-            if from.getType() != self.getSinkType() {
-                return // unrelated vault type
-            }
-
             // assess amount to deposit and assign COA reference
             let capacity = self.minimumCapacity()
             let amount = from.balance > capacity ? capacity : from.balance
@@ -97,6 +93,8 @@ access(all) contract EVMNativeFLOWConnectors {
             }
 
             // deposit tokens
+            // Safe to force-cast to @FlowToken.Vault because DeFiActions.Sink interface
+            // precondition ensures from.getType() == self.getSinkType() (which is @FlowToken.Vault)
             self.address.deposit(from: <-from.withdraw(amount: amount) as! @FlowToken.Vault)
         }
     }
