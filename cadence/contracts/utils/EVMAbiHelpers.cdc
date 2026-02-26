@@ -78,19 +78,6 @@ access(all) contract EVMAbiHelpers {
         return self.abiDynamicBytes(utf8)
     }
 
-    access(all) fun uintArrayToString(_ arr: [UInt8]): String {
-        var out = ""
-        var i = 0
-        while i < arr.length {
-            out = out.concat(arr[i].toString())
-            if i < arr.length - 1 {
-                out = out.concat(",")
-            }
-            i = i + 1
-        }
-        return out
-    }
-
     // Represents one ABI argument chunk
     access(all) struct ABIArg {
         access(all) let isDynamic: Bool
