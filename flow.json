@@ -9,6 +9,12 @@
 				"testnet": "bb76ea2f8aad74a0"
 			}
 		},
+		"CrossVMConnectors": {
+			"source": "cadence/contracts/connectors/CrossVMConnectors.cdc",
+			"aliases": {
+				"testing": "0000000000000009"
+			}
+		},
 		"DeFiActions": {
 			"source": "cadence/contracts/interfaces/DeFiActions.cdc",
 			"aliases": {
@@ -1013,6 +1019,7 @@
 				"DeFiActionsUtils",
 				"SwapConnectors",
 				"FungibleTokenConnectors",
+				"CrossVMConnectors",
 				"EVMNativeFLOWConnectors",
 				"EVMTokenConnectors",
 				"ERC4626Utils",
