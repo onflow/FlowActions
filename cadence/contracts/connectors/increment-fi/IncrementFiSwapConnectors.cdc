@@ -134,6 +134,79 @@ access(all) contract IncrementFiSwapConnectors {
         }
     }
 
+    /// PriceOracle
+    ///
+    /// A DeFiActions connector that provides price data for a given asset using IncrementFi's SwapRouter spot price
+    /// (getAmountsOut for 1 unit of the base token along a path to the unit-of-account token).
+    ///
+    access(all) struct PriceOracle : DeFiActions.PriceOracle {
+        /// The token type serving as the price basis - e.g. USDC in FLOW/USDC
+        access(self) let quote: Type
+        /// The base token type that this oracle can price (path starts with this token)
+        access(self) let baseToken: Type
+        /// Swap path from baseToken to quote as defined by IncrementFi's SwapRouter
+        access(self) let path: [String]
+        /// The unique ID of the PriceOracle
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
+
+        init(
+            unitOfAccount: Type,
+            baseToken: Type,
+            path: [String],
+            uniqueID: DeFiActions.UniqueIdentifier?
+        ) {
+            pre {
+                path.length >= 2:
+                "Provided path must have a length of at least 2 - provided path has \(path.length) elements"
+                unitOfAccount.isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                "Invalid unitOfAccount - \(unitOfAccount.identifier) is not a FungibleToken.Vault implementation"
+                baseToken.isSubtype(of: Type<@{FungibleToken.Vault}>()):
+                "Invalid baseToken - \(baseToken.identifier) is not a FungibleToken.Vault implementation"
+            }
+            IncrementFiSwapConnectors._validateSwapperInitArgs(path: path, inVault: baseToken, outVault: unitOfAccount)
+
+            self.quote = unitOfAccount
+            self.baseToken = baseToken
+            self.path = path
+            self.uniqueID = uniqueID
+        }
+
+        /// Returns a ComponentInfo struct containing information about this PriceOracle and its inner DFA components
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(
+                type: self.getType(),
+                id: self.id(),
+                innerComponents: []
+            )
+        }
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? {
+            return self.uniqueID
+        }
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
+            self.uniqueID = id
+        }
+        /// Returns the asset type serving as the price basis - e.g. USDC in FLOW/USDC
+        access(all) view fun unitOfAccount(): Type {
+            return self.quote
+        }
+        /// Returns the latest price for ofToken denominated in unitOfAccount(), using the pool spot price from
+        /// SwapRouter.getAmountsOut. Returns nil if ofToken is not the base or quote token for this oracle.
+        access(all) fun price(ofToken: Type): UFix64? {
+            if ofToken == self.quote {
+                return 1.0
+            }
+            if ofToken != self.baseToken {
+                return nil
+            }
+            let amountsOut = SwapRouter.getAmountsOut(amountIn: 1.0, tokenKeyPath: self.path)
+            let priceAmount = amountsOut.length > 0 ? amountsOut[amountsOut.length - 1] : 0.0
+            if priceAmount <= 0.0 {
+                return nil
+            }
+            return priceAmount
+        }
+    }
+
     /* --- INTERNAL HELPERS --- */
 
     /// Reverts if the in and out Vaults are not defined by the token key path identifiers as used by IncrementFi's
