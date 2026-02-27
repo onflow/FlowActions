@@ -38,8 +38,7 @@ transaction(sinkMax: UFix64?, amount: UFix64, depositVaultIdentifier: String, ev
         self.depositVaultType = CompositeType(depositVaultIdentifier)
             ?? panic("Invalid deposit token identifier: \(depositVaultIdentifier)")
         self.erc20Address = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.depositVaultType)
-            ?? panic("Deposit token type \(self.depositVaultType.identifier) has not been onboarded to the VM bridge - "
-                .concat("Ensure the Cadence token type is associated with an EVM contract via the VM bridge"))
+            ?? panic("Deposit token type \(self.depositVaultType.identifier) has not been onboarded to the VM bridge - Ensure the Cadence token type is associated with an EVM contract via the VM bridge")
 
         // deserialize the EVM address from the hex string & get the EVM-native balance of the recipient before the deposit
         self.recipient = EVM.addressFromString(evmAddressHex)

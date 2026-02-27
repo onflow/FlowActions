@@ -587,6 +587,8 @@
 		},
 		"MOET": {
 			"source": "mainnet://6b00ff876c299c61.MOET",
+			"hash": "45dc87539777207f4a6a9230ba2f218f0adc05819b0a4e7f707f2299f0abf16b",
+			"block_height": 140486614,
 			"aliases": {
 				"mainnet": "6b00ff876c299c61",
 				"mainnet-fork": "6b00ff876c299c61",

@@ -12,7 +12,7 @@ transaction(thumbnailURI: String, thumbnailFileTypeIdentifier: String, ipfsFileP
     prepare(signer: auth(BorrowValue) &Account) {
         // Determine the intended File type based on the provided file type identifier
         let thumbnailFileType = CompositeType(thumbnailFileTypeIdentifier)
-            ?? panic("Invalid file type identifier=".concat(thumbnailFileTypeIdentifier))
+            ?? panic("Invalid file type identifier=\(thumbnailFileTypeIdentifier)")
         // Build the thumbnail file
         let thumbnailFile = FlowEVMBridgeResolver.buildFile(
                 uri: thumbnailURI,

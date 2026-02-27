@@ -47,11 +47,11 @@ access(all) contract EVMAbiHelpers {
     access(all) fun abiUInt256(_ v: UInt256): [UInt8] { return self.abiWord(v) }
 
     access(all) fun abiBool(_ b: Bool): [UInt8] {
-        return self.abiWord(b ? UInt256(1) : UInt256(0))
+        return self.abiWord(b ? 1 : 0)
     }
 
     access(all) fun toVarBytes(_ a: EVM.EVMAddress): [UInt8] {
-        let fixed: [UInt8; 20] = a.bytes   // NOTE: field, not call
+        let fixed = a.bytes   // NOTE: field, not call
         var out: [UInt8] = []
         var i = 0
         while i < 20 { out.append(fixed[i]); i = i + 1 }
@@ -82,9 +82,9 @@ access(all) contract EVMAbiHelpers {
         var out = ""
         var i = 0
         while i < arr.length {
-            out = out.concat(arr[i].toString())
+            out = "\(out)\(arr[i].toString())"
             if i < arr.length - 1 {
-                out = out.concat(",")
+                out = "\(out),"
             }
             i = i + 1
         }
@@ -92,12 +92,12 @@ access(all) contract EVMAbiHelpers {
     }
 
     access(all) fun toHex(_ bytes: [UInt8]): String {
-        let hex: [String] = ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]
+        let hex = ["0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f"]
         var out = ""
         var i = 0
         while i < bytes.length {
             let b = bytes[i]
-            out = out.concat(hex[Int(b / 16)]).concat(hex[Int(b % 16)])
+            out = "\(out)\(hex[Int(b / 16)])\(hex[Int(b % 16)])"
             i = i + 1
         }
         return out

@@ -255,7 +255,7 @@ access(all) contract UniswapV3SwapConnectors {
                     continue
                 }
 
-                var translatedMaxIn: UInt256 = hopMaxIn
+                var translatedMaxIn = hopMaxIn
 
                 // If not the first hop, translate back to initial input token
                 if hopIdx > 0 {
@@ -358,7 +358,7 @@ access(all) contract UniswapV3SwapConnectors {
 
             // helper to append address bytes
             fun appendAddr(_ a: EVM.EVMAddress) {
-                let fixed: [UInt8; 20] = a.bytes
+                let fixed = a.bytes
                 var i = 0
                 while i < 20 {
                     out.append(fixed[i])
@@ -484,7 +484,7 @@ access(all) contract UniswapV3SwapConnectors {
             if word.length < 32 { panic("getPool: invalid ABI word length") }
 
             let addrSlice = word.slice(from: 12, upTo: 32)   // 20 bytes
-            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
+            let addrBytes = addrSlice.toConstantSized<[UInt8; 20]>()!
 
             return EVM.EVMAddress(bytes: addrBytes)
         }
@@ -513,10 +513,10 @@ access(all) contract UniswapV3SwapConnectors {
                 while i < 32 { acc = (acc << 8) | UInt(w[i]); i = i + 1 }
                 return acc
             }
-            fun wordToUIntN(_ w: [UInt8], _ nBits: Int): UInt {
+            fun wordToUIntN(_ w: [UInt8], _ nBits: UInt): UInt {
                 let full = wordToUInt(w)
                 if nBits >= 256 { return full }
-                let mask: UInt = (UInt(1) << UInt(nBits)) - UInt(1)
+                let mask: UInt = (1 << nBits) - 1
                 return full & mask
             }
             fun words(_ data: [UInt8]): [[UInt8]] {
@@ -535,7 +535,7 @@ access(all) contract UniswapV3SwapConnectors {
             let SEL_LIQUIDITY: [UInt8] = [0x1a, 0x68, 0x65, 0x02]
             
             // Get slot0 (sqrtPriceX96, tick, etc.)
-            let s0Res: EVM.Result? = self._dryCallRaw(
+            let s0Res = self._dryCallRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_SLOT0, args: []),
                 gasLimit: 1_000_000,
@@ -544,7 +544,7 @@ access(all) contract UniswapV3SwapConnectors {
             let sqrtPriceX96 = wordToUIntN(s0w[0], 160)
             
             // Get current active liquidity
-            let liqRes: EVM.Result? = self._dryCallRaw(
+            let liqRes = self._dryCallRaw(
                 to: poolEVMAddress,
                 calldata: EVMAbiHelpers.buildCalldata(selector: SEL_LIQUIDITY, args: []),
                 gasLimit: 300_000,
@@ -555,8 +555,8 @@ access(all) contract UniswapV3SwapConnectors {
             // Use UInt256 throughout to prevent overflow in multiplication operations
             let bps: UInt256 = 600
             let Q96: UInt256 = 0x1000000000000000000000000
-            let sqrtPriceX96_256: UInt256 = UInt256(sqrtPriceX96)
-            let L_256: UInt256 = UInt256(L)
+            let sqrtPriceX96_256 = UInt256(sqrtPriceX96)
+            let L_256 = UInt256(L)
             
             var maxAmount: UInt256 = 0
             if zeroForOne {
@@ -570,17 +570,17 @@ access(all) contract UniswapV3SwapConnectors {
                 // Δx = L * (√P - √P') / (√P * √P')
                 // Since sqrt prices are in Q96 format: (L * ΔsqrtP * Q96) / (sqrtP * sqrtP')
                 // This gives us native token0 units after the two Q96 divisions cancel with one Q96 multiplication
-                let num1: UInt256 = L_256 * bps
-                let num2: UInt256 = num1 * Q96
-                let den: UInt256  = UInt256(20000) * sqrtPriceNew
-                maxAmount = den == 0 ? UInt256(0) : num2 / den
+                let num1 = L_256 * bps
+                let num2 = num1 * Q96
+                let den: UInt256 = 20000 * sqrtPriceNew
+                maxAmount = den == 0 ? 0 : num2 / den
             } else {
                 // Swapping token1 -> token0 (price increases by maxPriceImpactBps)
                 // Formula: Δy = L * (√P' - √P)
                 // Approximation: √P' ≈ √P * (1 + priceImpact/2)
                 let sqrtMultiplier: UInt256 = 10000 + (bps / 2)
-                let sqrtPriceNew: UInt256 = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
-                let deltaSqrt: UInt256 = sqrtPriceNew - sqrtPriceX96_256
+                let sqrtPriceNew = (sqrtPriceX96_256 * sqrtMultiplier) / 10000
+                let deltaSqrt = sqrtPriceNew - sqrtPriceX96_256
                 
                 // Uniswap V3 spec: getAmount1Delta
                 // Δy = L * (√P' - √P)
@@ -624,7 +624,7 @@ access(all) contract UniswapV3SwapConnectors {
                 ? "quoteExactInput(bytes,uint256)"
                 : "quoteExactOutput(bytes,uint256)"
 
-            let args: [AnyStruct] = [pathBytes, amount]
+            let args = [pathBytes, amount]
 
             let res = self._dryCall(self.quoterAddress, callSig, args, 10_000_000)
             if res == nil || res!.status != EVM.Status.successful { return nil }
@@ -678,7 +678,7 @@ access(all) contract UniswapV3SwapConnectors {
             )
 
             let coaRef = self.borrowCOA()!
-            let recipient: EVM.EVMAddress = coaRef.address()
+            let recipient = coaRef.address()
 
             // optional dev guards
             let _chkIn  = EVMAbiHelpers.abiUInt256(evmAmountIn)
@@ -694,7 +694,7 @@ access(all) contract UniswapV3SwapConnectors {
                 amountOutMinimum: minOutUint
             )
 
-            let calldata: [UInt8] = EVM.encodeABIWithSignature(
+            let calldata = EVM.encodeABIWithSignature(
                 "exactInput((bytes,address,uint256,uint256))",
                 [exactInputParams]
             )
@@ -713,7 +713,7 @@ access(all) contract UniswapV3SwapConnectors {
                 )
             }
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : UInt256(0)
+            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : 0
 
             let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
@@ -833,7 +833,7 @@ access(all) contract UniswapV3SwapConnectors {
             if word.length < 32 { panic("getPoolToken0: invalid ABI word length") }
 
             let addrSlice = word.slice(from: 12, upTo: 32)
-            let addrBytes: [UInt8; 20] = addrSlice.toConstantSized<[UInt8; 20]>()!
+            let addrBytes = addrSlice.toConstantSized<[UInt8; 20]>()!
             return EVM.EVMAddress(bytes: addrBytes)
         }
 

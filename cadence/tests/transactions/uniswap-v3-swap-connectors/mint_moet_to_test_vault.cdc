@@ -20,10 +20,10 @@ transaction(amount: UFix64) {
         }
 
         let minter = moetDeployer.storage.borrow<&MOET.Minter>(from: MOET.AdminStoragePath)
-            ?? panic("Could not borrow MOET Minter from deployer at ".concat(MOET.AdminStoragePath.toString()))
+            ?? panic("Could not borrow MOET Minter from deployer at \(MOET.AdminStoragePath.toString())")
 
         let vault <- minter.mintTokens(amount: amount)
-        log("Minted ".concat(vault.balance.toString()).concat(" MOET to test vault"))
+        log("Minted \(vault.balance.toString()) MOET to test vault")
         recipient.storage.save(<-vault, to: /storage/testTokenInVault)
     }
 }

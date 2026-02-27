@@ -18,7 +18,7 @@ transaction(pid: UInt64) {
         let pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
             ?? panic("Pool with ID \(pid) not found or not accessible")
 
-        let rewardTokenType = CompositeType(pool.getPoolInfo().rewardsInfo.keys[0].concat(".Vault"))!
+        let rewardTokenType = CompositeType("\(pool.getPoolInfo().rewardsInfo.keys[0]).Vault")!
         let ftVaultData = getAccount(rewardTokenType.address!)
             .contracts
             .borrow<&{FungibleToken}>(name: rewardTokenType.contractName!)!

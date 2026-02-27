@@ -53,8 +53,7 @@ transaction(
 
         // Swap MOET→PYUSD (quote=nil triggers auto-quote)
         let pyusdVault <- swapper.swap(quote: nil, inVault: <-moetIn)
-        log("Provisioned ".concat(pyusdVault.balance.toString()).concat(" PYUSD from ")
-            .concat(swapAmount.toString()).concat(" MOET"))
+        log("Provisioned \(pyusdVault.balance.toString()) PYUSD from \(swapAmount.toString()) MOET")
 
         signer.storage.save(<-pyusdVault, to: /storage/testTokenInVault)
     }

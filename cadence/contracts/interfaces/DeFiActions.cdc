@@ -653,7 +653,7 @@ access(all) contract DeFiActions {
             txnFunder: {Sink, Source}
         ) {
             pre {
-                interval > UInt64(0):
+                interval > 0:
                 "Invalid interval: \(interval) - must be greater than 0"
                 interval < UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp):
                 "Invalid interval: \(interval) - must be less than the maximum interval of \(UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp))"
@@ -844,7 +844,7 @@ access(all) contract DeFiActions {
         access(all) fun getComponentInfo(): ComponentInfo {
             // get the inner components
             let oracle = self._borrowOracle()
-            let inner: [ComponentInfo] = [oracle.getComponentInfo()]
+            let inner = [oracle.getComponentInfo()]
 
             // get the info for the optional inner components if they exist
             let maybeSink = self._borrowSink()
@@ -922,8 +922,7 @@ access(all) contract DeFiActions {
                 "Internal AutoBalancer Capability has been set and is still valid - cannot be re-assigned"
                 cap.check(): "Invalid AutoBalancer Capability provided"
                 self.getType() == cap.borrow()!.getType() && self.uuid == cap.borrow()!.uuid:
-                "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - "
-                    .concat("provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)")
+                "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)"
             }
             self._selfCap = cap
         }
@@ -1048,13 +1047,12 @@ access(all) contract DeFiActions {
             if self._recurringConfig != nil {
                 let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
                 if isInternallyManaged {
-                    let err = self.scheduleNextRebalance(whileExecuting: id)
-                    if err != nil {
+                    if let err = self.scheduleNextRebalance(whileExecuting: id) {
                         emit FailedRecurringSchedule(
                             whileExecuting: id,
                             balancerUUID: self.uuid,
                             address: self.owner?.address,
-                            error: err!,
+                            error: err,
                             uniqueID: self.uniqueID?.id
                         )
                     }
@@ -1341,18 +1339,18 @@ access(all) contract DeFiActions {
         }
         /// Converts a UFix128 to a UFix64, rounding up if the remainder is greater than or equal to 0.5
         access(all) view fun toUFix64(_ value: UFix128): UFix64 {
-            let truncated: UFix64 = UFix64(value)
-            let truncatedAs128: UFix128 = UFix128(truncated)
-            let remainder: UFix128 = value - truncatedAs128
+            let truncated = UFix64(value)
+            let truncatedAs128 = UFix128(truncated)
+            let remainder = value - truncatedAs128
             let ufix64Step: UFix128 = 0.00000001
-            let ufix64HalfStep: UFix128 = ufix64Step / UFix128(2.0)
+            let ufix64HalfStep: UFix128 = ufix64Step / 2.0
 
-            if remainder == UFix128(0.0) {
+            if remainder == 0.0 {
                 return truncated
             }
 
             view fun roundUp(_ base: UFix64): UFix64 {
-                let increment: UFix64 = 0.00000001
+                let increment = 0.00000001
                 return base >= UFix64.max - increment ? UFix64.max : base + increment
             }
 
@@ -1409,7 +1407,7 @@ access(all) contract DeFiActions {
         if !vaultType.isSubtype(of: Type<@{FungibleToken.Vault}>()) {
             return nil
         }
-        return "DeFiActionAutoBalancer_".concat(vaultType.identifier)
+        return "DeFiActionAutoBalancer_\(vaultType.identifier)"
     }
 
     /// Aligns the UniqueIdentifier of the provided component with the provided component, setting the UniqueIdentifier of

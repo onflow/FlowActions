@@ -27,7 +27,7 @@ access(all) contract EVMAmountUtils {
         }
 
         let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+        let quantum = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
         let remainder: UInt256 = amt % quantum
         let floored: UInt256 = amt - remainder
 
@@ -47,10 +47,10 @@ access(all) contract EVMAmountUtils {
         }
 
         let quantumExp: UInt8 = decimals - 8
-        let quantum: UInt256 = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
+        let quantum = FlowEVMBridgeUtils.pow(base: 10, exponent: quantumExp)
 
         let remainder: UInt256 = amt % quantum
-        var padded: UInt256 = amt
+        var padded = amt
         if remainder != 0 {
             padded = amt + (quantum - remainder)
         }
