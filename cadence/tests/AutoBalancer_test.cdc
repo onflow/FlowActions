@@ -4,6 +4,7 @@ import "test_helpers.cdc"
 
 import "DeFiActions"
 import "FlowTransactionScheduler"
+import "ExecutionCallbackRecorder"
 
 import "TokenA"
 import "TokenB"
@@ -67,6 +68,12 @@ access(all) fun setup() {
         name: "MockOracle",
         path: "./contracts/MockOracle.cdc",
         arguments: [tokenAIdentifier], // unitOfAccountIdentifier
+    )
+    Test.expect(err, Test.beNil())
+    err = Test.deployContract(
+        name: "ExecutionCallbackRecorder",
+        path: "./contracts/ExecutionCallbackRecorder.cdc",
+        arguments: [],
     )
     Test.expect(err, Test.beNil())
 
@@ -159,6 +166,55 @@ access(all) fun test_SetRebalanceSourceSucceeds() {
 
     let tokenBBalance = getBalance(address: user.address, vaultPublicPath: TokenB.VaultPublicPath)
     Test.assertEqual(0.0, tokenBBalance!)
+}
+
+access(all) fun test_ExecutionCallbackRuns() {
+    if snapshot < getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+    let user = Test.createAccount()
+    transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
+    let lowerThreshold = 0.9
+    let upperThreshold = 1.1
+
+    // create AutoBalancer
+    let setupRes = executeTransaction(
+        "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+        [tokenAIdentifier, nil, lowerThreshold, upperThreshold, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+        user
+    )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    let createdEvts = Test.eventsOfType(Type<DeFiActions.CreatedAutoBalancer>())
+    Test.assertEqual(1, createdEvts.length)
+    let createdEvt = createdEvts[0] as! DeFiActions.CreatedAutoBalancer
+    let balancerUUID = createdEvt.uniqueID ?? 0
+
+    let interval: UInt64 = 10
+    let executionEffort: UInt64 = 1_000
+    let priority: UInt8 = 2
+    let configRes = executeTransaction(
+        "../transactions/auto-balance-adapter/set_recurring_config.cdc",
+        [autoBalancerStoragePath, interval, priority, executionEffort, true],
+        user
+    )
+    Test.expect(configRes, Test.beSucceeded())
+
+    // set execution callback (invoked only from executeTransaction, not from rebalance())
+    let setCbRes = executeTransaction(
+        "./transactions/auto-balance-adapter/set_execution_callback.cdc",
+        [autoBalancerStoragePath],
+        user
+    )
+    Test.expect(setCbRes, Test.beSucceeded())
+
+    // advance time so scheduler runs executeTransaction on the AutoBalancer
+    Test.moveTime(by: 11.0)
+
+    let invokedEvts = Test.eventsOfType(Type<ExecutionCallbackRecorder.Invoked>())
+    Test.assertEqual(1, invokedEvts.length)
+    let invokedEvt = invokedEvts[0] as! ExecutionCallbackRecorder.Invoked
+    Test.assertEqual(balancerUUID, invokedEvt.balancerUUID)
 }
 
 access(all) fun test_ForceRebalanceToSinkSucceeds() {
@@ -628,7 +684,7 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
     now = getCurrentBlockTimestamp()
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     Test.assertEqual(2, schedEvts.length)
-    
+
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     schedEvt = schedEvts[schedEvts.length - 1] as! FlowTransactionScheduler.Scheduled
     Test.assertEqual(user.address, schedEvt.transactionHandlerOwner)
@@ -760,7 +816,7 @@ access(all) fun test_RecurringRebalanceFromSourceSucceeds() {
     now = getCurrentBlockTimestamp()
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     Test.assertEqual(2, schedEvts.length)
-    
+
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     schedEvt = schedEvts[schedEvts.length - 1] as! FlowTransactionScheduler.Scheduled
     Test.assertEqual(user.address, schedEvt.transactionHandlerOwner)

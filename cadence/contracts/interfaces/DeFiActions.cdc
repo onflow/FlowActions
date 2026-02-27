@@ -687,6 +687,14 @@ access(all) contract DeFiActions {
         }
     }
 
+    /// Callback invoked every time an AutoBalancer executes (runs rebalance).
+    ///
+    access(all) resource interface AutoBalancerExecutionCallback {
+        /// Called at the end of each rebalance run.
+        /// @param balancerUUID: The AutoBalancer's UUID
+        access(all) fun onExecuted(balancerUUID: UInt64)
+    }
+
     /// AutoBalancer
     ///
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
@@ -728,6 +736,8 @@ access(all) contract DeFiActions {
         access(self) var _recurringConfig: AutoBalancerRecurringConfig?
         /// ScheduledTransaction objects used to manage automated rebalances
         access(self) var _scheduledTransactions: @{UInt64: FlowTransactionScheduler.ScheduledTransaction}
+        /// Optional callback invoked every time rebalance() runs
+        access(self) var _executionCallback: Capability<&{AutoBalancerExecutionCallback}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
         access(contract) var uniqueID: UniqueIdentifier?
 
@@ -772,6 +782,7 @@ access(all) contract DeFiActions {
             self._recurringConfig = recurringConfig
             self._recurringConfig?.setAssignedAutoBalancer(self.uuid)
             self._scheduledTransactions <- {}
+            self._executionCallback = nil
             self.uniqueID = uniqueID
 
             emit CreatedAutoBalancer(
@@ -939,6 +950,11 @@ access(all) contract DeFiActions {
             }
             self._rebalanceRange = range
         }
+        /// Sets the optional callback invoked every time this AutoBalancer runs rebalance.
+        /// Pass nil to clear the callback.
+        access(Set) fun setExecutionCallback(_ cap: Capability<&{AutoBalancerExecutionCallback}>?) {
+            self._executionCallback = cap
+        }
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
         access(contract) view fun copyID(): UniqueIdentifier? {
@@ -1039,7 +1055,7 @@ access(all) contract DeFiActions {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
             let dataDict = data as? {String: AnyStruct} ?? {}
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
-            
+
             self.rebalance(force: force)
 
             // If configured as recurring, schedule the next execution only if this is an internally-managed
@@ -1060,10 +1076,18 @@ access(all) contract DeFiActions {
                     }
                 }
             }
+            if let cap = self._executionCallback {
+                if cap.check() {
+                    if let callback = cap.borrow() {
+                        callback.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
+                    }
+                }
+            }
             // clean up internally-managed historical scheduled transactions
             self._cleanupScheduledTransactions()
         }
-        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not 
+
+        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not
         /// already a scheduled transaction within the desired interval. This method is written to fail as gracefully as
         /// possible, reporting any failures to schedule the next execution to the as an event. This allows
         /// `executeTransaction` to continue execution even if the next execution cannot be scheduled while still
@@ -1171,14 +1195,14 @@ access(all) contract DeFiActions {
         ///
         /// @param id: The ID of the scheduled transaction
         ///
-        /// @return &FlowTransactionScheduler.ScheduledTransaction?: The reference to the scheduled transaction, or nil 
+        /// @return &FlowTransactionScheduler.ScheduledTransaction?: The reference to the scheduled transaction, or nil
         /// if the scheduled transaction is not found
         ///
         access(all) view fun borrowScheduledTransaction(id: UInt64): &FlowTransactionScheduler.ScheduledTransaction? {
             return &self._scheduledTransactions[id]
         }
         /// Calculates the next execution timestamp for a recurring rebalance if the AutoBalancer is configured as such.
-        /// Returns nil if either unconfigured for recurring rebalancing or the interval is greater than the maximum 
+        /// Returns nil if either unconfigured for recurring rebalancing or the interval is greater than the maximum
         /// possible timestamp.
         ///
         /// @return UFix64?: The next execution timestamp, or nil if a recurring rebalance is not configured
