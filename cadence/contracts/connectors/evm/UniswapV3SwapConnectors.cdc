@@ -513,10 +513,10 @@ access(all) contract UniswapV3SwapConnectors {
                 while i < 32 { acc = (acc << 8) | UInt(w[i]); i = i + 1 }
                 return acc
             }
-            fun wordToUIntN(_ w: [UInt8], _ nBits: Int): UInt {
+            fun wordToUIntN(_ w: [UInt8], _ nBits: UInt): UInt {
                 let full = wordToUInt(w)
                 if nBits >= 256 { return full }
-                let mask: UInt = (1 << UInt(nBits)) - 1
+                let mask: UInt = (1 << nBits) - 1
                 return full & mask
             }
             fun words(_ data: [UInt8]): [[UInt8]] {
