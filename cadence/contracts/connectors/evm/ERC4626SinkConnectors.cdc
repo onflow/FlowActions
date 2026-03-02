@@ -29,8 +29,8 @@ access(all) contract ERC4626SinkConnectors {
         /// The address of the ERC4626 vault
         access(self) let vault: EVM.EVMAddress
         /// The COA capability to use for the ERC4626 vault
-        access(self) let coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>
-        /// The token sink to use for bridging assets to EVM
+        access(self) let coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>
+        /// The token sink to use for the ERC4626 vault
         access(self) let tokenSink: EVMTokenConnectors.Sink
         /// The optional UniqueIdentifier of the ERC4626 vault
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
@@ -38,7 +38,7 @@ access(all) contract ERC4626SinkConnectors {
         init(
             asset: Type,
             vault: EVM.EVMAddress,
-            coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>,
+            coa: Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>,
             feeSource: {DeFiActions.Sink, DeFiActions.Source},
             uniqueID: DeFiActions.UniqueIdentifier?
         ) {
