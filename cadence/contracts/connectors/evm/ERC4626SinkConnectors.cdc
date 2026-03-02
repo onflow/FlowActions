@@ -70,13 +70,6 @@ access(all) contract ERC4626SinkConnectors {
                 feeSource: feeSource,
                 uniqueID: uniqueID
             )
-            self.tokenSource = EVMTokenConnectors.Source(
-                min: nil,
-                withdrawVaultType: asset,
-                coa: coa,
-                feeSource: feeSource,
-                uniqueID: uniqueID
-            )
             self.uniqueID = uniqueID
         }
 
