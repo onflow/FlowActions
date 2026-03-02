@@ -32,8 +32,6 @@ access(all) contract ERC4626SinkConnectors {
         access(self) let coa: Capability<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>
         /// The token sink to use for bridging assets to EVM
         access(self) let tokenSink: EVMTokenConnectors.Sink
-        /// The token source to use for bridging assets back from EVM on failure recovery
-        access(self) let tokenSource: EVMTokenConnectors.Source
         /// The optional UniqueIdentifier of the ERC4626 vault
         access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
 
@@ -147,10 +145,7 @@ access(all) contract ERC4626SinkConnectors {
                     gasLimit: 500_000
                 )!
             if approveRes.status != EVM.Status.successful {
-                // Approve failed — attempt to bridge tokens back from EVM to Cadence
-                if self._bridgeTokenBackOnRevert(amount: amount, receiver: from) {
-                    return
-                }
+                // Cadence panic reverts all EVM state changes in this transaction, so no need to bridge token back.
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
@@ -162,19 +157,8 @@ access(all) contract ERC4626SinkConnectors {
                 gasLimit: 1_000_000
             )!
             if depositRes.status != EVM.Status.successful {
-                // Deposit failed — revoke the approval and attempt to bridge tokens back
-                let revokeRes = self._call(
-                    to: self.assetEVMAddress,
-                    signature: "approve(address,uint256)",
-                    args: [self.vault, 0 as UInt256],
-                    gasLimit: 500_000
-                )!
-                if revokeRes.status != EVM.Status.successful {
-                    panic("Failed to revoke approval after deposit failure. Vault: \(self.vault.toString()), Asset: \(self.assetEVMAddress.toString()). Error code: \(revokeRes.errorCode) Error message: \(revokeRes.errorMessage)")
-                }
-                if self._bridgeTokenBackOnRevert(amount: amount, receiver: from) {
-                    return
-                }
+                // No need to revoke the approval: a Cadence panic atomically reverts all EVM
+                // state changes made in this transaction, including the approve() call above.
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
@@ -221,24 +205,6 @@ access(all) contract ERC4626SinkConnectors {
                 return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
             }
             return nil
-        }
-        /// Attempts to bridge tokens back from EVM to Cadence when an operation fails.
-        /// Always deposits whatever was recovered into the receiver vault.
-        ///
-        /// @param amount: the maximum amount of assets to recover
-        /// @param receiver: the vault to deposit recovered tokens into
-        ///
-        /// @return true if the full amount was recovered (within rounding tolerance), false if only partial or zero
-        ///
-        access(self)
-        fun _bridgeTokenBackOnRevert(amount: UFix64, receiver: auth(FungibleToken.Withdraw) &{FungibleToken.Vault}): Bool {
-            // withdraws up to `maxAmount: amount`, but recovered.balance may be slightly less than `amount`
-            // due to UFix64/UInt256 rounding
-            let recovered <- self.tokenSource.withdrawAvailable(maxAmount: amount)
-            let tolerance = 0.00000001
-            let recoveredAmount = recovered.balance
-            receiver.deposit(from: <-recovered)
-            return recoveredAmount + tolerance >= amount
         }
         /// Returns an error message for a failed approve call
         ///
