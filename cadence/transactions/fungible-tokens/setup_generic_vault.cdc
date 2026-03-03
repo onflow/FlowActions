@@ -30,9 +30,10 @@ transaction(vaultIdentifier: String) {
         if let storedType = signer.storage.type(at: data.storagePath) {
             if storedType == vaultType {
                 return
-            } else {
-                panic("Another resource of type \(storedType.identifier) already exists at the storage path: \(data.storagePath.toString())")
             }
+
+            panic("Another resource of type \(storedType.identifier) already exists at the storage path: \(data.storagePath.toString())")
+
         }
 
         // Create a new vault and save it to signer's storage at the vault's default storage path
