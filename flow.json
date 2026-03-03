@@ -888,14 +888,6 @@
 				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/mainnet-defi-actions/cryptoKeyVersions/1"
 			}
 		},
-		"testnet-morpho-erc4626-connectors": {
-			"address": "71144a1aff6b7148",
-			"key": {
-				"type": "google-kms",
-				"hashAlgorithm": "SHA2_256",
-				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
-			}
-		},
 		"mainnet-originator": {
 			"address": "0e9374d0c1a78c0f",
 			"key": {
@@ -977,6 +969,14 @@
 		},
 		"testnet-increment-fi-connectors": {
 			"address": "494536c102537e1e",
+			"key": {
+				"type": "google-kms",
+				"hashAlgorithm": "SHA2_256",
+				"resourceID": "projects/flow-foundation-admin/locations/global/keyRings/defi-actions/cryptoKeys/testnet-defi-actions/cryptoKeyVersions/1"
+			}
+		},
+		"testnet-morpho-erc4626-connectors": {
+			"address": "71144a1aff6b7148",
 			"key": {
 				"type": "google-kms",
 				"hashAlgorithm": "SHA2_256",
@@ -1139,10 +1139,6 @@
 			"testnet-evm-amount-utils": [
 				"EVMAmountUtils"
 			],
-			"testnet-morpho-erc4626-connectors": [
-				"MorphoERC4626SwapConnectors",
-				"MorphoERC4626SinkConnectors"
-			],
 			"testnet-evm-token-connectors": [
 				"EVMNativeFLOWConnectors",
 				"EVMTokenConnectors"
@@ -1155,6 +1151,10 @@
 				"IncrementFiSwapConnectors",
 				"IncrementFiPoolLiquidityConnectors",
 				"IncrementFiStakingConnectors"
+			],
+			"testnet-morpho-erc4626-connectors": [
+				"MorphoERC4626SwapConnectors",
+				"MorphoERC4626SinkConnectors"
 			],
 			"testnet-swap-connectors": [
 				"SwapConnectors"
