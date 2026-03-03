@@ -1,6 +1,4 @@
 import "FungibleToken"
-import "NonFungibleToken"
-import "MetadataViews"
 import "FungibleTokenMetadataViews"
 
 /// Configures a Vault according to the shared FungibleToken standard and the defaults specified by the Vault's

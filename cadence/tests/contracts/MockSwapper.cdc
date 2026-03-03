@@ -1,8 +1,5 @@
-import "Burner"
 import "FungibleToken"
-
 import "DeFiActions"
-import "DeFiActionsUtils"
 
 /// TEST-ONLY mock swapper that withdraws output from a user-provided Vault capability.
 /// Do NOT use in production.

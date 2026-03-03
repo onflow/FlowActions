@@ -2,20 +2,15 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
-import "FungibleToken"
-import "FlowToken"
 import "TokenA"
 import "TokenB"
 import "SwapConfig"
 import "SwapFactory"
-
-import "DeFiActions"
-import "IncrementFiStakingConnectors"
 import "Staking"
 
 access(all) let serviceAccount = Test.serviceAccount()
 access(all) let incrementFiStakingAccount = Test.getAccount(Type<Staking>().address!)
-access(all) let startHeight = getCurrentBlockHeight()
+access(all) var snapshot: UInt64 = 0
 access(all) var stakingTokenType: Type? = nil
 access(all) var tokenAKey: String? = nil
 access(all) var tokenBKey: String? = nil
@@ -32,13 +27,13 @@ access(all) let testLimitAmount: UFix64 = 1000000.0
 access(all) let testPairCreatorSeedAmount: UFix64 = 1000000.0
 
 access(all) fun beforeEach() {
-    log("================== Setting up IncrementFiIntegration test ==================")
-    // Reset the blockchain state before each test
-    // We cannot reset to the same block height, so we need to
-    // commit a block first to ensure that the state is clean.
-    Test.commitBlock()
-    Test.reset(to: startHeight)
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
+access(all) fun setup() {
+    log("================== Setting up IncrementFiIntegration test ==================")
     setupIncrementFiDependencies()
 
     // Mint test tokens to the increment fi staking account
@@ -53,7 +48,7 @@ access(all) fun beforeEach() {
         minterStoragePath: TokenA.AdminStoragePath,
         receiverPublicPath: TokenA.ReceiverPublicPath
     )
-    
+
     var err = Test.deployContract(
         name: "DeFiActionsUtils",
         path: "../contracts/utils/DeFiActionsUtils.cdc",
@@ -178,6 +173,7 @@ access(all) fun beforeEach() {
         /storage/tokenAVault,
         testDepositAmount
     )
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testRestakeRewards() {

@@ -7,11 +7,20 @@ import "EVMAmountUtils"
 
 access(all) let serviceAccount = Test.serviceAccount()
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all)
 fun setup() {
     log("================== Setting up EVMAmountUtils test ==================")
 
     deployEVMAmountUtils()
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all)

@@ -2,13 +2,15 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
-import "FungibleToken"
-import "FlowToken"
-import "EVM"
-import "EVMNativeFLOWConnectors"
-import "DeFiActions"
-
 access(all) let serviceAccount = Test.serviceAccount()
+
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all) fun setup() {
     log("================== Setting up EVMNativeFLOWConnectors test ==================")
@@ -30,6 +32,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testSinkDepositSucceeds() {
@@ -41,7 +44,7 @@ access(all) fun testSinkDepositSucceeds() {
     createCOA(user, fundingAmount: 0.0)
     // get the EVM address of the COA
     let recipient = getCOAAddressHex(atFlowAddress: user.address)
-    
+
     // deposit 10 FLOW to the COA
     let depositAmount = 10.0
     let depositResult = _executeTransaction(
@@ -66,7 +69,7 @@ access(all) fun testSinkDepositWithMaxSucceeds() {
     createCOA(user, fundingAmount: fundingAmount)
     // get the EVM address of the COA
     let recipient = getCOAAddressHex(atFlowAddress: user.address)
-    
+
     // deposit 10 FLOW to the COA
     let sinkMax = 10.0
     let surplus = 5.0

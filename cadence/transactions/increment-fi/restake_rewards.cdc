@@ -4,8 +4,6 @@ import "IncrementFiStakingConnectors"
 import "IncrementFiPoolLiquidityConnectors"
 import "SwapConnectors"
 import "DeFiActions"
-import "SwapInterfaces"
-import "SwapConfig"
 
 /// Restakes earned staking rewards by converting them to LP tokens and staking them back into the same pool.
 /// This transaction automates the compound staking process by:
@@ -37,7 +35,7 @@ transaction(
         self.pool = IncrementFiStakingConnectors.borrowPool(pid: pid)
             ?? panic("Pool with ID \(pid) not found or not accessible")
         self.startingStake = self.pool.getUserInfo(address: acct.address)?.stakingAmount ?? panic("No user info found for address \(acct.address)")
-        
+
         // Issue a capability to the user's staking certificate
         let userCertificateCap = acct
             .capabilities
@@ -45,7 +43,7 @@ transaction(
             .issue<&Staking.UserCertificate>(
                 Staking.UserCertificateStoragePath
             )
-        
+
         let pair = IncrementFiStakingConnectors.borrowPairPublicByPid(pid: pid)
         if pair == nil {
             panic("Pair with ID \(pid) not found or not accessible")
@@ -76,7 +74,7 @@ transaction(
             source: poolRewardsSource,
             uniqueID: self.uniqueID
         )
-        
+
         // Get the expected amount of LP tokens to be restaked
         self.expectedStakeIncrease = zapper.quoteOut(
             forProvided: poolRewardsSource.minimumAvailable(),
@@ -104,7 +102,7 @@ transaction(
         // 2. Deposit the LP tokens into the pool sink to complete the restaking
         let vault <- self.tokenSource.withdrawAvailable(maxAmount: UFix64.max)
         poolSink.depositCapacity(from: &vault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
-        
+
         // Ensure all tokens were properly deposited (vault should be empty)
         assert(vault.balance == 0.0, message: "Vault should be empty after withdrawal - restaking may have failed")
         destroy vault

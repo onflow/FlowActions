@@ -3,7 +3,6 @@ import "FungibleToken"
 import "SwapConnectors"
 import "DeFiActions"
 
-import "SwapRouter"
 import "SwapConfig"
 import "SwapFactory"
 import "StableSwapFactory"

@@ -3,8 +3,6 @@ import "FungibleTokenMetadataViews"
 import "MetadataViews"
 import "FlowToken"
 import "EVM"
-import "FlowEVMBridgeConfig"
-import "FlowEVMBridgeUtils"
 import "DeFiActions"
 import "FungibleTokenConnectors"
 import "ERC4626SinkConnectors"
@@ -42,7 +40,7 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
 
         // get the COA capability to use for the AssetSink
         let coaPath = /storage/evm
-        if signer.storage.type(at: coaPath) == nil {    
+        if signer.storage.type(at: coaPath) == nil {
             // COA not found in standard path - create and publish a public unentitled capability
             signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
             let coaCapability = signer.capabilities.storage.issue<&EVM.CadenceOwnedAccount>(coaPath)
@@ -62,7 +60,7 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
             vault: feeVault,
             uniqueID: nil
         )
-        
+
         // create the asset Sink
         self.sink = ERC4626SinkConnectors.AssetSink(
             asset: assetVaultType,

@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "ViewResolver"
 import "FungibleTokenMetadataViews"
 
 transaction(vaultIdentifier: String) {
@@ -13,7 +12,7 @@ transaction(vaultIdentifier: String) {
         let vaultData = tokenContract.resolveContractView(resourceType: tokenType, viewType: Type<FungibleTokenMetadataViews.FTVaultData>())
             as! FungibleTokenMetadataViews.FTVaultData?
             ?? panic("Could not resolve FTVaultData for vaultIdentifier \(vaultIdentifier)")
-        
+
         // return early if the account already stores something
         if signer.storage.type(at: vaultData.storagePath) != nil {
             return

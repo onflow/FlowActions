@@ -1,5 +1,4 @@
 import "EVM"
-
 import "FlowEVMBridgeUtils"
 
 /// Returns the balance of the owner (hex-encoded EVM address) of a given ERC20 fungible token defined

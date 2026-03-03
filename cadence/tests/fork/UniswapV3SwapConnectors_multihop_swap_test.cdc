@@ -1,7 +1,7 @@
-#test_fork(network: "mainnet", height: 142038853)
+#test_fork(network: "mainnet", height: nil)
 
 import Test
-import "FlowToken"
+import BlockchainHelpers
 
 /// Tests against FlowSwap V3 on Flow Testnet (from https://developers.flow.com/defi/defi-contracts-testnet):
 access(all) let UniswapV3Factory  = "0xca6d7Bb03334bBf135902e1d919a5feccb461632"
@@ -34,6 +34,14 @@ access(all) let WBTC_HOLDER = Test.getAccount(0x47f544294e3b7656)
 access(all) let USDF_HOLDER = Test.getAccount(0x40cd27ac5893644a)
 access(all) let WETH_HOLDER = Test.getAccount(0x47f544294e3b7656)
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 /// Deploys all required contracts for the UniswapV3SwapConnectors test suite.
 access(all) fun setup() {
     var err = Test.deployContract(
@@ -42,7 +50,6 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "DeFiActions",
@@ -50,7 +57,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "SwapConnectors",
@@ -58,7 +64,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "EVMAbiHelpers",
@@ -66,7 +71,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "EVMAmountUtils",
@@ -74,7 +78,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "UniswapV3SwapConnectors",
@@ -82,7 +85,7 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
+    snapshot = getCurrentBlockHeight()
 }
 
 // testMultiHopSwapForward tests suite validates multi-hop swap functionality using Uniswap V3
@@ -93,7 +96,7 @@ access(all) fun setup() {
 access(all) fun testMultiHopSwapForward() {
     let user = WBTC_HOLDER
     let amount = 0.0001
-    
+
     let tokenPath = [WBTC, WETH, USDF]
     let feePath: [UInt32] = [3000, 3000]
 

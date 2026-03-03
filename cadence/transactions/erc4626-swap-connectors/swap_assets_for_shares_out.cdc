@@ -1,10 +1,8 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 import "MetadataViews"
-import "FlowToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
-import "FlowEVMBridgeUtils"
 import "DeFiActions"
 import "FungibleTokenConnectors"
 import "ERC4626SwapConnectors"
@@ -51,7 +49,7 @@ transaction(amountOut: UFix64, maxIn: UFix64, assetVaultIdentifier: String, erc4
             ?? panic("Could not resolve FTVaultData for \(self.sharesType.identifier)")
         let assetVault = signer.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: assetsVaultData.storagePath)
             ?? panic("Could not find \(assetVaultIdentifier) Vault in signer's storage at path \(assetsVaultData.storagePath)")
-        
+
         // configure a shares vault receiver
         if signer.storage.type(at: sharesVaultData.storagePath) == nil {
             // create and publish a public unentitled capability
@@ -68,7 +66,7 @@ transaction(amountOut: UFix64, maxIn: UFix64, assetVaultIdentifier: String, erc4
 
         // get the COA capability to use for the Swapper
         let coaPath = /storage/evm
-        if signer.storage.type(at: coaPath) == nil {    
+        if signer.storage.type(at: coaPath) == nil {
             // COA not found in standard path - create and publish a public unentitled capability
             signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
             let coaCapability = signer.capabilities.storage.issue<&EVM.CadenceOwnedAccount>(coaPath)
@@ -88,7 +86,7 @@ transaction(amountOut: UFix64, maxIn: UFix64, assetVaultIdentifier: String, erc4
             vault: feeVault,
             uniqueID: nil
         )
-        
+
         // create the Swapper
         self.swapper = ERC4626SwapConnectors.Swapper(
             asset: assetVaultType,

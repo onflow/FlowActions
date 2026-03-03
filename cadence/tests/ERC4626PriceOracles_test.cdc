@@ -5,7 +5,6 @@ import "test_helpers.cdc"
 import "FlowToken"
 import "DeFiActions"
 import "EVM"
-import "ERC4626Utils"
 
 access(all) let serviceAccount = Test.serviceAccount()
 access(all) let deployerAccount = Test.createAccount()
@@ -24,6 +23,14 @@ access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
     factory: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
     vault: EVM.addressFromString("0x0000000000000000000000000000000000000000")
 )
+
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all) fun setup() {
     log("================== Setting up ERC4626PriceOracles test ==================")
@@ -83,6 +90,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testSetupSuccess() {

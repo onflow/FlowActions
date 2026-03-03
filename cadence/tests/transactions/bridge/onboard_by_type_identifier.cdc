@@ -1,10 +1,5 @@
 import "FungibleToken"
-import "FlowToken"
-
 import "ScopedFTProviders"
-
-import "EVM"
-
 import "FlowEVMBridge"
 import "FlowEVMBridgeConfig"
 

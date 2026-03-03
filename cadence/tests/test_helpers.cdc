@@ -1,13 +1,7 @@
 import Test
 
-import "MetadataViews"
-import "FlowToken"
 import "EVM"
-import "TokenA"
-import "TokenB"
-import "SwapFactory"
 import "Staking"
-import "SwapConfig"
 import "EVMAbiHelpers"
 
 /* --- Test Helpers --- */
@@ -240,7 +234,7 @@ fun createCOA(_ signer: Test.TestAccount, fundingAmount: UFix64) {
     if coaExists.returnValue! as! Bool {
         return // COA already exists, skip creation
     }
-    
+
     let createCOAResult = _executeTransaction(
         "../transactions/evm/create_coa.cdc",
         [fundingAmount],

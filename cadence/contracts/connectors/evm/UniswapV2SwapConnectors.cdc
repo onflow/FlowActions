@@ -4,8 +4,6 @@ import "Burner"
 import "EVM"
 import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
-import "FlowEVMBridge"
-
 import "DeFiActions"
 import "SwapConnectors"
 
@@ -53,7 +51,7 @@ access(all) contract UniswapV2SwapConnectors {
                 FlowEVMBridgeConfig.getTypeAssociated(with: path[0]) == inVault:
                 "Provided inVault \(inVault.identifier) is not associated with ERC20 at path[0] \(path[0].toString()) - "
                     .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
-                FlowEVMBridgeConfig.getTypeAssociated(with: path[path.length - 1]) == outVault: 
+                FlowEVMBridgeConfig.getTypeAssociated(with: path[path.length - 1]) == outVault:
                 "Provided outVault \(outVault.identifier) is not associated with ERC20 at path[\(path.length - 1)] \(path[path.length - 1].toString()) - "
                     .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
                 coaCapability.check():

@@ -3,12 +3,11 @@ import "FungibleTokenMetadataViews"
 import "FlowToken"
 import "EVM"
 import "FlowEVMBridgeConfig"
-import "FlowEVMBridgeUtils"
 import "DeFiActions"
 import "FungibleTokenConnectors"
 import "EVMTokenConnectors"
 
-/// Withdraws the given amount of FLOW from the signer's CadenceOwnedAccount's native FLOW balance via a 
+/// Withdraws the given amount of FLOW from the signer's CadenceOwnedAccount's native FLOW balance via a
 /// EVMNativeFlowConnectors.Source connector
 ///
 /// @param sourceMin: The minimum amount of FLOW for the EVM address to hold beyond which the Source will not withdraw

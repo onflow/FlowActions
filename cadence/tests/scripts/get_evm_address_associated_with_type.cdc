@@ -1,5 +1,3 @@
-import "EVM"
-
 import "FlowEVMBridgeConfig"
 
 /// Returns the EVM address associated with the given Cadence type (as its identifier String)

@@ -4,9 +4,7 @@ import "test_helpers.cdc"
 
 import "TokenA"
 import "TokenB"
-
 import "DeFiActions"
-import "IncrementFiSwapConnectors"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 access(all) let pairCreatorAccount = Test.createAccount()
@@ -17,6 +15,14 @@ access(all) let tokenBIdentifier = Type<@TokenB.Vault>().identifier // "A.<ADDRE
 // IncrementFi identifies tokens by their contract identifier - e.g. A.<ADDRESS>.TokenA for A.<ADDRESS>.TokenA.Vault
 access(all) let tokenAKey = String.join(tokenAIdentifier.split(separator: ".").slice(from: 0, upTo: 3), separator: ".")
 access(all) let tokenBKey = String.join(tokenBIdentifier.split(separator: ".").slice(from: 0, upTo: 3), separator: ".")
+
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all)
 fun setup() {
@@ -93,6 +99,7 @@ fun setup() {
         token1VaultPath: TokenB.VaultStoragePath,
         stableMode: false
     )
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all)

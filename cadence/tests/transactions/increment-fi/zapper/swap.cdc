@@ -2,7 +2,6 @@ import "FungibleToken"
 import "FungibleTokenMetadataViews"
 import "SwapConfig"
 import "SwapFactory"
-import "DeFiActions"
 import "IncrementFiPoolLiquidityConnectors"
 
 transaction(

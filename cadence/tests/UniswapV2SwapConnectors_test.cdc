@@ -14,6 +14,14 @@ access(all) var tokenBHex = ""
 access(all) var wflowHex = ""
 access(all) var uniV2RouterHex = ""
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all)
 fun setup() {
     log("================== Setting up UniswapV2SwapConnectors test ==================")
@@ -54,6 +62,7 @@ fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all)

@@ -24,6 +24,12 @@ access(all) let autoBalancerPublicPath = /public/autoBalancerTest
 
 access(all) var snapshot: UInt64 = 0
 
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all) fun setup() {
     log("================== Setting up AutoBalancer test ==================")
     var err = Test.deployContract(
@@ -102,7 +108,6 @@ access(all) fun test_SetupAutoBalancerSucceeds() {
 }
 
 access(all) fun test_SetRebalanceSinkSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -128,7 +133,6 @@ access(all) fun test_SetRebalanceSinkSucceeds() {
 }
 
 access(all) fun test_SetRebalanceSourceSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -162,7 +166,6 @@ access(all) fun test_SetRebalanceSourceSucceeds() {
 }
 
 access(all) fun test_ForceRebalanceToSinkSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -242,7 +245,6 @@ access(all) fun test_ForceRebalanceToSinkSucceeds() {
 }
 
 access(all) fun test_UnforcedRebalanceToSinkSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -322,7 +324,6 @@ access(all) fun test_UnforcedRebalanceToSinkSucceeds() {
 }
 
 access(all) fun test_ForceRebalanceFromSourceSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -421,7 +422,6 @@ access(all) fun test_ForceRebalanceFromSourceSucceeds() {
 }
 
 access(all) fun test_UnforcedRebalanceFromSourceSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     let lowerThreshold = 0.9
     let upperThreshold = 1.1
@@ -520,7 +520,6 @@ access(all) fun test_UnforcedRebalanceFromSourceSucceeds() {
 }
 
 access(all) fun test_RecurringRebalanceToSinkSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
     let lowerThreshold = 0.9
@@ -628,7 +627,7 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
     now = getCurrentBlockTimestamp()
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     Test.assertEqual(2, schedEvts.length)
-    
+
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     schedEvt = schedEvts[schedEvts.length - 1] as! FlowTransactionScheduler.Scheduled
     Test.assertEqual(user.address, schedEvt.transactionHandlerOwner)
@@ -645,7 +644,6 @@ access(all) fun test_RecurringRebalanceToSinkSucceeds() {
 }
 
 access(all) fun test_RecurringRebalanceFromSourceSucceeds() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
     let lowerThreshold = 0.9
@@ -760,7 +758,7 @@ access(all) fun test_RecurringRebalanceFromSourceSucceeds() {
     now = getCurrentBlockTimestamp()
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     Test.assertEqual(2, schedEvts.length)
-    
+
     schedEvts = Test.eventsOfType(Type<FlowTransactionScheduler.Scheduled>())
     schedEvt = schedEvts[schedEvts.length - 1] as! FlowTransactionScheduler.Scheduled
     Test.assertEqual(user.address, schedEvt.transactionHandlerOwner)
@@ -777,7 +775,6 @@ access(all) fun test_RecurringRebalanceFromSourceSucceeds() {
 }
 
 access(all) fun test_AttemptToSetRecurringConfigForDifferentAutoBalancerFails() {
-    Test.reset(to: snapshot)
     let user = Test.createAccount()
     transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
     let lowerThreshold = 0.9

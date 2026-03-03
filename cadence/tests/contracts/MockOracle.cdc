@@ -1,5 +1,3 @@
-import "FungibleToken"
-
 import "DeFiActions"
 
 ///
@@ -77,7 +75,7 @@ access(all) contract MockOracle {
         var res = UFix64(variance)
         for i in InclusiveRange(0, 3) {
             res = res / 10.0
-        } 
+        }
         return res
     }
 

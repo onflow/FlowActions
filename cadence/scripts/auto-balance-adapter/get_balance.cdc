@@ -1,5 +1,3 @@
-import "FungibleToken"
-
 import "DeFiActions"
 
 /// Returns the balance of tokens contained by an AutoBalancer at the specified address via the Capability published

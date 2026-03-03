@@ -1,5 +1,4 @@
 import "IncrementFiStakingConnectors"
-import "Staking"
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 
@@ -25,7 +24,7 @@ transaction(pid: UInt64, vaultType: Type) {
         self.tokenVaultRef = acct.storage.borrow<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(from: ftVaultData.storagePath)
             ?? panic("Could not borrow reference to TokenA Vault")
     }
-    
+
     execute {
         self.incrementFiSink.depositCapacity(
             from: self.tokenVaultRef
