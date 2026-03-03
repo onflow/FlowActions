@@ -437,7 +437,7 @@ fun setupUniswapV2(_ signer: Test.TestAccount, feeToSetter: String, wflowAddress
     let wflowAddr = EVM.addressFromString(wflowAddress)
     // deploy uniV2Factory, concatenating feeToSetter as constructor arg
     let factoryArgsBytecode = EVM.encodeABI([feeToSetter])
-    let factoryDeployResult = evmDeploy(signer,
+    let _factoryDeployResult = evmDeploy(signer,
         bytecode: String.encodeHex(uniV2FactoryBytecode.decodeHex().concat(factoryArgsBytecode)),
         gasLimit: 15_000_000,
         value: 0
@@ -447,7 +447,7 @@ fun setupUniswapV2(_ signer: Test.TestAccount, feeToSetter: String, wflowAddress
     let factoryAddr =  EVM.addressFromString(getEVMAddressHexFromEvents(txnEvents, idx: txnEvents.length - 1))
     // deploy uniV2Router, concatenating the factory and WFLOW addresses as constructor args
     let routerArgsBytecode = EVM.encodeABI([factoryAddr, wflowAddr])
-    let routerDeployResult = evmDeploy(signer,
+    let _routerDeployResult = evmDeploy(signer,
         bytecode: String.encodeHex(uniV2RouterBytecode.decodeHex().concat(routerArgsBytecode)),
         gasLimit: 15_000_000,
         value: 0
@@ -461,7 +461,7 @@ access(all)
 fun deployBasicERC20(_ signer: Test.TestAccount, name: String, symbol: String): String {
     let constructorArgs = EVM.encodeABI([name, symbol])
     // deploy BasicERC20
-    let deployResult = evmDeploy(signer,
+    let _deployResult = evmDeploy(signer,
         bytecode: String.encodeHex(basicERC20Bytecode.decodeHex().concat(constructorArgs)),
         gasLimit: 15_000_000,
         value: 0
