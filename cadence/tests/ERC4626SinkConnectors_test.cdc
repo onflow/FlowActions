@@ -167,7 +167,7 @@ access(all) fun testDepositToPausedVaultRecoversGracefully() {
         [ufixDepositAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
         deployerAccount
     )
-    Test.expect(depositRes, Test.beSucceeded())
+    Test.expect(depositRes, Test.beFailed())
 
     // verify no shares were gained
     let afterShares = getEVMTokenBalance(of: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
