@@ -161,7 +161,7 @@ access(all) fun testDepositToPausedVaultRecoversGracefully() {
         beFailed: false
     )
 
-    // attempt deposit to paused vault — should not panic
+    // attempt deposit to paused vault — should panic
     let depositRes = _executeTransaction(
         "./transactions/erc4626-sink-connectors/deposit_to_paused_vault.cdc",
         [ufixDepositAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()],
