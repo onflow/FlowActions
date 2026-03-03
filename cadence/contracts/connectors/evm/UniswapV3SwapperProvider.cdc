@@ -65,7 +65,9 @@ access(all) contract UniswapV3SwapperProvider {
     /// UniswapV3SwapperProvider
     ///
     /// A SwapperProvider that pre-computes all swappers at initialization for predictable performance.
-    /// Returns nil for unconfigured trading pairs.
+    /// When an intermediary token is configured, auto-generates multi-hop routes for any pair
+    /// that doesn't have an explicit route, routing through the intermediary.
+    /// Returns nil for unconfigured trading pairs that cannot be auto-generated.
     ///
     access(all) struct SwapperProvider : DeFiActions.SwapperProvider, DeFiActions.IdentifiableStruct {
         // Uniswap V3 contract addresses
@@ -92,7 +94,8 @@ access(all) contract UniswapV3SwapperProvider {
             tokens: [TokenConfig],
             routes: [RouteConfig],
             coaCapability: Capability<auth(EVM.Owner) &EVM.CadenceOwnedAccount>,
-            uniqueID: DeFiActions.UniqueIdentifier?
+            uniqueID: DeFiActions.UniqueIdentifier?,
+            intermediaryToken: TokenConfig?
         ) {
             pre {
                 tokens.length >= 2: "Must provide at least 2 tokens"
@@ -122,7 +125,13 @@ access(all) contract UniswapV3SwapperProvider {
                     message: "Route outToken not in configured tokens")
             }
 
-            // Pre-compute all swappers
+            // Validate intermediary token is one of the configured tokens
+            if let intermediary = intermediaryToken {
+                assert(tokenTypes.containsKey(intermediary.flowType),
+                    message: "Intermediary token must be one of the configured tokens")
+            }
+
+            // Pre-compute all swappers from explicit routes
             for route in routes {
                 let key = self._makeKey(route.inToken, route.outToken)
 
@@ -140,11 +149,109 @@ access(all) contract UniswapV3SwapperProvider {
 
                 self.swappers[key] = swapper
             }
+
+            // Auto-generate multi-hop routes through intermediary for unconfigured pairs
+            if let intermediary = intermediaryToken {
+                // Build fee lookup from single-hop explicit routes: "addr1_addr2" -> fee
+                let feeLookup: {String: UInt32} = {}
+                for route in routes {
+                    if route.tokenPath.length == 2 {
+                        let addr0 = route.tokenPath[0].toString()
+                        let addr1 = route.tokenPath[1].toString()
+                        let fee = route.feePath[0]
+                        // Store both directions (Uniswap pools are bidirectional)
+                        feeLookup[addr0.concat("_").concat(addr1)] = fee
+                        feeLookup[addr1.concat("_").concat(addr0)] = fee
+                    }
+                }
+
+                let intermediaryHex = intermediary.evmAddress.toString()
+
+                // Validate every non-intermediary token has a fee defined with the intermediary
+                for token in tokens {
+                    if token.flowType == intermediary.flowType {
+                        continue
+                    }
+                    let tokenHex = token.evmAddress.toString()
+                    let feeKey = tokenHex.concat("_").concat(intermediaryHex)
+                    assert(feeLookup.containsKey(feeKey),
+                        message: "Missing fee tier between token ".concat(tokenHex)
+                            .concat(" and intermediary ").concat(intermediaryHex)
+                            .concat(". An explicit single-hop route must exist for each token paired with the intermediary."))
+                }
+
+                // Generate routes for all missing pairs
+                var i = 0
+                while i < tokens.length {
+                    var j = 0
+                    while j < tokens.length {
+                        if i != j {
+                            let ti = tokens[i]
+                            let tj = tokens[j]
+
+                            // Skip if either token IS the intermediary
+                            if ti.flowType != intermediary.flowType && tj.flowType != intermediary.flowType {
+                                let key = self._makeKey(ti.flowType, tj.flowType)
+
+                                // Only generate if no explicit route exists
+                                if !self.swappers.containsKey(key) {
+                                    let tiHex = ti.evmAddress.toString()
+                                    let tjHex = tj.evmAddress.toString()
+
+                                    let fee1 = feeLookup[tiHex.concat("_").concat(intermediaryHex)]!
+                                    let fee2 = feeLookup[intermediaryHex.concat("_").concat(tjHex)]!
+
+                                    let swapper = UniswapV3SwapConnectors.Swapper(
+                                        factoryAddress: factoryAddress,
+                                        routerAddress: routerAddress,
+                                        quoterAddress: quoterAddress,
+                                        tokenPath: [ti.evmAddress, intermediary.evmAddress, tj.evmAddress],
+                                        feePath: [fee1, fee2],
+                                        inVault: ti.flowType,
+                                        outVault: tj.flowType,
+                                        coaCapability: coaCapability,
+                                        uniqueID: uniqueID
+                                    )
+
+                                    self.swappers[key] = swapper
+                                }
+                            }
+
+                            // Also generate reverse of explicit routes involving the intermediary
+                            // (e.g., if WFLOW->TokenA exists, ensure TokenA->WFLOW also exists)
+                            let reverseKey = self._makeKey(tj.flowType, ti.flowType)
+                            if self.swappers.containsKey(self._makeKey(ti.flowType, tj.flowType))
+                                && !self.swappers.containsKey(reverseKey) {
+                                // Look up the route info from explicit routes and create a reversed Swapper
+                                for route in routes {
+                                    if route.inToken == ti.flowType && route.outToken == tj.flowType {
+                                        let reverseSwapper = UniswapV3SwapConnectors.Swapper(
+                                            factoryAddress: factoryAddress,
+                                            routerAddress: routerAddress,
+                                            quoterAddress: quoterAddress,
+                                            tokenPath: route.tokenPath.reverse(),
+                                            feePath: route.feePath.reverse(),
+                                            inVault: tj.flowType,
+                                            outVault: ti.flowType,
+                                            coaCapability: coaCapability,
+                                            uniqueID: uniqueID
+                                        )
+                                        self.swappers[reverseKey] = reverseSwapper
+                                        break
+                                    }
+                                }
+                            }
+                        }
+                        j = j + 1
+                    }
+                    i = i + 1
+                }
+            }
         }
 
         /// SwapperProvider interface implementation
         ///
-        /// Returns a pre-computed swapper for the given trade pair, or nil if not configured.
+        /// Returns a pre-computed swapper for the given trade pair, or nil if not supported.
         ///
         access(all) fun getSwapper(inType: Type, outType: Type): {DeFiActions.Swapper}? {
             return self.swappers[self._makeKey(inType, outType)]

@@ -373,5 +373,145 @@ access(all) fun testGetComponentInfoContainsAllInnerSwappers() {
     Test.assertEqual(3, innerComponentCount)
 }
 
+/* ==================== Intermediary Token Tests ==================== */
+
+access(all) fun testProviderWithIntermediaryAutoGeneratesRoutes() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // Create provider with intermediary - should succeed
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/create_provider_with_intermediary.cdc",
+        [
+            deployerAccount.address,
+            uniV3FactoryHex,
+            uniV3RouterHex,
+            uniV3QuoterHex,
+            [wflowHex, tokenAHex, tokenBHex]
+        ]
+    )
+    Test.expect(result, Test.beSucceeded())
+}
+
+access(all) fun testIntermediaryAutoGeneratesMultiHopSwapper() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // TokenA -> TokenB should be auto-generated via WFLOW intermediary
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_swapper_with_intermediary.cdc",
+        [
+            deployerAccount.address,
+            Type<@TokenA.Vault>().identifier,
+            Type<@TokenB.Vault>().identifier
+        ]
+    )
+    Test.expect(result, Test.beSucceeded())
+
+    let hasSwapper = result.returnValue as! Bool
+    Test.assert(hasSwapper, message: "Auto-generated multi-hop swapper should exist for TokenA -> TokenB")
+}
+
+access(all) fun testIntermediaryAutoGeneratesReverseMultiHopSwapper() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // TokenB -> TokenA should also be auto-generated via WFLOW intermediary
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_swapper_with_intermediary.cdc",
+        [
+            deployerAccount.address,
+            Type<@TokenB.Vault>().identifier,
+            Type<@TokenA.Vault>().identifier
+        ]
+    )
+    Test.expect(result, Test.beSucceeded())
+
+    let hasSwapper = result.returnValue as! Bool
+    Test.assert(hasSwapper, message: "Auto-generated reverse multi-hop swapper should exist for TokenB -> TokenA")
+}
+
+access(all) fun testIntermediaryAutoGeneratesReverseOfExplicitRoutes() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // TokenA -> WFLOW should be auto-generated as reverse of explicit WFLOW -> TokenA
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_swapper_with_intermediary.cdc",
+        [
+            deployerAccount.address,
+            Type<@TokenA.Vault>().identifier,
+            Type<@FlowToken.Vault>().identifier
+        ]
+    )
+    Test.expect(result, Test.beSucceeded())
+
+    let hasSwapper = result.returnValue as! Bool
+    Test.assert(hasSwapper, message: "Reverse of explicit route should be auto-generated (TokenA -> WFLOW)")
+}
+
+access(all) fun testIntermediaryExplicitRoutesStillWork() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // WFLOW -> TokenA (explicit) should still work
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_swapper_with_intermediary.cdc",
+        [
+            deployerAccount.address,
+            Type<@FlowToken.Vault>().identifier,
+            Type<@TokenA.Vault>().identifier
+        ]
+    )
+    Test.expect(result, Test.beSucceeded())
+
+    let hasSwapper = result.returnValue as! Bool
+    Test.assert(hasSwapper, message: "Explicit route should still work (WFLOW -> TokenA)")
+}
+
+access(all) fun testIntermediaryComponentInfoCountsAllSwappers() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    let result = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_component_info_with_intermediary.cdc",
+        [deployerAccount.address]
+    )
+    Test.expect(result, Test.beSucceeded())
+
+    let innerComponentCount = result.returnValue as! Int
+    // With 3 tokens and WFLOW intermediary:
+    // Explicit: WFLOW->TokenA, WFLOW->TokenB (2)
+    // Auto multi-hop: TokenA->TokenB, TokenB->TokenA (2)
+    // Auto reverse: TokenA->WFLOW, TokenB->WFLOW (2)
+    // Total: 6
+    Test.assertEqual(6, innerComponentCount)
+}
+
+access(all) fun testProviderWithNilIntermediarySameAsBefore() {
+    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
+
+    // nil intermediary should behave the same as before (no auto-generation)
+    let createResult = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/create_provider_limited.cdc",
+        [
+            deployerAccount.address,
+            uniV3FactoryHex,
+            uniV3RouterHex,
+            uniV3QuoterHex,
+            [wflowHex, tokenAHex]
+        ]
+    )
+    Test.expect(createResult, Test.beSucceeded())
+
+    // TokenA -> WFLOW should NOT exist without intermediary
+    let getResult = _executeScript(
+        "./scripts/uniswap-v3-swapper-provider/get_swapper.cdc",
+        [
+            deployerAccount.address,
+            Type<@TokenA.Vault>().identifier,
+            Type<@FlowToken.Vault>().identifier
+        ]
+    )
+    Test.expect(getResult, Test.beSucceeded())
+
+    let hasSwapper = getResult.returnValue as! Bool
+    Test.assertEqual(false, hasSwapper)
+}
+
 /* ==================== Helper Functions ==================== */
 // Note: Helper functions like executeScript and executeTransaction are available from test_helpers.cdc

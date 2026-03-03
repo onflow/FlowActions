@@ -5,20 +5,19 @@ import "TokenB"
 import "UniswapV3SwapperProvider"
 import "DeFiActions"
 
-/// Tests getSwapper() functionality by creating a provider and checking if it returns a swapper
-/// Returns true if swapper exists, false if nil
+/// Creates a provider with intermediary and returns the number of inner components.
+/// With 3 tokens (WFLOW, TokenA, TokenB) and WFLOW as intermediary:
+/// - Explicit: WFLOW->TokenA, WFLOW->TokenB (2)
+/// - Auto-generated: TokenA->TokenB, TokenB->TokenA (2 multi-hop)
+/// - Auto-generated reverses: TokenA->WFLOW, TokenB->WFLOW (2 reverses of explicit)
+/// Total: 6 swappers
 ///
-access(all) fun main(
-    deployerAddress: Address,
-    inTypeIdentifier: String,
-    outTypeIdentifier: String
-): Bool {
+access(all) fun main(deployerAddress: Address): Int {
     // Get COA capability
     let account = getAuthAccount<auth(Storage, Capabilities) &Account>(deployerAddress)
     let coaCap = account.capabilities.get<auth(EVM.Owner) &EVM.CadenceOwnedAccount>(/public/evm)
         ?? panic("Missing COA capability")
 
-    // Create dummy addresses for testing
     let wflowAddress = EVM.addressFromString("0x1234567890123456789012345678901234567890")
     let tokenAAddress = EVM.addressFromString("0x2234567890123456789012345678901234567890")
     let tokenBAddress = EVM.addressFromString("0x3234567890123456789012345678901234567890")
@@ -26,7 +25,6 @@ access(all) fun main(
     let routerAddress = EVM.addressFromString("0x5234567890123456789012345678901234567890")
     let quoterAddress = EVM.addressFromString("0x6234567890123456789012345678901234567890")
 
-    // Create a simple provider with WFLOW <-> TokenA route
     let tokens: [UniswapV3SwapperProvider.TokenConfig] = [
         UniswapV3SwapperProvider.TokenConfig(
             flowType: Type<@FlowToken.Vault>(),
@@ -42,6 +40,7 @@ access(all) fun main(
         )
     ]
 
+    // Only explicit routes through WFLOW
     let routes: [UniswapV3SwapperProvider.RouteConfig] = [
         UniswapV3SwapperProvider.RouteConfig(
             inToken: Type<@FlowToken.Vault>(),
@@ -53,15 +52,14 @@ access(all) fun main(
             inToken: Type<@FlowToken.Vault>(),
             outToken: Type<@TokenB.Vault>(),
             tokenPath: [wflowAddress, tokenBAddress],
-            feePath: [3000]
-        ),
-        UniswapV3SwapperProvider.RouteConfig(
-            inToken: Type<@TokenA.Vault>(),
-            outToken: Type<@TokenB.Vault>(),
-            tokenPath: [tokenAAddress, tokenBAddress],
             feePath: [500]
         )
     ]
+
+    let intermediary = UniswapV3SwapperProvider.TokenConfig(
+        flowType: Type<@FlowToken.Vault>(),
+        evmAddress: wflowAddress
+    )
 
     let provider = UniswapV3SwapperProvider.SwapperProvider(
         factoryAddress: factoryAddress,
@@ -71,15 +69,9 @@ access(all) fun main(
         routes: routes,
         coaCapability: coaCap,
         uniqueID: nil,
-        intermediaryToken: nil
+        intermediaryToken: intermediary
     )
 
-    // Convert type identifiers to Type
-    let inType = CompositeType(inTypeIdentifier)!
-    let outType = CompositeType(outTypeIdentifier)!
-
-    // Try to get swapper
-    let swapper = provider.getSwapper(inType: inType, outType: outType)
-
-    return swapper != nil
+    let info = provider.getComponentInfo()
+    return info.innerComponents.length
 }

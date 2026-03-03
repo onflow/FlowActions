@@ -66,7 +66,8 @@ access(all) fun main(deployerAddress: Address): Int {
         tokens: tokens,
         routes: routes,
         coaCapability: coaCap,
-        uniqueID: nil
+        uniqueID: nil,
+        intermediaryToken: nil
     )
 
     // Get component info

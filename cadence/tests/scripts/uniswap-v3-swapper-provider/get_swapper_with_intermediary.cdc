@@ -5,8 +5,8 @@ import "TokenB"
 import "UniswapV3SwapperProvider"
 import "DeFiActions"
 
-/// Tests getSwapper() functionality by creating a provider and checking if it returns a swapper
-/// Returns true if swapper exists, false if nil
+/// Creates a provider with intermediary token and tests getSwapper for various pairs.
+/// Returns true if the swapper exists for the given pair.
 ///
 access(all) fun main(
     deployerAddress: Address,
@@ -26,7 +26,6 @@ access(all) fun main(
     let routerAddress = EVM.addressFromString("0x5234567890123456789012345678901234567890")
     let quoterAddress = EVM.addressFromString("0x6234567890123456789012345678901234567890")
 
-    // Create a simple provider with WFLOW <-> TokenA route
     let tokens: [UniswapV3SwapperProvider.TokenConfig] = [
         UniswapV3SwapperProvider.TokenConfig(
             flowType: Type<@FlowToken.Vault>(),
@@ -42,6 +41,7 @@ access(all) fun main(
         )
     ]
 
+    // Only explicit routes through WFLOW
     let routes: [UniswapV3SwapperProvider.RouteConfig] = [
         UniswapV3SwapperProvider.RouteConfig(
             inToken: Type<@FlowToken.Vault>(),
@@ -53,15 +53,15 @@ access(all) fun main(
             inToken: Type<@FlowToken.Vault>(),
             outToken: Type<@TokenB.Vault>(),
             tokenPath: [wflowAddress, tokenBAddress],
-            feePath: [3000]
-        ),
-        UniswapV3SwapperProvider.RouteConfig(
-            inToken: Type<@TokenA.Vault>(),
-            outToken: Type<@TokenB.Vault>(),
-            tokenPath: [tokenAAddress, tokenBAddress],
             feePath: [500]
         )
     ]
+
+    // WFLOW as intermediary
+    let intermediary = UniswapV3SwapperProvider.TokenConfig(
+        flowType: Type<@FlowToken.Vault>(),
+        evmAddress: wflowAddress
+    )
 
     let provider = UniswapV3SwapperProvider.SwapperProvider(
         factoryAddress: factoryAddress,
@@ -71,7 +71,7 @@ access(all) fun main(
         routes: routes,
         coaCapability: coaCap,
         uniqueID: nil,
-        intermediaryToken: nil
+        intermediaryToken: intermediary
     )
 
     // Convert type identifiers to Type

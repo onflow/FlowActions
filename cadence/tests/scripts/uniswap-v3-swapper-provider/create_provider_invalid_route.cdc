@@ -56,7 +56,8 @@ access(all) fun main(
         tokens: tokens,
         routes: routes,
         coaCapability: coaCap,
-        uniqueID: nil
+        uniqueID: nil,
+        intermediaryToken: nil
     )
 
     return true
