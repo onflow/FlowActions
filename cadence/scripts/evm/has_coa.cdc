@@ -1,5 +1,3 @@
-import "EVM"
-
 /// Returns true if the given address has a COA at /storage/evm
 ///
 access(all)

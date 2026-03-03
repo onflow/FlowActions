@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "FlowToken"
 import "DeFiActions"
 import "FlowTransactionScheduler"
 

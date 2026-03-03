@@ -1,5 +1,3 @@
-import "FungibleToken"
-
 import "DeFiActions"
 
 /// Returns the historical value of deposits maintained by an AutoBalancer at the specified address via the Capability

@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "FlowToken"
 import "EVM"
 import "DeFiActions"
 import "FungibleTokenConnectors"

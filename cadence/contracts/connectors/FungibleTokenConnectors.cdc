@@ -1,6 +1,4 @@
 import "FungibleToken"
-import "FungibleTokenMetadataViews"
-
 import "DeFiActionsUtils"
 import "DeFiActions"
 

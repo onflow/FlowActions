@@ -1,11 +1,8 @@
 import "FungibleToken"
-import "FungibleTokenMetadataViews"
-import "ViewResolver"
 import "EVM"
 import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
 import "UniswapV3SwapConnectors"
-import "DeFiActions"
 import "EVMAmountUtils"
 
 /// Tests actual V3 swap execution with tokenIn provisioning from holder.

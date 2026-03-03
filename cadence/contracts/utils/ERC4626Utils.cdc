@@ -1,6 +1,5 @@
 import "EVM"
 import "FlowEVMBridgeUtils"
-import "FlowEVMBridgeConfig"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 /// THIS CONTRACT IS IN BETA AND IS NOT FINALIZED - INTERFACES MAY CHANGE AND/OR PENDING CHANGES MAY REQUIRE REDEPLOYMENT
@@ -8,7 +7,7 @@ import "FlowEVMBridgeConfig"
 ///
 /// ERC4626Utils
 ///
-/// Utility methods commonly used across ERC4626 integrating contracts. The included methods are built on top of the 
+/// Utility methods commonly used across ERC4626 integrating contracts. The included methods are built on top of the
 /// OpenZeppelin ERC4626 implementation and support view methods on the underlying ERC4626 contract.
 ///
 access(all) contract ERC4626Utils {

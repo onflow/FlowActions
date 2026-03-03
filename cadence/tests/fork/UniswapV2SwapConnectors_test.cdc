@@ -1,10 +1,9 @@
 #test_fork(network: "mainnet", height: nil)
 
 import Test
+import BlockchainHelpers
 
-import "EVM"
 import "FlowToken"
-import "UniswapV2SwapConnectors"
 
 /// Fork test demonstrating UniswapV2SwapConnectors works against REAL PunchSwap V2 on Flow EVM
 ///
@@ -21,6 +20,14 @@ import "UniswapV2SwapConnectors"
 /// - WBTC: 0x717DAE2BaF7656BE9a9B01deE31d571a9d4c9579
 ///
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all) fun setup() {
     // Deploy the LATEST local contracts to the forked environment
     var err = Test.deployContract(
@@ -29,31 +36,28 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
-    
+
     err = Test.deployContract(
         name: "DeFiActions",
         path: "../../contracts/interfaces/DeFiActions.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
-    
+
     err = Test.deployContract(
         name: "SwapConnectors",
         path: "../../contracts/connectors/SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
-    
+
     err = Test.deployContract(
         name: "UniswapV2SwapConnectors",
         path: "../../contracts/connectors/evm/UniswapV2SwapConnectors.cdc",
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
+    snapshot = getCurrentBlockHeight()
 }
 
 /// Test FLOW → WBTC swap against real PunchSwap V2 using type-safe Cadence Types
@@ -63,10 +67,10 @@ access(all) fun testSwapAgainstPunchSwapV2() {
     let routerAddr = "0xf45AFe28fd5519d5f8C1d4787a4D5f724C0eFa4d"
     let swapAmount = 1.0
     let signer = Test.getAccount(0xb13b21a06b75536d)
-    
+
     let tokenInType = Type<@FlowToken.Vault>()
     let tokenOutType = CompositeType("A.1e4aa0b87d10b141.EVMVMBridgedToken_717dae2baf7656be9a9b01dee31d571a9d4c9579.Vault")!
-    
+
     let swapTxn = Test.Transaction(
         code: Test.readFile("../../transactions/uniswap-v2-swap-connectors/uniswap_v2_swap.cdc"),
         authorizers: [signer.address],

@@ -1,9 +1,4 @@
 import "FungibleToken"
-import "Burner"
-
-import "SwapInterfaces"
-import "SwapConfig"
-import "SwapFactory"
 import "SwapRouter"
 import "SwapConnectors"
 import "DeFiActions"

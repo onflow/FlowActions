@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "FlowToken"
 import "EVM"
 import "DeFiActions"
 import "FungibleTokenConnectors"
@@ -9,14 +8,14 @@ import "EVMTokenConnectors"
 transaction(
     sinkMax: UFix64?,
     uniqueID: DeFiActions.UniqueIdentifier?,
-    vaultTypeIdentifier: String, 
+    vaultTypeIdentifier: String,
     evmAddressHex: String,
     storagePath: StoragePath
 ) {
     prepare(signer: auth(SaveValue, IssueStorageCapabilityController) &Account) {
         let vaultType = CompositeType(vaultTypeIdentifier)
             ?? panic("Invalid vault type identifier: \(vaultTypeIdentifier)")
-        
+
         let evmAddress = EVM.addressFromString(evmAddressHex)
 
         // create the fee source that pays the VM bridge fees

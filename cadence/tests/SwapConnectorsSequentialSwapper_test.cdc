@@ -7,7 +7,6 @@ import "TokenB"
 import "TokenC"
 
 import "DeFiActions"
-import "IncrementFiSwapConnectors"
 
 access(all) let testTokenAccount = Test.getAccount(0x0000000000000010)
 access(all) let serviceAccount = Test.serviceAccount()
@@ -15,6 +14,14 @@ access(all) let serviceAccount = Test.serviceAccount()
 access(all) let tokenAIdentifier = Type<@TokenA.Vault>().identifier // "A.<ADDRESS>.TokenA.Vault"
 access(all) let tokenBIdentifier = Type<@TokenB.Vault>().identifier // "A.<ADDRESS>.TokenB.Vault"
 access(all) let tokenCIdentifier = Type<@TokenC.Vault>().identifier // "A.<ADDRESS>.TokenC.Vault"
+
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all)
 fun setup() {
@@ -77,6 +84,7 @@ fun setup() {
     Test.expect(err, Test.beNil())
 
     transferFlow(signer: serviceAccount, recipient: testTokenAccount.address, amount: 10.0)
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all)

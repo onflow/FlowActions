@@ -1,14 +1,8 @@
 import "FungibleToken"
 import "FungibleTokenMetadataViews"
 import "ViewResolver"
-import "MetadataViews"
-import "FlowToken"
-
 import "ScopedFTProviders"
-
 import "EVM"
-
-import "FlowEVMBridge"
 import "FlowEVMBridgeConfig"
 import "FlowEVMBridgeUtils"
 

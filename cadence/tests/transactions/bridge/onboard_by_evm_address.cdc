@@ -1,10 +1,6 @@
 import "FungibleToken"
-import "FlowToken"
-
 import "ScopedFTProviders"
-
 import "EVM"
-
 import "FlowEVMBridge"
 import "FlowEVMBridgeConfig"
 
@@ -17,7 +13,7 @@ transaction(contractAddressHex: String) {
 
     let contractAddress: EVM.EVMAddress
     let scopedProvider: @ScopedFTProviders.ScopedFTProvider
-    
+
     prepare(signer: auth(CopyValue, BorrowValue, IssueStorageCapabilityController, PublishCapability, SaveValue) &Account) {
         /* --- Construct EVMAddress from hex string (no leading `"0x"`) --- */
         //

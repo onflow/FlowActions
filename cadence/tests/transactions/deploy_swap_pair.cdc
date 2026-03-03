@@ -1,5 +1,3 @@
-import "FungibleToken"
-
 import "TokenA"
 import "TokenB"
 

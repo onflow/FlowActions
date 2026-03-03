@@ -17,6 +17,14 @@ access(all) var tokenBHex = ""
 access(all) var wflowHex = ""
 access(all) var uniV2RouterHex = ""
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all)
 fun setup() {
     log("================== Setting up UniswapV3SwapConnectors test ==================")
@@ -25,10 +33,10 @@ fun setup() {
     // TODO: remove this step once the VM bridge templates are updated for test env
     // see https://github.com/onflow/flow-go/issues/8184
     tempUpsertBridgeTemplateChunks(serviceAccount)
-    
+
     transferFlow(signer: serviceAccount, recipient: uniV2DeployerAccount.address, amount: 10.0)
-    createCOA(uniV2DeployerAccount, fundingAmount: 1.0) 
-    
+    createCOA(uniV2DeployerAccount, fundingAmount: 1.0)
+
     uniV2DeployerCOAHex = getCOAAddressHex(atFlowAddress: uniV2DeployerAccount.address)
 
     uniV2RouterHex = setupUniswapV2(uniV2DeployerAccount, feeToSetter: uniV2DeployerCOAHex, wflowAddress: wflowHex)
@@ -64,6 +72,7 @@ fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all)

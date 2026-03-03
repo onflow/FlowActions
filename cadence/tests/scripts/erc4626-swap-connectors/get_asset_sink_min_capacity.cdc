@@ -1,9 +1,6 @@
 import "FungibleToken"
-import "FlowToken"
 import "EVM"
-import "DeFiActions"
 import "FungibleTokenConnectors"
-import "ERC4626SwapConnectors"
 import "ERC4626SinkConnectors"
 
 /// Returns the minimum capacity of the asset sink for the ERC4626 vault

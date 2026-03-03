@@ -1,8 +1,6 @@
-import "Burner"
 import "FungibleToken"
 import "FlowToken"
 import "BandOracle"
-
 import "DeFiActions"
 
 /// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -103,7 +101,7 @@ access(all) contract BandOracleConnectors {
             // check price data has not gone stale based on last updated timestamp
             let now = UInt64(getCurrentBlock().timestamp)
             if self.staleThreshold != nil {
-                assert(now < priceData.baseTimestamp + self.staleThreshold!, 
+                assert(now < priceData.baseTimestamp + self.staleThreshold!,
                     message: "Price data's base timestamp \(priceData.baseTimestamp) exceeds the staleThreshold "
                         .concat("\(priceData.baseTimestamp + self.staleThreshold!) at current timestamp \(now)"))
                 assert(now < priceData.quoteTimestamp + self.staleThreshold!,

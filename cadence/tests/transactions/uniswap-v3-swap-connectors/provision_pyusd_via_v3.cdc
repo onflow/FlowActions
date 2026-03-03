@@ -1,6 +1,5 @@
 import "FungibleToken"
 import "EVM"
-import "FlowEVMBridgeUtils"
 import "FlowEVMBridgeConfig"
 import "UniswapV3SwapConnectors"
 

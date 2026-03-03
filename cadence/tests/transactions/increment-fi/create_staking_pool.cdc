@@ -1,7 +1,5 @@
 import "Staking"
-import "SwapConfig"
 import "FungibleToken"
-import "FungibleTokenMetadataViews"
 
 transaction(
     limitAmount: UFix64,
@@ -10,7 +8,7 @@ transaction(
     rewardTokenVaultStoragePath: StoragePath?,
     depositAmount: UFix64?
 ) {
-    prepare(acct: auth(Capabilities, Storage) &Account) {        
+    prepare(acct: auth(Capabilities, Storage) &Account) {
         let poolCollection = acct.storage.borrow<&Staking.StakingPoolCollection>(from: Staking.CollectionStoragePath)
             ?? panic("Could not borrow reference to Staking Pool Collection")
 
@@ -22,7 +20,7 @@ transaction(
         let contractRef = getAccount(stakingVaultType.address!)
             .contracts
             .borrow<&{FungibleToken}>(name: stakingVaultType.contractName!)!
-        
+
         let pid = Staking.poolCount
         poolCollection.createStakingPool(
             adminRef: adminRef,

@@ -5,7 +5,6 @@ import "test_helpers.cdc"
 import "FlowToken"
 import "DeFiActions"
 import "EVM"
-import "ERC4626Utils"
 
 access(all) let serviceAccount = Test.serviceAccount()
 access(all) let deployerAccount = Test.createAccount()
@@ -21,6 +20,12 @@ access(all) let uintDepositAmount: UInt256 = 10_000_000_000_000_000_000 // 10.0 
 access(all) let ufixDepositAmount: UFix64 = 10.0
 
 access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all) var vaultDeploymentInfo = MoreVaultDeploymentResult(
     wflow: EVM.addressFromString("0x0000000000000000000000000000000000000000"),
@@ -140,8 +145,6 @@ access(all) fun setup() {
 }
 
 access(all) fun testSwapAssetsInForSharesSucceeds() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
     let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
     Test.assertEqual(beforeTotalShares, expectedInitialShares)
@@ -161,8 +164,6 @@ access(all) fun testSwapAssetsInForSharesSucceeds() {
 }
 
 access(all) fun testSwapAssetsForSharesOutSucceeds() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     let beforeTotalShares = getEVMTotalSupply(callAs: deployerCOAAddress, erc20Address: vaultDeploymentInfo.vault.toString())
     let beforeTotalAssets = getERC4626TotalAssets(callAs: deployerCOAAddress, erc4626Address: vaultDeploymentInfo.vault.toString())
     Test.assertEqual(beforeTotalShares, expectedInitialShares)
@@ -182,8 +183,6 @@ access(all) fun testSwapAssetsForSharesOutSucceeds() {
 }
 
 access(all) fun testQuoteInWithLargeAmountReturnsMaxWhenOverflow() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     // Donate assets directly to the vault (no shares minted) to make assets/share > 1.
     // With a 2x asset/share ratio, requesting UFix64.max shares should overflow the
     // asset-decimal max check but still be below the vault-decimal max check.
@@ -225,8 +224,6 @@ access(all) fun testQuoteInWithLargeAmountReturnsMaxWhenOverflow() {
 /// testQuoteInCapsAtMaxCapacity tests that quoteIn() caps the required input amount at maxCapacity when the desired shares
 /// would require more assets than the vault can accept.
 access(all) fun testQuoteInCapsAtMaxCapacity() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     // Get the asset sink's minimum capacity
     let maxCapacityRes = executeScript(
         "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",
@@ -250,7 +247,7 @@ access(all) fun testQuoteInCapsAtMaxCapacity() {
 
     // The inAmount should be capped at maxCapacity
     Test.assert(quoteIn.inAmount <= maxCapacity, message: "inAmount should be capped at maxCapacity")
-    
+
     // outAmount should be recalculated based on the capped inAmount
     // Verify by getting a quoteOut for the capped amount
     let quoteOutRes = executeScript(
@@ -259,16 +256,14 @@ access(all) fun testQuoteInCapsAtMaxCapacity() {
     )
     Test.expect(quoteOutRes, Test.beSucceeded())
     let quoteOut = quoteOutRes.returnValue! as! {DeFiActions.Quote}
-    
+
     // The outAmount from quoteIn should match the outAmount from quoteOut for the same inAmount
     Test.assertEqual(quoteIn.outAmount, quoteOut.outAmount)
 }
 
-/// testQuoteInAndQuoteOutConsistencyWithCapacityLimit tests that quoteIn() and quoteOut() 
+/// testQuoteInAndQuoteOutConsistencyWithCapacityLimit tests that quoteIn() and quoteOut()
 /// return consistent results for amounts within the capacity limit.
 access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     // Get the asset sink's minimum capacity
     let maxCapacityRes = executeScript(
         "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",
@@ -280,7 +275,7 @@ access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
 
     // Test with an amount below maxCapacity - should work normally
     let normalAmount: UFix64 = 5.0
-    
+
     let quoteOutRes = executeScript(
         "./scripts/erc4626-swap-connectors/quote_out.cdc",
         [deployerAccount.address, normalAmount, underlyingIdentifier, vaultDeploymentInfo.vault.toString()]
@@ -305,8 +300,6 @@ access(all) fun testQuoteInAndQuoteOutConsistencyWithCapacityLimit() {
 
 /// testQuoteInWithExactMaxCapacity tests that quoteIn() correctly handles a request for shares that would require exactly maxCapacity assets.
 access(all) fun testQuoteInWithExactMaxCapacity() {
-    snapshot < getCurrentBlockHeight() ? Test.reset(to: snapshot) : nil
-
     // Get the asset sink's minimum capacity
     let maxCapacityRes = executeScript(
         "./scripts/erc4626-swap-connectors/get_asset_sink_min_capacity.cdc",

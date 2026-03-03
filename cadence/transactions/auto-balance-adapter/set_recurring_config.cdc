@@ -1,5 +1,4 @@
 import "FungibleToken"
-import "FlowToken"
 import "DeFiActions"
 import "FungibleTokenConnectors"
 import "FlowTransactionScheduler"
@@ -27,7 +26,7 @@ transaction(
         // reference the AutoBalancer
         self.autoBalancer = signer.storage.borrow<auth(DeFiActions.Schedule, DeFiActions.Configure) &DeFiActions.AutoBalancer>(from: storagePath)
             ?? panic("AutoBalancer was not found in signer's storage at \(storagePath)")
-        
+
         let fundingVault = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(/storage/flowTokenVault)
         let flowSinkAndSource = FungibleTokenConnectors.VaultSinkAndSource(
             min: nil,
@@ -35,7 +34,7 @@ transaction(
             vault: fundingVault,
             uniqueID: nil
         )
-        
+
         // construct the AutoBalancerRecurringConfig
         assert(priorityRawValue >= 0 && priorityRawValue <= 2,
             message: "Invalid priorityRawValue: \(priorityRawValue) - must be between 0 and 2")

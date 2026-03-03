@@ -1,8 +1,8 @@
-#test_fork(network: "mainnet-fork", height: 142104481)
+#test_fork(network: "mainnet-fork", height: nil)
 
 import Test
+import BlockchainHelpers
 
-import "EVM"
 import "DeFiActions"
 
 // testing account
@@ -10,6 +10,13 @@ access(all) let testAccount = Test.getAccount(0x443472749ebdaac8)
 // FUSDEV MorphoERC4626 vault (underlying asset: PYUSD0)
 access(all) let morphoERC4626VaultEVMAddressHex = "0xd069d989e2F44B70c65347d1853C0c67e10a9F8D"
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 /* --- Test Helpers --- */
 
@@ -60,6 +67,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testQuoteIn() {
@@ -91,7 +99,7 @@ access(all) fun testSwap() {
         "./transactions/morpho/swap_back.cdc",
         [
             morphoERC4626VaultEVMAddressHex,
-            0.99 // @TODO investigage losses 
+            0.99 // @TODO investigage losses
         ],
         testAccount
     )

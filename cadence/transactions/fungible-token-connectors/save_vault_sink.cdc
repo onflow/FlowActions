@@ -1,7 +1,4 @@
 import "FungibleToken"
-import "FungibleTokenMetadataViews"
-import "FlowToken"
-
 import "FungibleTokenConnectors"
 
 transaction(receiver: Address, vaultPublicPath: PublicPath, sinkStoragePath: StoragePath, max: UFix64?) {

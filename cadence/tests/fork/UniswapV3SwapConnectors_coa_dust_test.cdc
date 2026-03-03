@@ -1,10 +1,7 @@
-#test_fork(network: "mainnet", height: 142_691_298)
+#test_fork(network: "mainnet", height: nil)
 
 import Test
-
-import "EVM"
-import "FlowToken"
-import "UniswapV3SwapConnectors"
+import BlockchainHelpers
 
 /// Fork test: Overshooting dust bound for UniswapV3 swap connector
 ///
@@ -37,6 +34,14 @@ access(all) let MOET_DEPLOYER: Address = 0x6b00ff876c299c61 // MOET contract dep
 
 // --- Setup --------------------------------------------------------------------
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all) fun setup() {
     // Deploy the LATEST local contract code to the forked environment.
     // This replaces the mainnet-deployed versions so we test the newest logic.
@@ -47,7 +52,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "DeFiActions",
@@ -55,7 +59,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "SwapConnectors",
@@ -63,7 +66,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "EVMAbiHelpers",
@@ -71,7 +73,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "EVMAmountUtils",
@@ -79,7 +80,6 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
 
     err = Test.deployContract(
         name: "UniswapV3SwapConnectors",
@@ -87,7 +87,7 @@ access(all) fun setup() {
         arguments: []
     )
     Test.expect(err, Test.beNil())
-    Test.commitBlock()
+    snapshot = getCurrentBlockHeight()
 }
 
 // --- Helpers ------------------------------------------------------------------
@@ -120,7 +120,7 @@ access(all) fun runQuoteDustScript(
     testAmounts: [UFix64]
 ): [[UFix64]] {
     let script = Test.readFile(
-        "../scripts/uniswap-v3-swap-connectors/uniswap_v3_quote_dust_test.cdc"
+        "../scripts/uniswap-v3-swap-connectors/uniswap_v3_quote_dust.cdc"
     )
     let result = Test.executeScript(script, [
         signer.address,
@@ -338,7 +338,7 @@ access(all) fun runSwapTests(
     for desiredOut in testAmounts {
         let txn = Test.Transaction(
             code: Test.readFile(
-                "../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_overshoot_test.cdc"
+                "../transactions/uniswap-v3-swap-connectors/uniswap_v3_swap_overshoot.cdc"
             ),
             authorizers: [signer.address],
             signers: [signer],

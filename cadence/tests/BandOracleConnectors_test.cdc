@@ -4,6 +4,14 @@ import "test_helpers.cdc"
 
 access(all) let serviceAccount = Test.serviceAccount()
 
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
+
 access(all) fun setup() {
     log("================== Setting up BandOracleConnectors test ==================")
     var err = Test.deployContract(
@@ -30,6 +38,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testSetupSuccess() {

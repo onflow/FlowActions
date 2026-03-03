@@ -2,10 +2,8 @@ import Test
 import BlockchainHelpers
 import "test_helpers.cdc"
 
-import "FungibleToken"
 import "FlowToken"
 import "TokenA"
-import "EVM"
 import "DeFiActions"
 
 access(all) let serviceAccount = Test.serviceAccount()
@@ -14,6 +12,14 @@ access(all) let tokenAAccount = Test.getAccount(0x0000000000000010)
 access(all) var tokenAERCAddress = ""
 
 access(all) var wflowHex = ""
+
+access(all) var snapshot: UInt64 = 0
+
+access(all) fun beforeEach() {
+    if snapshot != getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+}
 
 access(all) fun setup() {
     log("================== Setting up EVMTokenConnectors test ==================")
@@ -67,6 +73,7 @@ access(all) fun setup() {
         arguments: [],
     )
     Test.expect(err, Test.beNil())
+    snapshot = getCurrentBlockHeight()
 }
 
 access(all) fun testSinkDepositFlowAsWFLOWSucceeds() {
