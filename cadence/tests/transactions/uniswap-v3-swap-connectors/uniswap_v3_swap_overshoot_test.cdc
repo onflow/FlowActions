@@ -39,9 +39,9 @@ transaction(
         let tokenOut = EVM.addressFromString(tokenOutAddr)
 
         let inVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenIn)
-            ?? panic("tokenIn not in bridge config: ".concat(tokenInAddr))
+            ?? panic("tokenIn not in bridge config: \(tokenInAddr)")
         let outVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenOut)
-            ?? panic("tokenOut not in bridge config: ".concat(tokenOutAddr))
+            ?? panic("tokenOut not in bridge config: \(tokenOutAddr)")
 
         // --- Fee vault (for bridge operations) ---
         let bridgeFee = FlowEVMBridgeUtils.calculateBridgeFee(bytes: 256)
@@ -60,7 +60,7 @@ transaction(
                 erc20Address: tokenIn
             )
 
-            log("Transferring ".concat(provisionAmount.toString()).concat(" tokens from holder"))
+            log("Transferring \(provisionAmount.toString()) tokens from holder")
             let provisionRes = coa.call(
                 to: tokenIn,
                 data: EVM.encodeABIWithSignature("transfer(address,uint256)", [coaAddr, provisionAmountEVM]),
@@ -69,22 +69,22 @@ transaction(
             )
 
             assert(provisionRes.status == EVM.Status.successful,
-                message: "Failed to transfer tokenIn from holder: ".concat(provisionRes.errorMessage))
+                message: "Failed to transfer tokenIn from holder: \(provisionRes.errorMessage)")
 
-            log("Transferred ".concat(provisionAmount.toString()).concat(" tokenIn to COA"))
+            log("Transferred \(provisionAmount.toString()) tokenIn to COA")
 
             // --- Bridge tokenIn from COA to Cadence ---
             let tokenInEVMBalance = FlowEVMBridgeUtils.balanceOf(
                 owner: coaAddr, evmContractAddress: tokenIn
             )
-            assert(tokenInEVMBalance > UInt256(0), message: "No tokenIn balance after transfer")
+            assert(tokenInEVMBalance > 0, message: "No tokenIn balance after transfer")
 
             let tokenInVault <- coa.withdrawTokens(
                 type: inVaultType,
                 amount: tokenInEVMBalance,
                 feeProvider: feeRef
             )
-            log("Bridged ".concat(tokenInVault.balance.toString()).concat(" tokenIn to Cadence"))
+            log("Bridged \(tokenInVault.balance.toString()) tokenIn to Cadence")
 
             // Store for subsequent calls
             signer.storage.save(<-tokenInVault, to: /storage/testTokenInVault)
@@ -124,8 +124,8 @@ transaction(
             && quoteIn.outAmount > 0.0
             && tokenInRef.balance >= quoteIn.inAmount
 
-        var vaultBalance: UFix64 = 0.0
-        var outAfterCadence: UFix64 = outBeforeCadence
+        var vaultBalance = 0.0
+        var outAfterCadence = outBeforeCadence
 
         if canSwap {
             // Withdraw exact quoteIn.inAmount and swap
@@ -144,7 +144,7 @@ transaction(
             destroy outVault
         }
 
-        let result: [UFix64] = [
+        let result = [
             desiredOut,
             quoteIn.inAmount,
             quoteIn.outAmount,
@@ -154,7 +154,7 @@ transaction(
         ]
 
         // --- Store result for the test to read ---
-        signer.storage.load<[UFix64]>(from: /storage/swapDustResult)
+        let _ = signer.storage.load<[UFix64]>(from: /storage/swapDustResult)
         signer.storage.save(result, to: /storage/swapDustResult)
 
         // --- Cleanup ---

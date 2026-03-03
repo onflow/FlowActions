@@ -113,9 +113,7 @@ access(all) contract TokenC: FungibleToken {
 
         /// getSupportedVaultTypes optionally returns a list of vault types that this receiver accepts
         access(all) view fun getSupportedVaultTypes(): {Type: Bool} {
-            let supportedTypes: {Type: Bool} = {}
-            supportedTypes[self.getType()] = true
-            return supportedTypes
+            return {self.getType(): true}
         }
 
         access(all) view fun isSupportedVaultType(type: Type): Bool {

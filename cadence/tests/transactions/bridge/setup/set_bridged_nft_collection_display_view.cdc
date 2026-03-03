@@ -23,9 +23,9 @@ transaction(
     prepare(signer: auth(BorrowValue) &Account) {
         // Build the square and banner image files
         let squareImageileType = CompositeType(squareImageFileTypeIdentifier)
-            ?? panic("Invalid file type identifier=".concat(squareImageFileTypeIdentifier))
+            ?? panic("Invalid file type identifier=\(squareImageFileTypeIdentifier)")
         let bannerImageFileType = CompositeType(bannerImageFileTypeIdentifier)
-            ?? panic("Invalid file type identifier=".concat(bannerImageFileTypeIdentifier))
+            ?? panic("Invalid file type identifier=\(bannerImageFileTypeIdentifier)")
         let squareImageFile = FlowEVMBridgeResolver.buildFile(
                 uri: squareImageURI,
                 fileType: squareImageileType,

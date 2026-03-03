@@ -24,8 +24,8 @@ transaction(vaultIdentifier: String) {
 
         // publish public Capability
         var cap = signer.capabilities.storage.issue<&{FungibleToken.Vault}>(vaultData.storagePath)
-        signer.capabilities.unpublish(vaultData.receiverPath)
-        signer.capabilities.unpublish(vaultData.metadataPath)
+        let _receiverCap = signer.capabilities.unpublish(vaultData.receiverPath)
+        let _metadataCap = signer.capabilities.unpublish(vaultData.metadataPath)
         signer.capabilities.publish(cap, at: vaultData.receiverPath)
         signer.capabilities.publish(cap, at: vaultData.metadataPath)
     }

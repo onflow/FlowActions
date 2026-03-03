@@ -87,9 +87,9 @@ access(all) fun test_tuple_abi_encoding_decoding() {
         amountOne: amountIn,
         amountTwo: amountOutMinimum
     )
-    let head: [UInt8] = EVMAbiHelpers.abiWord(32)
+    let head = EVMAbiHelpers.abiWord(32)
     let selector: [UInt8] = [0xb8, 0x58, 0x18, 0x3f]
-    let expectedCallData: [UInt8] = selector.concat(head).concat(argsBlob)
+    let expectedCallData = selector.concat(head).concat(argsBlob)
 
     let exactInputParams = UniswapV3SwapConnectors.ExactInputSingleParams(
         path: EVM.EVMBytes(value: path),
@@ -97,7 +97,7 @@ access(all) fun test_tuple_abi_encoding_decoding() {
         amountIn: amountIn,
         amountOutMinimum: amountOutMinimum
     )
-    let callData: [UInt8] = EVM.encodeABIWithSignature(
+    let callData = EVM.encodeABIWithSignature(
         "exactInput((bytes,address,uint256,uint256))",
         [exactInputParams]
     )

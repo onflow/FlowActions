@@ -57,8 +57,8 @@ transaction(amountIn: UFix64, minOut: UFix64, assetVaultIdentifier: String, erc4
             // create and publish a public unentitled capability
             signer.storage.save(<-sharesVaultData.createEmptyVault(), to: sharesVaultData.storagePath)
             let sharesReceiverCapability = signer.capabilities.storage.issue<&{FungibleToken.Vault}>(sharesVaultData.storagePath)
-            signer.capabilities.unpublish(sharesVaultData.receiverPath)
-            signer.capabilities.unpublish(sharesVaultData.metadataPath)
+            let _receiverCap = signer.capabilities.unpublish(sharesVaultData.receiverPath)
+            let _metadataCap = signer.capabilities.unpublish(sharesVaultData.metadataPath)
             signer.capabilities.publish(sharesReceiverCapability, at: sharesVaultData.receiverPath)
             signer.capabilities.publish(sharesReceiverCapability, at: sharesVaultData.metadataPath)
         }
@@ -72,7 +72,7 @@ transaction(amountIn: UFix64, minOut: UFix64, assetVaultIdentifier: String, erc4
             // COA not found in standard path - create and publish a public unentitled capability
             signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
             let coaCapability = signer.capabilities.storage.issue<&EVM.CadenceOwnedAccount>(coaPath)
-            signer.capabilities.unpublish(/public/evm)
+            let _ = signer.capabilities.unpublish(/public/evm)
             signer.capabilities.publish(coaCapability, at: /public/evm)
         }
         // get the signer's COA capability

@@ -56,8 +56,7 @@ transaction(sourceMin: UFix64?, amount: UFix64, withdrawVaultIdentifier: String,
 
         // get the EVM address associated with the withdraw token type
         self.erc20Address = FlowEVMBridgeConfig.getEVMAddressAssociated(with: self.withdrawVaultType)
-            ?? panic("Withdraw token type \(self.withdrawVaultType.identifier) has not been onboarded to the VM bridge - "
-                .concat("Ensure the Cadence token type is associated with an EVM contract via the VM bridge"))
+            ?? panic("Withdraw token type \(self.withdrawVaultType.identifier) has not been onboarded to the VM bridge - Ensure the Cadence token type is associated with an EVM contract via the VM bridge")
 
         // get the signer's CadenceOwnedAccount
         let storagePath = /storage/evm

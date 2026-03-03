@@ -63,7 +63,7 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
         // After a paused deposit, balance should be restored (either no-op or recovery).
         // Allow small rounding tolerance from the bridge round-trip conversion.
         let afterBalance = self.assetVault.balance
-        let tolerance: UFix64 = 0.00000001
+        let tolerance = 0.00000001
         assert(
             afterBalance >= self.beforeBalance - tolerance,
             message: "Asset balance dropped unexpectedly: before=\(self.beforeBalance) after=\(afterBalance)"

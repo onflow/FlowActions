@@ -45,7 +45,7 @@ transaction(deployerEVMAddressHex: String) {
         let decodedResult = EVM.decodeABI(
                 types: [Type<EVM.EVMAddress>()],
                 data: postDelegatedDeployerResult.data
-            ) as! [AnyStruct]
+            )
         assert(decodedResult.length == 1, message: "Invalid response from delegatedDeployer() call")
         self.postDelegatedDeployer = decodedResult[0] as! EVM.EVMAddress
     }

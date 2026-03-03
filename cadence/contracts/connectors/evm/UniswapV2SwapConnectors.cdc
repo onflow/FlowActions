@@ -51,11 +51,9 @@ access(all) contract UniswapV2SwapConnectors {
             pre {
                 path.length >= 2: "Provided path with length of \(path.length) - path must contain at least two EVM addresses)"
                 FlowEVMBridgeConfig.getTypeAssociated(with: path[0]) == inVault:
-                "Provided inVault \(inVault.identifier) is not associated with ERC20 at path[0] \(path[0].toString()) - "
-                    .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
-                FlowEVMBridgeConfig.getTypeAssociated(with: path[path.length - 1]) == outVault: 
-                "Provided outVault \(outVault.identifier) is not associated with ERC20 at path[\(path.length - 1)] \(path[path.length - 1].toString()) - "
-                    .concat("Ensure the type & ERC20 contracts are associated via the VM bridge")
+                "Provided inVault \(inVault.identifier) is not associated with ERC20 at path[0] \(path[0].toString()) - Ensure the type & ERC20 contracts are associated via the VM bridge"
+                FlowEVMBridgeConfig.getTypeAssociated(with: path[path.length - 1]) == outVault:
+                "Provided outVault \(outVault.identifier) is not associated with ERC20 at path[\(path.length - 1)] \(path[path.length - 1].toString()) - Ensure the type & ERC20 contracts are associated via the VM bridge"
                 coaCapability.check():
                 "Provided COA Capability is invalid - provided an active, unrevoked Capability<auth(EVM.Call) &EVM.CadenceOwnedAccount>"
             }
@@ -209,8 +207,7 @@ access(all) contract UniswapV2SwapConnectors {
             let id = self.uniqueID?.id?.toString() ?? "UNASSIGNED"
             let idType = self.uniqueID?.getType()?.identifier ?? "UNASSIGNED"
             let coa = self.borrowCOA()
-                ?? panic("The COA Capability contained by Swapper \(self.getType().identifier) with UniqueIdentifier "
-                    .concat("\(idType) ID \(id) is invalid - cannot perform an EVM swap without a valid COA Capability"))
+                ?? panic("The COA Capability contained by Swapper \(self.getType().identifier) with UniqueIdentifier \(idType) ID \(id) is invalid - cannot perform an EVM swap without a valid COA Capability")
 
             // withdraw FLOW from the COA to cover the VM bridge fee
             let bridgeFeeBalance = EVM.Balance(attoflow: 0)
@@ -219,7 +216,10 @@ access(all) contract UniswapV2SwapConnectors {
             let feeVaultRef = &feeVault as auth(FungibleToken.Withdraw) &{FungibleToken.Vault}
 
             // bridge the provided to the COA's EVM address
-            let inTokenAddress = reverse ? self.addressPath[self.addressPath.length - 1] : self.addressPath[0]
+            let inTokenAddress =
+                reverse
+                ? self.addressPath[self.addressPath.length - 1]
+                : self.addressPath[0]
             let evmAmountIn = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 exactVaultIn.balance,
                 erc20Address: inTokenAddress
@@ -241,7 +241,13 @@ access(all) contract UniswapV2SwapConnectors {
             // perform the swap
             res = self.call(to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", // amountIn, amountOutMin, path, to, deadline (timestamp)
-                args: [evmAmountIn, UInt256(0), (reverse ? self.addressPath.reverse() : self.addressPath), coa.address(), UInt256(getCurrentBlock().timestamp)],
+                args: [
+                    evmAmountIn,
+                    0,
+                    reverse ? self.addressPath.reverse() : self.addressPath,
+                    coa.address(),
+                    UInt256(getCurrentBlock().timestamp)
+                ],
                 gasLimit: 1_000_000,
                 value: 0,
                 dryCall: false
@@ -285,7 +291,7 @@ access(all) contract UniswapV2SwapConnectors {
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
                 args: [amount, path],
                 gasLimit: 1_000_000,
-                value: UInt(0),
+                value: 0,
                 dryCall: true
             )
             if callRes == nil || callRes!.status != EVM.Status.successful {
@@ -330,7 +336,7 @@ access(all) contract UniswapV2SwapConnectors {
             let calldata = EVM.encodeABIWithSignature(signature, args)
             let valueBalance = EVM.Balance(attoflow: value)
             if let coa = self.borrowCOA() {
-                let res: EVM.Result = dryCall
+                let res = dryCall
                     ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
                     : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
                 return res
@@ -342,10 +348,6 @@ access(all) contract UniswapV2SwapConnectors {
     /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
     access(self)
     fun _callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
-        panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) "
-            .concat("with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\t"
-            .concat("Status value: \(res.status.rawValue)\n\t"))
-            .concat("Error code: \(res.errorCode)\n\t")
-            .concat("ErrorMessage: \(res.errorMessage)\n"))
+        panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\tStatus value: \(res.status.rawValue)\n\tError code: \(res.errorCode)\n\tErrorMessage: \(res.errorMessage)\n")
     }
 }

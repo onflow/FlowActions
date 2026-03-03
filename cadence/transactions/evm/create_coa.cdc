@@ -15,10 +15,7 @@ transaction(amount: UFix64) {
         // Ensure there is not yet a CadenceOwnedAccount in the standard path
         let coaPath = /storage/evm
         if signer.storage.type(at: coaPath) != nil {
-            panic(
-                "Object already exists in signer's account at path=".concat(coaPath.toString())
-                .concat(". Make sure the signing account does not already have a CadenceOwnedAccount.")
-            )
+            panic("Object already exists in signer's account at path=\(coaPath.toString()). Make sure the signing account does not already have a CadenceOwnedAccount.")
         }
         // COA not found in standard path, create and publish a public **unentitled** capability
         signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
@@ -28,10 +25,7 @@ transaction(amount: UFix64) {
         // Borrow the CadenceOwnedAccount reference
         self.coa = signer.storage.borrow<&EVM.CadenceOwnedAccount>(
                 from: coaPath
-            ) ?? panic(
-                "Could not find CadenceOwnedAccount (COA) in signer's account at path=".concat(coaPath.toString())
-                .concat(". Make sure the signing account has initialized a COA at the expected path.")
-            )
+            ) ?? panic("Could not find CadenceOwnedAccount (COA) in signer's account at path=\(coaPath.toString()). Make sure the signing account has initialized a COA at the expected path.")
 
         /* --- Assign fundingVault --- */
         //

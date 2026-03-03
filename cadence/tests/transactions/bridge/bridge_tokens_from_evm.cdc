@@ -40,31 +40,29 @@ transaction(vaultIdentifier: String, amount: UInt256) {
         //
         // Construct the Vault type from the provided identifier
         self.vaultType = CompositeType(vaultIdentifier)
-            ?? panic("Could not construct Vault type from identifier: ".concat(vaultIdentifier))
+            ?? panic("Could not construct Vault type from identifier: \(vaultIdentifier)")
         // Parse the Vault identifier into its components
         let tokenContractAddress = FlowEVMBridgeUtils.getContractAddress(fromType: self.vaultType)
-            ?? panic("Could not get contract address from identifier: ".concat(vaultIdentifier))
+            ?? panic("Could not get contract address from identifier: \(vaultIdentifier)")
         let tokenContractName = FlowEVMBridgeUtils.getContractName(fromType: self.vaultType)
-            ?? panic("Could not get contract name from identifier: ".concat(vaultIdentifier))
+            ?? panic("Could not get contract name from identifier: \(vaultIdentifier)")
 
         /* --- Reference the signer's Vault --- */
         //
         // Borrow a reference to the FungibleToken Vault, configuring if necessary
         let viewResolver = getAccount(tokenContractAddress).contracts.borrow<&{ViewResolver}>(name: tokenContractName)
-            ?? panic("Could not borrow ViewResolver from FungibleToken contract with name"
-                .concat(tokenContractName).concat(" and address ")
-                .concat(tokenContractAddress.toString()))
+            ?? panic("Could not borrow ViewResolver from FungibleToken contract with name\(tokenContractName) and address \(tokenContractAddress.toString())")
         let vaultData = viewResolver.resolveContractView(
                 resourceType: self.vaultType,
                 viewType: Type<FungibleTokenMetadataViews.FTVaultData>()
             ) as! FungibleTokenMetadataViews.FTVaultData?
-            ?? panic("Could not resolve FTVaultData view for Vault type ".concat(self.vaultType.identifier))
+            ?? panic("Could not resolve FTVaultData view for Vault type \(self.vaultType.identifier)")
         // If the vault does not exist, create it and publish according to the contract's defined configuration
         if signer.storage.borrow<&{FungibleToken.Vault}>(from: vaultData.storagePath) == nil {
             signer.storage.save(<-vaultData.createEmptyVault(), to: vaultData.storagePath)
 
-            signer.capabilities.unpublish(vaultData.receiverPath)
-            signer.capabilities.unpublish(vaultData.metadataPath)
+            let _receiverCap = signer.capabilities.unpublish(vaultData.receiverPath)
+            let _metadataCap = signer.capabilities.unpublish(vaultData.metadataPath)
 
             let receiverCap = signer.capabilities.storage.issue<&{FungibleToken.Vault}>(vaultData.storagePath)
             let metadataCap = signer.capabilities.storage.issue<&{FungibleToken.Vault}>(vaultData.storagePath)
@@ -73,7 +71,7 @@ transaction(vaultIdentifier: String, amount: UInt256) {
             signer.capabilities.publish(metadataCap, at: vaultData.metadataPath)
         }
         self.receiver = signer.storage.borrow<&{FungibleToken.Vault}>(from: vaultData.storagePath)
-            ?? panic("Could not borrow FungibleToken Vault from storage path ".concat(vaultData.storagePath.toString()))
+            ?? panic("Could not borrow FungibleToken Vault from storage path \(vaultData.storagePath.toString())")
 
         /* --- Configure a ScopedFTProvider --- */
         //
@@ -91,8 +89,7 @@ transaction(vaultIdentifier: String, amount: UInt256) {
         // Copy the stored Provider capability and create a ScopedFTProvider
         let providerCapCopy = signer.storage.copy<Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Provider}>>(
                 from: FlowEVMBridgeConfig.providerCapabilityStoragePath
-            ) ?? panic("Invalid FungibleToken Provider Capability found in storage at path "
-                .concat(FlowEVMBridgeConfig.providerCapabilityStoragePath.toString()))
+            ) ?? panic("Invalid FungibleToken Provider Capability found in storage at path \(FlowEVMBridgeConfig.providerCapabilityStoragePath.toString())")
         let providerFilter = ScopedFTProviders.AllowanceFilter(approxFee)
         self.scopedProvider <- ScopedFTProviders.createScopedFTProvider(
                 provider: providerCapCopy,
@@ -103,7 +100,7 @@ transaction(vaultIdentifier: String, amount: UInt256) {
 
     execute {
         // Execute the bridge request
-        let vault: @{FungibleToken.Vault} <- self.coa.withdrawTokens(
+        let vault <- self.coa.withdrawTokens(
             type: self.vaultType,
             amount: amount,
             feeProvider: &self.scopedProvider as auth(FungibleToken.Withdraw) &{FungibleToken.Provider}
@@ -111,8 +108,7 @@ transaction(vaultIdentifier: String, amount: UInt256) {
         // Ensure the bridged vault is the correct type
         assert(
             vault.getType() == self.vaultType,
-            message: "Bridged vault type mismatch - requested: ".concat(self.vaultType.identifier)
-                .concat(", received: ").concat(vault.getType().identifier)
+            message: "Bridged vault type mismatch - requested: \(self.vaultType.identifier), received: \(vault.getType().identifier)"
         )
         // Deposit the bridged token into the signer's vault
         self.receiver.deposit(from: <-vault)

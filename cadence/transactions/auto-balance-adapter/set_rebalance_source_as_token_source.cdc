@@ -17,16 +17,16 @@ transaction(vaultIdentifier: String?, sourceMin: UFix64?, autoBalancerStoragePat
     let vaultSource: {DeFiActions.Source}?
 
     prepare(signer: auth(BorrowValue, SaveValue, IssueStorageCapabilityController, PublishCapability, UnpublishCapability) &Account) {
-        if vaultIdentifier != nil {
+        if let identifier = vaultIdentifier {
             // get the Vault's default storage data from its defining contract
-            let tokenType = CompositeType(vaultIdentifier!) ?? panic("Invalid vaultIdentifier \(vaultIdentifier!)")
-            let contractAddress = tokenType.address ?? panic("Could not derive contract address from vaultIdentifier \(vaultIdentifier!)")
-            let contractName = tokenType.contractName ?? panic("Could not derive contract name from vaultIdentifier \(vaultIdentifier!)")
+            let tokenType = CompositeType(identifier) ?? panic("Invalid vaultIdentifier \(identifier)")
+            let contractAddress = tokenType.address ?? panic("Could not derive contract address from vaultIdentifier \(identifier)")
+            let contractName = tokenType.contractName ?? panic("Could not derive contract name from vaultIdentifier \(identifier)")
             let tokenContract = getAccount(contractAddress).contracts.borrow<&{FungibleToken}>(name: contractName)
                 ?? panic("Could not borrow Vault's contract \(contractName) from address \(contractAddress) - does not appear to be FungibleToken conformance")
             let vaultData = tokenContract.resolveContractView(resourceType: tokenType, viewType: Type<FungibleTokenMetadataViews.FTVaultData>())
                 as! FungibleTokenMetadataViews.FTVaultData?
-                ?? panic("Could not resolve FTVaultData for vaultIdentifier \(vaultIdentifier!)")
+                ?? panic("Could not resolve FTVaultData for vaultIdentifier \(identifier)")
 
             // get the Vault's authorized Capability and construct the VaultSource
             let withdrawVault = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(

@@ -143,8 +143,8 @@ access(all) fun runQuoteDustScript(
 ///   - overshoot  = quoteIn.outAmount  - desiredOut         (>= 0, logged)
 ///
 access(all) fun assertQuoteDust(results: [[UFix64]]) {
-    var maxOvershoot: UFix64 = 0.0
-    var testedCount: Int = 0
+    var maxOvershoot = 0.0
+    var testedCount = 0
 
     for row in results {
         let desiredOut   = row[0]
@@ -155,16 +155,15 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 
         // Skip amounts where quoter returned 0
         if quoteInIn == 0.0 || quoteInOut == 0.0 {
-            log("[SKIP] desiredOut=".concat(desiredOut.toString())
-                .concat(" - quoter returned 0 (insufficient liquidity or pool not found)"))
+            log("[SKIP] desiredOut=\(desiredOut.toString()) - quoter returned 0 (insufficient liquidity or pool not found)")
             continue
         }
 
-        let quoteDust: UFix64 = quoteOutOut > quoteInOut
+        let quoteDust = quoteOutOut > quoteInOut
             ? quoteOutOut - quoteInOut
             : 0.0
 
-        let overshoot: UFix64 = quoteInOut >= desiredOut
+        let overshoot = quoteInOut >= desiredOut
             ? quoteInOut - desiredOut
             : 0.0
 
@@ -173,23 +172,17 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 
         // Log full quote details
         log("---")
-        log("[TEST] desiredOut=".concat(desiredOut.toString()))
-        log("  quoteIn(forDesired: ".concat(desiredOut.toString()).concat(")")
-            .concat("  => { inAmount: ").concat(quoteInIn.toString())
-            .concat(", outAmount: ").concat(quoteInOut.toString()).concat(" }"))
-        log("  quoteOut(forProvided: ".concat(quoteInIn.toString()).concat(")")
-            .concat(" => { inAmount: ").concat(quoteOutIn.toString())
-            .concat(", outAmount: ").concat(quoteOutOut.toString()).concat(" }"))
-        log("  quoteDust=".concat(quoteDust.toString())
-            .concat(" | overshoot=").concat(overshoot.toString()))
+        log("[TEST] desiredOut=\(desiredOut.toString())")
+        log("  quoteIn(forDesired: \(desiredOut.toString()))  => { inAmount: \(quoteInIn.toString()), outAmount: \(quoteInOut.toString()) }")
+        log("  quoteOut(forProvided: \(quoteInIn.toString())) => { inAmount: \(quoteOutIn.toString()), outAmount: \(quoteOutOut.toString()) }")
+        log("  quoteDust=\(quoteDust.toString()) | overshoot=\(overshoot.toString())")
 
         // Assert: quote consistency — quoteIn and quoteOut must agree
         Test.assertEqual(0.0, quoteDust)
     }
 
     Test.assert(testedCount > 0, message: "No test amounts could be quoted")
-    log("=== PASSED: max overshoot = ".concat(maxOvershoot.toString())
-        .concat(" across ").concat(testedCount.toString()).concat(" amounts ==="))
+    log("=== PASSED: max overshoot = \(maxOvershoot.toString()) across \(testedCount.toString()) amounts ===")
 }
 
 // --- Tests --------------------------------------------------------------------
@@ -214,7 +207,7 @@ access(all) fun testOvershootingDustIsBounded() {
 
     // Pool liquidity caps at ~0.58 MOET output, so amounts above that are clamped.
     // Focus on the productive range where quoting is uncapped.
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00100000,   // +62 quanta overshoot
         0.00500000,
         0.00987654,   // +30 quanta
@@ -256,7 +249,7 @@ access(all) fun testOvershootingDustIsBoundedReverse() {
     ensureCOA(signer)
 
     // Pool liquidity caps at ~0.62 PYUSD output in this direction.
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00100000,
         0.01000000,
         0.05000000,
@@ -371,7 +364,7 @@ access(all) fun runSwapTests(
         signers: [signer],
         arguments: []
     )
-    Test.executeTransaction(cleanupTxn)
+    let _ = Test.executeTransaction(cleanupTxn)
 
     return results
 }
@@ -383,10 +376,10 @@ access(all) fun runSwapTests(
 ///   - coaDustAfter >= coaDustBefore (overshoot/dust accumulates in COA)
 ///
 access(all) fun assertSwapDust(results: [[UFix64]]) {
-    var testedCount: Int = 0
-    var skippedCount: Int = 0
-    var totalOvershoot: UFix64 = 0.0
-    var totalDustInCOA: UFix64 = 0.0
+    var testedCount = 0
+    var skippedCount = 0
+    var totalOvershoot = 0.0
+    var totalDustInCOA = 0.0
 
     for row in results {
         let desiredOut       = row[0]
@@ -401,8 +394,7 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
             let reason = quoteInAmount == 0.0 || quoteOutAmount == 0.0
                 ? "quoter returned 0 (no liquidity)"
                 : "insufficient balance"
-            log("[SKIP] desiredOut=".concat(desiredOut.toString())
-                .concat(" — ").concat(reason))
+            log("[SKIP] desiredOut=\(desiredOut.toString()) — \(reason)")
             continue
         }
 
@@ -419,13 +411,9 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
         totalDustInCOA = totalDustInCOA + dustInCOA
 
         log("---")
-        log("[SWAP] Desired: ".concat(desiredOut.toString())
-            .concat(", Quote: ").concat(quoteOutAmount.toString())
-            .concat(", Returned: ").concat(vaultBalance.toString()))
-        log("  Overshoot/Dust => quote vs desired: +".concat(overshoot.toString())
-            .concat(", stayed in COA: +").concat(dustInCOA.toString()))
-        log("  COA balance => ".concat(coaDustBefore.toString())
-            .concat(" → ").concat(coaDustAfter.toString()))
+        log("[SWAP] Desired: \(desiredOut.toString()), Quote: \(quoteOutAmount.toString()), Returned: \(vaultBalance.toString())")
+        log("  Overshoot/Dust => quote vs desired: +\(overshoot.toString()), stayed in COA: +\(dustInCOA.toString())")
+        log("  COA balance => \(coaDustBefore.toString()) → \(coaDustAfter.toString())")
 
         Test.assertEqual(quoteOutAmount, vaultBalance)
 
@@ -434,9 +422,8 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
     }
 
     Test.assert(testedCount > 0, message: "No test amounts could be swapped")
-    log("=== PASSED: ".concat(testedCount.toString()).concat(" swaps, ")
-        .concat(skippedCount.toString()).concat(" skipped ==="))
-    log("=== Total overshoot/dust that stayed in COA: ".concat(totalDustInCOA.toString()).concat(" ==="))
+    log("=== PASSED: \(testedCount.toString()) swaps, \(skippedCount.toString()) skipped ===")
+    log("=== Total overshoot/dust that stayed in COA: \(totalDustInCOA.toString()) ===")
 }
 
 // --- Swap tests ---------------------------------------------------------------
@@ -452,7 +439,7 @@ access(all) fun testSwapDustStaysInCOA() {
     // Provision MOET via minting
     mintMOETToTestVault(signer: signer, amount: 100.0)
 
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.01,
         0.1,
         1.0
@@ -486,7 +473,7 @@ access(all) fun testSwapOvershootStaysInCOA() {
     // Provision PYUSD: mint MOET then swap to PYUSD via V3
     provisionPYUSD(signer: signer, moetMintAmount: 200.0, moetSwapAmount: 100.0)
 
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00987654,
         0.01000000,
         0.03456789,

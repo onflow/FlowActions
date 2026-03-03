@@ -235,8 +235,7 @@ access(all) contract SwapConnectors {
         init(swapper: {DeFiActions.Swapper}, sink: {DeFiActions.Sink}, uniqueID: DeFiActions.UniqueIdentifier?) {
             pre {
                 swapper.outType() == sink.getSinkType():
-                "Swapper outputs \(swapper.outType().identifier) but Sink takes \(sink.getSinkType().identifier) - "
-                    .concat("Ensure the provided Swapper outputs a Vault Type compatible with the provided Sink")
+                "Swapper outputs \(swapper.outType().identifier) but Sink takes \(sink.getSinkType().identifier) - Ensure the provided Swapper outputs a Vault Type compatible with the provided Sink"
             }
             self.swapper = swapper
             self.sink = sink
@@ -539,8 +538,7 @@ access(all) contract SwapConnectors {
         init(swapper: {DeFiActions.Swapper}, source: {DeFiActions.Source}, uniqueID: DeFiActions.UniqueIdentifier?) {
             pre {
                 source.getSourceType() == swapper.inType():
-                "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inType().identifier) - "
-                    .concat("Ensure the provided Source outputs a Vault Type compatible with the provided Swapper")
+                "Source outputs \(source.getSourceType().identifier) but Swapper takes \(swapper.inType().identifier) - Ensure the provided Source outputs a Vault Type compatible with the provided Swapper"
             }
             self.swapper = swapper
             self.source = source
