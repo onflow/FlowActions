@@ -294,16 +294,17 @@ access(all) contract DeFiActions {
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
     access(all) struct interface Source : IdentifiableStruct {
-        /// Returns the Vault type provided by this Source
+        /// Returns the Vault type the Source claims to offer.
+        /// CAUTION: Untrusted Source implementations may return a different Vault type than claimed in `withdrawAvailable`.
+        /// Users MUST validate the type of all withdrawn funds.
         access(all) view fun getSourceType(): Type
-        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
+        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source.
         access(all) fun minimumAvailable(): UFix64
-        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
-        /// returned
+        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be returned.
+        /// CAUTION: Untrusted Source implementations may return a different Vault type than claimed in `getSourceType`.
+        /// Users MUST validate the type of all withdrawn funds.
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
-                result.getType() == self.getSourceType():
-                "Invalid vault provided for withdraw - \(result.getType().identifier) is not \(self.getSourceType().identifier)"
                 DeFiActions.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
