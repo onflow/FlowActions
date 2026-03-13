@@ -717,7 +717,7 @@ access(all) contract UniswapV3SwapConnectors {
             let resetAllowanceRes = self._call(
                 to: inToken,
                 signature: "approve(address,uint256)",
-                args: [self.routerAddress, UInt256(0)],
+                args: [self.routerAddress, 0 as UInt256],
                 gasLimit: 60_000,
                 value: 0
             )!
