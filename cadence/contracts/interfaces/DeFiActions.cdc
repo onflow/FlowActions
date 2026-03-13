@@ -1095,19 +1095,23 @@ access(all) contract DeFiActions {
         /// @return String?: The error message, or nil if the next execution was scheduled
         ///
         access(Schedule) fun scheduleNextRebalance(whileExecuting: UInt64?): String? {
-            // get the next execution timestamp
-            var timestamp = self.calculateNextExecutionTimestampAsConfigured()
             // perform pre-flight checks before estimating the transaction fees
-            var errorMessage: String? = nil
             if self._recurringConfig == nil {
-                errorMessage = "MISSING_RECURRING_CONFIG"
-            } else if timestamp == nil {
-                errorMessage = "NEXT_EXECUTION_TIMESTAMP_UNAVAILABLE"
+                return "MISSING_RECURRING_CONFIG"
             } else if self._selfCap?.check() != true {
-                errorMessage = "INVALID_SELF_CAPABILITY"
+                return "INVALID_SELF_CAPABILITY"
             }
-            if errorMessage != nil {
-                return errorMessage
+            let config = self._recurringConfig!
+            // get the next execution timestamp
+            var timestamp = self._lastRebalanceTimestamp.saturatingAdd(UFix64(config.interval))
+            // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
+            // executed long ago - ensure timestamp is in the future
+            let nextPossibleTimestamp = getCurrentBlock().timestamp.saturatingAdd(1.0)
+            if timestamp < nextPossibleTimestamp {
+                timestamp = nextPossibleTimestamp
+            }
+            if timestamp == UFix64.max {
+                return "INTERVAL_OVERFLOW"
             }
 
             // check for other scheduled transactions within the desired interval
@@ -1118,28 +1122,16 @@ access(all) contract DeFiActions {
                 let scheduledTxn = self.borrowScheduledTransaction(id: id)!
                 if scheduledTxn.status() == FlowTransactionScheduler.Status.Scheduled {
                     // found another scheduled transaction within the configured interval
-                    if scheduledTxn.timestamp <= timestamp! {
+                    if scheduledTxn.timestamp <= timestamp {
                         return nil
                     }
                 }
             }
 
-            // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
-            // executed long ago
-            let config = self._recurringConfig!
-            let now = getCurrentBlock().timestamp
-            if timestamp! < now {
-                // protect overflow & update timestamp value
-                if UInt64(UFix64.max) - UInt64(now) < UInt64(config.interval) {
-                    return "INTERVAL_OVERFLOW"
-                }
-                timestamp = now + UFix64(config.interval)
-            }
-
             // estimate the transaction fees
             let estimate = FlowTransactionScheduler.estimate(
                 data: config.forceRebalance,
-                timestamp: timestamp!,
+                timestamp: timestamp,
                 priority: config.priority,
                 executionEffort: config.executionEffort
             )
@@ -1169,7 +1161,7 @@ access(all) contract DeFiActions {
                 let txn <- FlowTransactionScheduler.schedule(
                         handlerCap: self._selfCap!,
                         data: { "force": config.forceRebalance },
-                        timestamp: timestamp!,
+                        timestamp: timestamp,
                         priority: config.priority,
                         executionEffort: config.executionEffort,
                         fees: <-fees
@@ -1197,21 +1189,6 @@ access(all) contract DeFiActions {
         ///
         access(all) view fun borrowScheduledTransaction(id: UInt64): &FlowTransactionScheduler.ScheduledTransaction? {
             return &self._scheduledTransactions[id]
-        }
-        /// Calculates the next execution timestamp for a recurring rebalance if the AutoBalancer is configured as such.
-        /// Returns nil if either unconfigured for recurring rebalancing or the interval is greater than the maximum
-        /// possible timestamp.
-        ///
-        /// @return UFix64?: The next execution timestamp, or nil if a recurring rebalance is not configured
-        ///
-        access(all) view fun calculateNextExecutionTimestampAsConfigured(): UFix64? {
-            if let config = self._recurringConfig {
-                // protect overflow
-                return (UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp)) >= UInt64(config.interval)
-                    ? self._lastRebalanceTimestamp + UFix64(config.interval)
-                    : nil
-            }
-            return nil
         }
         /// Returns the recurring config for the AutoBalancer
         ///
