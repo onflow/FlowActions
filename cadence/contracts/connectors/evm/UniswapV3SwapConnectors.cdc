@@ -285,12 +285,14 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Swap exact input -> min output using Uniswap V3 exactInput/Single
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre { inVault.getType() == self.inVault: "Input vault type mismatch" }
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- self._swapExactIn(exactVaultIn: <-inVault, amountOutMin: minOut, reverse: false)
         }
 
         /// Swap back (exact input of residual -> min output)
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre { residual.getType() == self.outVault: "Residual vault type mismatch" }
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <- self._swapExactIn(exactVaultIn: <-residual, amountOutMin: minOut, reverse: true)
         }
@@ -660,15 +662,15 @@ access(all) contract UniswapV3SwapConnectors {
             let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, numHops: nil)
 
             // Approve
-            var res = self._call(
+            let allowanceRes = self._call(
                 to: inToken,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, evmAmountIn],
                 gasLimit: 120_000,
                 value: 0
             )!
-            if res.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
+            if allowanceRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", allowanceRes, inToken, idType, id, self.getType())
             }
 
             // Min out on EVM units
@@ -710,6 +712,18 @@ access(all) contract UniswapV3SwapConnectors {
                     EVMAbiHelpers.toHex(calldata),
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
+            }
+            // Reset allowance
+            let resetAllowanceRes = self._call(
+                to: inToken,
+                signature: "approve(address,uint256)",
+                args: [self.routerAddress, UInt256(0)],
+                gasLimit: 60_000,
+                value: 0
+            )!
+
+            if resetAllowanceRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", resetAllowanceRes, inToken, idType, id, self.getType())
             }
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
             assert(decoded.length == 1, message: "invalid swap return data")
