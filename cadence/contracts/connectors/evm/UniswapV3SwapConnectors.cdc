@@ -677,8 +677,7 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outToken
             )
 
-            let coaRef = self.borrowCOA()!
-            let recipient = coaRef.address()
+            let recipient = coa.address()
 
             // optional dev guards
             let _chkIn  = EVMAbiHelpers.abiUInt256(evmAmountIn)
@@ -713,7 +712,8 @@ access(all) contract UniswapV3SwapConnectors {
                 )
             }
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : 0
+            assert(decoded.length == 1, message: "invalid swap return data")
+            let amountOut = decoded[0] as! UInt256
 
             let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
@@ -748,12 +748,11 @@ access(all) contract UniswapV3SwapConnectors {
             /// The overshoot is always non-negative (ceiled input >= what pool needs).
             /// It surfaces when the extra output crosses a 10^10 wei quantum boundary.
             /// Cap at amountOutMin so only the expected amount is bridged; dust stays in the COA.
-            let bridgeUFix = outUFix > amountOutMin && amountOutMin > 0.0 ? amountOutMin : outUFix
-            let dust = outUFix > bridgeUFix ? outUFix - bridgeUFix : 0.0
-            let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                bridgeUFix,
-                erc20Address: outTokenEVMAddress
-            )
+            let safeAmountOut: UInt256 = amountOutMin > 0.0
+                && outUFix > amountOutMin
+                && (outUFix - amountOutMin) <= 0.00000001
+                ? FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountOutMin, erc20Address: outTokenEVMAddress)
+                : amountOut
             // Withdraw output back to Flow; sub-quantum remainder and any overshoot stay in COA
             let outVault <- coa.withdrawTokens(type: outVaultType, amount: safeAmountOut, feeProvider: feeVaultRef)
 

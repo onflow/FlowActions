@@ -7,11 +7,17 @@ import "FlowEVMBridgeConfig"
 import "UniswapV3SwapConnectors"
 import "DeFiActions"
 import "EVMAmountUtils"
+import "SwapConnectors"
 
 /// Tests actual V3 swap execution with tokenIn provisioning from holder.
 ///
 /// Since forked emulator doesn't verify signatures, we can transfer tokens
 /// from any address (like a liquidity pool) to provision tokens for testing.
+///
+/// The swap is executed with amountOutMin = desiredOut (NOT quoteIn.outAmount),
+/// by constructing a SwapConnectors.BasicQuote with outAmount = desiredOut.
+/// This guarantees outUFix ≈ quoteIn.outAmount > desiredOut = amountOutMin,
+/// so the trimming guard is always exercised on amounts where quote overshoot > 0.
 ///
 /// Result: [desiredOut, quoteInAmount, quoteOutAmount, vaultBalance, coaDustBefore, coaDustAfter]
 ///
@@ -111,6 +117,18 @@ transaction(
         // --- Run single swap test ---
         let quoteIn = swapper.quoteIn(forDesired: desiredOut, reverse: false)
 
+        // Build a lower-bound quote: same inAmount as the real quote, but outAmount = desiredOut.
+        // This sets amountOutMin = desiredOut inside _swapExactIn, guaranteeing
+        // outUFix ≈ quoteIn.outAmount > desiredOut = amountOutMin on amounts where
+        // the quoter overshoots (quote overshoot > 0).  The trimming guard is
+        // therefore always exercised for such amounts.
+        let lowerBoundQuote = SwapConnectors.BasicQuote(
+            inType:    quoteIn.inType,
+            outType:   quoteIn.outType,
+            inAmount:  quoteIn.inAmount,
+            outAmount: desiredOut
+        )
+
         // COA output-token ERC20 balance before swap
         let outBefore = FlowEVMBridgeUtils.balanceOf(
             owner: coaAddr, evmContractAddress: tokenOut
@@ -128,9 +146,9 @@ transaction(
         var outAfterCadence = outBeforeCadence
 
         if canSwap {
-            // Withdraw exact quoteIn.inAmount and swap
+            // Withdraw exact quoteIn.inAmount and swap using the lower-bound quote.
             let inVault <- tokenInRef.withdraw(amount: quoteIn.inAmount)
-            let outVault <- swapper.swap(quote: quoteIn, inVault: <-inVault)
+            let outVault <- swapper.swap(quote: lowerBoundQuote, inVault: <-inVault)
             vaultBalance = outVault.balance
 
             // COA output-token ERC20 balance after swap
