@@ -747,27 +747,11 @@ access(all) contract UniswapV3SwapConnectors {
                 message: "UniswapV3SwapConnectors: swap output \(outUFix.toString()) < amountOutMin \(amountOutMin.toString())"
             )
 
-            /// Quoting exact output then swapping exact input can overshoot by up to 0.00000001 (1 UFix64 quantum)
-            /// when the pool's effective exchange rate is near 1:1.
-            ///
-            /// UFix64 has 8 decimals; EVM tokens typically have 18. One UFix64 step = 10^10 wei.
-            ///
-            /// Example (pool price 1 FLOW = 2 USDC, want 10 USDC out):
-            ///   1. Quoter says need 5,000000002000000000 FLOW wei
-            ///   2. Ceil to UFix64:  5,000000010000000000  (overshoot: 8e9 wei)
-            ///   3. exactInput swaps the ceiled amount; extra 8e9 FLOW wei × 2 = 16e9 USDC wei extra
-            ///   4. Actual output:  10,000000016000000000 USDC wei
-            ///   5. Floor to UFix64: 10.00000001 USDC  (quoted 10.00000000)
-            ///
-            /// The overshoot is always non-negative (ceiled input >= what pool needs).
-            /// It surfaces when the extra output crosses a 10^10 wei quantum boundary.
-            /// Cap at amountOutMin so only the expected amount is bridged; dust stays in the COA.
-            let safeAmountOut: UInt256 = amountOutMin > 0.0
-                && outUFix > amountOutMin
-                && (outUFix - amountOutMin) <= 0.00000001
-                ? FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amountOutMin, erc20Address: outTokenEVMAddress)
-                : amountOut
-            // Withdraw output back to Flow; sub-quantum remainder and any overshoot stay in COA
+            let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+                outUFix,
+                erc20Address: outTokenEVMAddress
+            )
+            // Withdraw output back to Flow
             let outVault <- coa.withdrawTokens(type: outVaultType, amount: safeAmountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
