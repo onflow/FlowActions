@@ -688,10 +688,10 @@ access(all) contract DeFiActions {
         }
     }
 
-    /// Callback invoked every time an AutoBalancer executes (runs rebalance).
+    /// Callback invoked after AutoBalancer.executeTransaction runs rebalance.
     ///
     access(all) resource interface AutoBalancerExecutionCallback {
-        /// Called at the end of each rebalance run.
+        /// Called at the end of each executeTransaction-triggered rebalance run.
         /// @param balancerUUID: The AutoBalancer's UUID
         access(all) fun onExecuted(balancerUUID: UInt64)
     }
@@ -950,8 +950,9 @@ access(all) contract DeFiActions {
             }
             self._rebalanceRange = range
         }
-        /// Sets the optional callback invoked every time this AutoBalancer runs rebalance.
+        /// Sets the optional callback invoked after executeTransaction runs rebalance.
         /// Pass nil to clear the callback.
+        /// NOTE: callback execution occurs in the same transaction context; callback panics will revert execution.
         access(Set) fun setExecutionCallback(_ cap: Capability<&{AutoBalancerExecutionCallback}>?) {
             self._executionCallback = cap
         }
@@ -1077,7 +1078,7 @@ access(all) contract DeFiActions {
             }
             if let cap = self._executionCallback {
                 if cap.check() {
-                    cap.borrow()!.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
+                    cap.borrow()!.onExecuted(balancerUUID: self.uuid)
                 }
             }
             // clean up internally-managed historical scheduled transactions
