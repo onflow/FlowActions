@@ -660,15 +660,15 @@ access(all) contract UniswapV3SwapConnectors {
             let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, numHops: nil)
 
             // Approve
-            var res = self._call(
+            let allowanceRes = self._call(
                 to: inToken,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, evmAmountIn],
                 gasLimit: 120_000,
                 value: 0
             )!
-            if res.status != EVM.Status.successful {
-                UniswapV3SwapConnectors._callError("approve(address,uint256)", res, inToken, idType, id, self.getType())
+            if allowanceRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", allowanceRes, inToken, idType, id, self.getType())
             }
 
             // Min out on EVM units
@@ -677,8 +677,7 @@ access(all) contract UniswapV3SwapConnectors {
                 erc20Address: outToken
             )
 
-            let coaRef = self.borrowCOA()!
-            let recipient = coaRef.address()
+            let recipient = coa.address()
 
             // optional dev guards
             let _chkIn  = EVMAbiHelpers.abiUInt256(evmAmountIn)
@@ -712,8 +711,21 @@ access(all) contract UniswapV3SwapConnectors {
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
             }
+            // Reset allowance
+            let resetAllowanceRes = self._call(
+                to: inToken,
+                signature: "approve(address,uint256)",
+                args: [self.routerAddress, 0 as UInt256],
+                gasLimit: 60_000,
+                value: 0
+            )!
+
+            if resetAllowanceRes.status != EVM.Status.successful {
+                UniswapV3SwapConnectors._callError("approve(address,uint256)", resetAllowanceRes, inToken, idType, id, self.getType())
+            }
             let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-            let amountOut: UInt256 = decoded.length > 0 ? decoded[0] as! UInt256 : 0
+            assert(decoded.length == 1, message: "invalid swap return data")
+            let amountOut = decoded[0] as! UInt256
 
             let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
@@ -733,28 +745,11 @@ access(all) contract UniswapV3SwapConnectors {
                 message: "UniswapV3SwapConnectors: swap output \(outUFix.toString()) < amountOutMin \(amountOutMin.toString())"
             )
 
-            /// Quoting exact output then swapping exact input can overshoot by up to 0.00000001 (1 UFix64 quantum)
-            /// when the pool's effective exchange rate is near 1:1.
-            ///
-            /// UFix64 has 8 decimals; EVM tokens typically have 18. One UFix64 step = 10^10 wei.
-            ///
-            /// Example (pool price 1 FLOW = 2 USDC, want 10 USDC out):
-            ///   1. Quoter says need 5,000000002000000000 FLOW wei
-            ///   2. Ceil to UFix64:  5,000000010000000000  (overshoot: 8e9 wei)
-            ///   3. exactInput swaps the ceiled amount; extra 8e9 FLOW wei × 2 = 16e9 USDC wei extra
-            ///   4. Actual output:  10,000000016000000000 USDC wei
-            ///   5. Floor to UFix64: 10.00000001 USDC  (quoted 10.00000000)
-            ///
-            /// The overshoot is always non-negative (ceiled input >= what pool needs).
-            /// It surfaces when the extra output crosses a 10^10 wei quantum boundary.
-            /// Cap at amountOutMin so only the expected amount is bridged; dust stays in the COA.
-            let bridgeUFix = outUFix > amountOutMin && amountOutMin > 0.0 ? amountOutMin : outUFix
-            let dust = outUFix > bridgeUFix ? outUFix - bridgeUFix : 0.0
             let safeAmountOut = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
-                bridgeUFix,
+                outUFix,
                 erc20Address: outTokenEVMAddress
             )
-            // Withdraw output back to Flow; sub-quantum remainder and any overshoot stay in COA
+            // Withdraw output back to Flow
             let outVault <- coa.withdrawTokens(type: outVaultType, amount: safeAmountOut, feeProvider: feeVaultRef)
 
             // Handle leftover fee vault
