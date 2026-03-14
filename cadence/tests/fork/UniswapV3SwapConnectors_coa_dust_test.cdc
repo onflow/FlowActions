@@ -549,16 +549,14 @@ access(all) fun testSwapOvershootStaysInCOA() {
         let vaultBalance   = row[3]
         let coaDustBefore  = row[4]
         let coaDustAfter   = row[5]
-        if desiredOut == 0.01000000 || desiredOut == 0.12345678 {
-            // With the new guard, whole-quantum overshoot reaches the caller.
-            // vaultBalance must be at least quoteOutAmount (= desiredOut + quote_overshoot).
-            Test.assert(vaultBalance >= quoteOutAmount,
-                message: "[\(desiredOut.toString())] vaultBalance \(vaultBalance.toString()) < quoteOutAmount \(quoteOutAmount.toString()) — old cap-at-minimum guard still in effect")
-            // Sub-quantum EVM remainder must be the only thing left in COA.
-            let coaDelta = coaDustAfter > coaDustBefore ? coaDustAfter - coaDustBefore : 0.0
-            Test.assert(coaDelta <= 0.00000001,
-                message: "[\(desiredOut.toString())] COA accumulated \(coaDelta.toString()) MOET — whole-quantum overshoot should have been passed to caller, not left in COA")
-        }
+        // With the new guard, whole-quantum overshoot reaches the caller.
+        // vaultBalance must be at least quoteOutAmount (= desiredOut + quote_overshoot).
+        Test.assert(vaultBalance >= quoteOutAmount,
+            message: "[\(desiredOut.toString())] vaultBalance \(vaultBalance.toString()) < quoteOutAmount \(quoteOutAmount.toString()) — old cap-at-minimum guard still in effect")
+        // Sub-quantum EVM remainder must be the only thing left in COA.
+        let coaDelta = coaDustAfter > coaDustBefore ? coaDustAfter - coaDustBefore : 0.0
+        Test.assert(coaDelta <= 0.00000001,
+            message: "[\(desiredOut.toString())] COA accumulated \(coaDelta.toString()) MOET — whole-quantum overshoot should have been passed to caller, not left in COA")
     }
 }
 
