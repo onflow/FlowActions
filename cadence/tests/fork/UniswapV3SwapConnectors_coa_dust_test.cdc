@@ -453,7 +453,7 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
 // --- Swap tests ---------------------------------------------------------------
 
 /// Baseline: MOET → PYUSD swaps produce zero COA dust because PYUSD is a
-/// 6-decimal ERC20 (≤8 decimals), so `toCadenceOut` is an exact conversionunicoadu
+/// 6-decimal ERC20 (≤8 decimals), so `toCadenceOut` is an exact conversion
 /// with no quantum-boundary rounding.
 ///
 access(all) fun testSwapDustStaysInCOA() {

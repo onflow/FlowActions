@@ -285,14 +285,12 @@ access(all) contract UniswapV3SwapConnectors {
 
         /// Swap exact input -> min output using Uniswap V3 exactInput/Single
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre { inVault.getType() == self.inVault: "Input vault type mismatch" }
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- self._swapExactIn(exactVaultIn: <-inVault, amountOutMin: minOut, reverse: false)
         }
 
         /// Swap back (exact input of residual -> min output)
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            pre { residual.getType() == self.outVault: "Residual vault type mismatch" }
             let minOut = quote?.outAmount ?? self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <- self._swapExactIn(exactVaultIn: <-residual, amountOutMin: minOut, reverse: true)
         }
