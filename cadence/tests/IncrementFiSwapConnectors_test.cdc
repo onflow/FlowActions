@@ -120,3 +120,25 @@ fun testAdapterGetAmountsOutSucceeds() {
     let quote = amountsOutRes.returnValue! as! {DeFiActions.Quote}
     Test.assertEqual(inAmount, quote.inAmount)
 }
+
+access(all)
+fun testPriceOracleGetPrice() {
+    let path = [tokenAKey, tokenBKey]
+    let priceOfBaseRes = executeScript(
+        "../scripts/increment-fi-adapters/get_price.cdc",
+        [tokenBIdentifier, tokenAIdentifier, path, tokenAIdentifier]
+    )
+    Test.expect(priceOfBaseRes, Test.beSucceeded())
+    let priceOfBase = priceOfBaseRes.returnValue as! UFix64?
+    Test.assert(priceOfBase != nil, message: "Price of base token should be non-nil")
+    Test.assert(priceOfBase! > 0.0, message: "Price of base token should be positive")
+    log(priceOfBase!)
+    let priceOfQuoteRes = executeScript(
+        "../scripts/increment-fi-adapters/get_price.cdc",
+        [tokenBIdentifier, tokenAIdentifier, path, tokenBIdentifier]
+    )
+    Test.expect(priceOfQuoteRes, Test.beSucceeded())
+    let priceOfQuote = priceOfQuoteRes.returnValue
+    Test.assert(priceOfQuote != nil, message: "Price of quote token should be non-nil")
+    Test.assertEqual(priceOfQuote, 1.0 as UFix64?)
+}
