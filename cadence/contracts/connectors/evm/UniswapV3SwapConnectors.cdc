@@ -660,12 +660,13 @@ access(all) contract UniswapV3SwapConnectors {
             let pathBytes = self._buildPathBytes(reverse: reverse, exactOutput: false, numHops: nil)
 
             // Approve
-            let allowanceRes = self._call(
+            let allowanceRes = self._callWithSigAndArgs(
                 to: inToken,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, evmAmountIn],
                 gasLimit: 120_000,
-                value: 0
+                value: 0,
+                resultTypes: nil
             )!
             if allowanceRes.status != EVM.Status.successful {
                 UniswapV3SwapConnectors._callError("approve(address,uint256)", allowanceRes, inToken, idType, id, self.getType())
@@ -693,39 +694,36 @@ access(all) contract UniswapV3SwapConnectors {
                 amountOutMinimum: minOutUint
             )
 
-            let calldata = EVM.encodeABIWithSignature(
-                "exactInput((bytes,address,uint256,uint256))",
-                [exactInputParams]
-            )
-
             // Call the router with raw calldata
-            let swapRes = self._callRaw(
+            let swapRes = self._callWithSigAndArgs(
                 to: self.routerAddress,
-                calldata: calldata,
+                signature: "exactInput((bytes,address,uint256,uint256))",
+                args: [exactInputParams],
                 gasLimit: 10_000_000,
-                value: 0
+                value: 0,
+                resultTypes: nil
             )!
             if swapRes.status != EVM.Status.successful {
                 UniswapV3SwapConnectors._callError(
-                    EVMAbiHelpers.toHex(calldata),
+                    "exactInput((bytes,address,uint256,uint256))",
                     swapRes, self.routerAddress, idType, id, self.getType()
                 )
             }
+
             // Reset allowance
-            let resetAllowanceRes = self._call(
+            let resetAllowanceRes = self._callWithSigAndArgs(
                 to: inToken,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, 0 as UInt256],
                 gasLimit: 60_000,
-                value: 0
+                value: 0,
+                resultTypes: [Type<UInt256>()]
             )!
-
             if resetAllowanceRes.status != EVM.Status.successful {
                 UniswapV3SwapConnectors._callError("approve(address,uint256)", resetAllowanceRes, inToken, idType, id, self.getType())
             }
-            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: swapRes.data)
-            assert(decoded.length == 1, message: "invalid swap return data")
-            let amountOut = decoded[0] as! UInt256
+            assert(resetAllowanceRes.results.length == 1, message: "invalid swap return data")
+            let amountOut = resetAllowanceRes.results[0] as! UInt256
 
             let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
@@ -778,19 +776,24 @@ access(all) contract UniswapV3SwapConnectors {
             return nil
         }
 
-        access(self) fun _call(to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64, value: UInt): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: value)
+        access(self)
+        fun _callWithSigAndArgs(
+            to: EVM.EVMAddress,
+            signature: String,
+            args: [AnyStruct],
+            gasLimit: UInt64,
+            value: UInt,
+            resultTypes: [Type]?
+        ): EVM.ResultDecoded? {
             if let coa = self.borrowCOA() {
-                return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-            }
-            return nil
-        }
-
-        access(self) fun _callRaw(to: EVM.EVMAddress, calldata: [UInt8], gasLimit: UInt64, value: UInt): EVM.Result? {
-            let valueBalance = EVM.Balance(attoflow: value)
-            if let coa = self.borrowCOA() {
-                return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                return coa.callWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: EVM.Balance(attoflow: value),
+                    resultTypes: resultTypes
+                )
             }
             return nil
         }
@@ -849,7 +852,7 @@ access(all) contract UniswapV3SwapConnectors {
     access(self)
     fun _callError(
         _ signature: String,
-        _ res: EVM.Result,
+        _ res: EVM.ResultDecoded,
         _ target: EVM.EVMAddress,
         _ uniqueIDType: String,
         _ id: String,

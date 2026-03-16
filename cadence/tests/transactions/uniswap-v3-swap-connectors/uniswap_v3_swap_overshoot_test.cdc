@@ -67,11 +67,13 @@ transaction(
             )
 
             log("Transferring \(provisionAmount.toString()) tokens from holder")
-            let provisionRes = coa.call(
+            let provisionRes = coa.callWithSigAndArgs(
                 to: tokenIn,
-                data: EVM.encodeABIWithSignature("transfer(address,uint256)", [coaAddr, provisionAmountEVM]),
+                signature: "transfer(address,uint256)",
+                args: [coaAddr, provisionAmountEVM],
                 gasLimit: 500_000,
-                value: EVM.Balance(attoflow: 0)
+                value: EVM.Balance(attoflow: 0),
+                resultTypes: nil
             )
 
             assert(provisionRes.status == EVM.Status.successful,

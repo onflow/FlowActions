@@ -227,11 +227,13 @@ access(all) contract UniswapV2SwapConnectors {
             coa.depositTokens(vault: <-exactVaultIn, feeProvider: feeVaultRef)
 
             // approve the router to swap tokens
-            var res = self.call(to: inTokenAddress,
+            var res = self.callWithSigAndArgs(
+                to: inTokenAddress,
                 signature: "approve(address,uint256)",
                 args: [self.routerAddress, evmAmountIn],
                 gasLimit: 100_000,
                 value: 0,
+                resultTypes: nil,
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
@@ -239,7 +241,8 @@ access(all) contract UniswapV2SwapConnectors {
                     res, inTokenAddress, idType, id, self.getType())
             }
             // perform the swap
-            res = self.call(to: self.routerAddress,
+            res = self.callWithSigAndArgs(
+                to: self.routerAddress,
                 signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)", // amountIn, amountOutMin, path, to, deadline (timestamp)
                 args: [
                     evmAmountIn,
@@ -250,6 +253,7 @@ access(all) contract UniswapV2SwapConnectors {
                 ],
                 gasLimit: 1_000_000,
                 value: 0,
+                resultTypes: [Type<[UInt256]>()],
                 dryCall: false
             )!
             if res.status != EVM.Status.successful {
@@ -257,8 +261,8 @@ access(all) contract UniswapV2SwapConnectors {
                 UniswapV2SwapConnectors._callError("swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
                     res, self.routerAddress, idType, id, self.getType())
             }
-            let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: res.data)
-            let amountsOut = decoded[0] as! [UInt256]
+            assert(res.results.length == 1, message: "invalid swap return data")
+            let amountsOut = res.results[0] as! [UInt256]
 
             // withdraw tokens from EVM
             let outVault <- coa.withdrawTokens(type: self.outType(),
@@ -287,18 +291,19 @@ access(all) contract UniswapV2SwapConnectors {
         ///     the values in, otherwise the array contains the values out for each swap along the path
         ///
         access(self) fun getAmount(out: Bool, amount: UInt256, path: [EVM.EVMAddress]): UFix64? {
-            let callRes = self.call(to: self.routerAddress,
+            let callRes = self.callWithSigAndArgs(
+                to: self.routerAddress,
                 signature: out ? "getAmountsOut(uint,address[])" : "getAmountsIn(uint,address[])",
                 args: [amount, path],
                 gasLimit: 1_000_000,
                 value: 0,
+                resultTypes: [Type<[UInt256]>()],
                 dryCall: true
             )
             if callRes == nil || callRes!.status != EVM.Status.successful {
                 return nil
             }
-            let decoded = EVM.decodeABI(types: [Type<[UInt256]>()], data: callRes!.data) // can revert if the type cannot be decoded
-            let uintAmounts: [UInt256] = decoded.length > 0 ? decoded[0] as! [UInt256] : []
+            let uintAmounts: [UInt256] = callRes!.results.length > 0 ? callRes!.results[0] as! [UInt256] : []
             if uintAmounts.length == 0 {
                 return nil
             } else if out {
@@ -325,29 +330,44 @@ access(all) contract UniswapV2SwapConnectors {
         /// Makes a call to the Swapper's routerEVMAddress via the contained COA Capability with the provided signature,
         /// args, and value. If flagged as dryCall, the more efficient and non-mutating COA.dryCall is used. A result is
         /// returned as long as the COA Capability is valid, otherwise `nil` is returned.
-        access(self) fun call(
+        access(self)
+        fun callWithSigAndArgs(
             to: EVM.EVMAddress,
             signature: String,
             args: [AnyStruct],
             gasLimit: UInt64,
             value: UInt,
+            resultTypes: [Type]?,
             dryCall: Bool
-        ): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: value)
+        ): EVM.ResultDecoded? {
             if let coa = self.borrowCOA() {
-                let res = dryCall
-                    ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                    : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                return res
+                if dryCall {
+                    return coa.dryCallWithSigAndArgs(
+                        to: to,
+                        signature: signature,
+                        args: args,
+                        gasLimit: gasLimit,
+                        value: EVM.Balance(attoflow: value),
+                        resultTypes: resultTypes
+                    )
+                }
+
+                return coa.callWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: EVM.Balance(attoflow: value),
+                    resultTypes: resultTypes
+                )
             }
             return nil
         }
     }
 
-    /// Reverts with a message constructed from the provided args. Used in the event of a coa.call() error
+    /// Reverts with a message constructed from the provided args. Used in the event of a coa.callWithSigAndArgs() error
     access(self)
-    fun _callError(_ signature: String, _ res: EVM.Result,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
+    fun _callError(_ signature: String, _ res: EVM.ResultDecoded,_ target: EVM.EVMAddress, _ uniqueIDType: String, _ id: String, _ swapperType: Type) {
         panic("Call to \(target.toString()).\(signature) from Swapper \(swapperType.identifier) with UniqueIdentifier \(uniqueIDType) ID \(id) failed: \n\tStatus value: \(res.status.rawValue)\n\tError code: \(res.errorCode)\n\tErrorMessage: \(res.errorMessage)\n")
     }
 }
