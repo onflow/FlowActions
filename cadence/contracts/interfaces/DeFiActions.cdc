@@ -1103,7 +1103,7 @@ access(all) contract DeFiActions {
             }
             let config = self._recurringConfig!
             // get the next execution timestamp
-            var timestamp = self._lastRebalanceTimestamp.saturatingAdd(UFix64(config.interval))
+            var timestamp = self.calculateNextExecutionTimestampAsConfigured()!
             // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
             // executed long ago - ensure timestamp is in the future
             let nextPossibleTimestamp = getCurrentBlock().timestamp.saturatingAdd(1.0)
@@ -1189,6 +1189,17 @@ access(all) contract DeFiActions {
         ///
         access(all) view fun borrowScheduledTransaction(id: UInt64): &FlowTransactionScheduler.ScheduledTransaction? {
             return &self._scheduledTransactions[id]
+        }
+        /// Calculates the next execution timestamp for a recurring rebalance if the AutoBalancer is configured as such.
+        /// Returns nil if unconfigured for recurring rebalancing.
+        ///
+        /// @return UFix64?: The next execution timestamp, or nil if a recurring rebalance is not configured
+        ///
+        access(all) view fun calculateNextExecutionTimestampAsConfigured(): UFix64? {
+            if let config = self._recurringConfig {
+                return self._lastRebalanceTimestamp.saturatingAdd(UFix64(config.interval))
+            }
+            return nil
         }
         /// Returns the recurring config for the AutoBalancer
         ///
