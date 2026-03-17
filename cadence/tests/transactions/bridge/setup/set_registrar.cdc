@@ -26,7 +26,7 @@ transaction(registryEVMAddressHex: String) {
             signature: "setRegistrar(address)",
             args: [FlowEVMBridgeUtils.getBridgeFactoryEVMAddress()],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: nil
         )
         assert(callResult.status == EVM.Status.successful, message: "Failed to set registrar")
@@ -35,15 +35,15 @@ transaction(registryEVMAddressHex: String) {
         let postRegistrarResult = self.coa.callWithSigAndArgs(
             to: self.targetRegistryEVMAddress,
             signature: "registrar()",
-            args: [] as [AnyStruct],
+            args: [],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: [Type<EVM.EVMAddress>()]
         )
         assert(postRegistrarResult.status == EVM.Status.successful, message: "Failed to get registrar")
 
-        assert(postRegistrarResult.results!.length == 1, message: "Invalid response from registrar() call to registry contract")
-        self.postRegistrar = postRegistrarResult.results![0] as! EVM.EVMAddress
+        assert(postRegistrarResult.results.length == 1, message: "Invalid response from registrar() call to registry contract")
+        self.postRegistrar = postRegistrarResult.results[0] as! EVM.EVMAddress
     }
 
     post {

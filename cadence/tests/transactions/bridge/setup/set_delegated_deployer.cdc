@@ -27,7 +27,7 @@ transaction(deployerEVMAddressHex: String) {
             signature: "setDelegatedDeployer(address)",
             args: [FlowEVMBridgeUtils.getBridgeFactoryEVMAddress()],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: nil
         )
         assert(callResult.status == EVM.Status.successful, message: "Failed to set delegated deployer")
@@ -36,15 +36,15 @@ transaction(deployerEVMAddressHex: String) {
         let postDelegatedDeployerResult = self.coa.callWithSigAndArgs(
             to: self.targetDeployerEVMAddress,
             signature: "delegatedDeployer()",
-            args: [] as [AnyStruct],
+            args: [],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: [Type<EVM.EVMAddress>()]
         )
         assert(postDelegatedDeployerResult.status == EVM.Status.successful, message: "Failed to get delegated deployer")
 
-        assert(postDelegatedDeployerResult.results!.length == 1, message: "Invalid response from delegatedDeployer() call")
-        self.postDelegatedDeployer = postDelegatedDeployerResult.results![0] as! EVM.EVMAddress
+        assert(postDelegatedDeployerResult.results.length == 1, message: "Invalid response from delegatedDeployer() call")
+        self.postDelegatedDeployer = postDelegatedDeployerResult.results[0] as! EVM.EVMAddress
     }
 
     post {

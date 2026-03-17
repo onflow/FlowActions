@@ -31,7 +31,7 @@ transaction(registryEVMAddressHex: String) {
             signature: "setDeploymentRegistry(address)",
             args: [self.targetRegistryEVMAddress],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: nil
         )
         assert(callResult.status == EVM.Status.successful, message: "Failed to set registry in FlowBridgeFactory contract")
@@ -40,9 +40,9 @@ transaction(registryEVMAddressHex: String) {
         let postRegistryResult = self.coa.callWithSigAndArgs(
             to: FlowEVMBridgeUtils.getBridgeFactoryEVMAddress(),
             signature: "getRegistry()",
-            args: [] as [AnyStruct],
+            args: [],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: [Type<EVM.EVMAddress>()]
         )
         assert(
@@ -50,8 +50,8 @@ transaction(registryEVMAddressHex: String) {
             message: "Failed to get registry address from FlowBridgeFactory contract"
         )
 
-        assert(postRegistryResult.results!.length == 1, message: "Invalid response from getRegistry() call to FlowBridgeFactory contract")
-        self.postRegistry = postRegistryResult.results![0] as! EVM.EVMAddress
+        assert(postRegistryResult.results.length == 1, message: "Invalid response from getRegistry() call to FlowBridgeFactory contract")
+        self.postRegistry = postRegistryResult.results[0] as! EVM.EVMAddress
     }
 
     post {

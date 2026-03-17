@@ -469,24 +469,19 @@ access(all) contract UniswapV3SwapConnectors {
                 : self.feePath[hopIndex]
 
             let res = self._dryCall(
-                self.factoryAddress,
-                "getPool(address,address,uint24)",
-                [ tokenA, tokenB, UInt256(fee) ],
-                120_000
+                to: self.factoryAddress,
+                signature: "getPool(address,address,uint24)",
+                args: [tokenA, tokenB, UInt256(fee)],
+                gasLimit: 120_000,
+                resultTypes: [Type<EVM.EVMAddress>()]
             )!
             assert(
                 res.status == EVM.Status.successful,
                 message: "unable to get pool: tokenA \(tokenA.toString()), tokenB \(tokenB.toString()), fee: \(fee)"
             )
 
-            // ABI return is one 32-byte word; the last 20 bytes are the address
-            let word = res.data
-            if word.length < 32 { panic("getPool: invalid ABI word length") }
-
-            let addrSlice = word.slice(from: 12, upTo: 32)   // 20 bytes
-            let addrBytes = addrSlice.toConstantSized<[UInt8; 20]>()!
-
-            return EVM.EVMAddress(bytes: addrBytes)
+            assert(res.results.length == 1, message: "getPool: invalid ABI-encoded return data")
+            return res.results[0] as! EVM.EVMAddress
         }
 
         /// Get max input amount for a specific hop
@@ -506,50 +501,32 @@ access(all) contract UniswapV3SwapConnectors {
         access(self) fun getMaxInAmount(hopIndex: Int, zeroForOne: Bool, reverse: Bool): UInt256 {
             let poolEVMAddress = self.getPoolAddress(hopIndex: hopIndex, reverse: reverse)
             
-            // Helper functions
-            fun wordToUInt(_ w: [UInt8]): UInt {
-                var acc: UInt = 0
-                var i = 0
-                while i < 32 { acc = (acc << 8) | UInt(w[i]); i = i + 1 }
-                return acc
-            }
-            fun wordToUIntN(_ w: [UInt8], _ nBits: UInt): UInt {
-                let full = wordToUInt(w)
-                if nBits >= 256 { return full }
-                let mask: UInt = (1 << nBits) - 1
-                return full & mask
-            }
-            fun words(_ data: [UInt8]): [[UInt8]] {
-                let n = data.length / 32
-                var out: [[UInt8]] = []
-                var i = 0
-                while i < n {
-                    out.append(data.slice(from: i*32, upTo: (i+1)*32))
-                    i = i + 1
-                }
-                return out
-            }
-            
-            // Selectors
-            let SEL_SLOT0: [UInt8] = [0x38, 0x50, 0xc7, 0xbd]
-            let SEL_LIQUIDITY: [UInt8] = [0x1a, 0x68, 0x65, 0x02]
-            
             // Get slot0 (sqrtPriceX96, tick, etc.)
-            let s0Res = self._dryCallRaw(
+            // slot0() returns (uint160 sqrtPriceX96, int24, uint16, uint16, uint16, uint8, bool)
+            let types = [
+                Type<UInt>(), Type<Int32>(), Type<UInt16>(), Type<UInt16>(), Type<UInt16>(), Type<UInt8>(), Type<Bool>()
+            ]
+            let s0Res = self._dryCall(
                 to: poolEVMAddress,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_SLOT0, args: []),
+                signature: "slot0()",
+                args: [],
                 gasLimit: 1_000_000,
+                resultTypes: types
             )
-            let s0w = words(s0Res!.data)
-            let sqrtPriceX96 = wordToUIntN(s0w[0], 160)
+            assert(s0Res!.results.length == types.length, message: "slot0: invalid ABI-encoded return data")
+            let sqrtPriceX96 = s0Res!.results[0] as! UInt
             
             // Get current active liquidity
-            let liqRes = self._dryCallRaw(
+            // liquidity() returns (uint128 liquidity)
+            let liqRes = self._dryCall(
                 to: poolEVMAddress,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_LIQUIDITY, args: []),
+                signature: "liquidity()",
+                args: [],
                 gasLimit: 300_000,
+                resultTypes: [Type<UInt128>()]
             )
-            let L = wordToUIntN(words(liqRes!.data)[0], 128)
+            assert(liqRes!.results.length == 1, message: "liquidity: invalid ABI-encoded return data")
+            let L = liqRes!.results[0] as! UInt128
             
             // Calculate price multiplier based on 6% price impact (600 bps)
             // Use UInt256 throughout to prevent overflow in multiplication operations
@@ -626,13 +603,18 @@ access(all) contract UniswapV3SwapConnectors {
 
             let args = [pathBytes, amount]
 
-            let res = self._dryCall(self.quoterAddress, callSig, args, 10_000_000)
+            let res = self._dryCall(
+                to: self.quoterAddress,
+                signature: callSig,
+                args: args,
+                gasLimit: 10_000_000,
+                resultTypes: [Type<UInt256>()]
+            )
             if res == nil || res!.status != EVM.Status.successful { return nil }
 
-            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: res!.data)
-            if decoded.length == 0 { return nil }
+            if res!.results.length == 0 { return nil }
 
-            return decoded[0] as! UInt256
+            return res!.results[0] as! UInt256
         }
 
         /// Executes exact input swap via router
@@ -701,7 +683,7 @@ access(all) contract UniswapV3SwapConnectors {
                 args: [exactInputParams],
                 gasLimit: 10_000_000,
                 value: 0,
-                resultTypes: nil
+                resultTypes: [Type<UInt256>()]
             )!
             if swapRes.status != EVM.Status.successful {
                 UniswapV3SwapConnectors._callError(
@@ -717,13 +699,14 @@ access(all) contract UniswapV3SwapConnectors {
                 args: [self.routerAddress, 0 as UInt256],
                 gasLimit: 60_000,
                 value: 0,
-                resultTypes: [Type<UInt256>()]
+                resultTypes: nil
             )!
             if resetAllowanceRes.status != EVM.Status.successful {
                 UniswapV3SwapConnectors._callError("approve(address,uint256)", resetAllowanceRes, inToken, idType, id, self.getType())
             }
-            assert(resetAllowanceRes.results.length == 1, message: "invalid swap return data")
-            let amountOut = resetAllowanceRes.results[0] as! UInt256
+
+            assert(swapRes.results.length == 1, message: "invalid swap return data")
+            let amountOut = swapRes.results[0] as! UInt256
 
             let outVaultType = reverse ? self.inType() : self.outType()
             let outTokenEVMAddress =
@@ -759,19 +742,23 @@ access(all) contract UniswapV3SwapConnectors {
 
         access(self) view fun borrowCOA(): auth(EVM.Owner) &EVM.CadenceOwnedAccount? { return self.coaCapability.borrow() }
 
-        access(self) fun _dryCall(_ to: EVM.EVMAddress, _ signature: String, _ args: [AnyStruct], _ gas: UInt64): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: 0)
+        access(self)
+        fun _dryCall(
+            to: EVM.EVMAddress,
+            signature: String,
+            args: [AnyStruct],
+            gasLimit: UInt64,
+            resultTypes: [Type]?
+        ): EVM.ResultDecoded? {
             if let coa = self.borrowCOA() {
-                return coa.dryCall(to: to, data: calldata, gasLimit: gas, value: valueBalance)
-            }
-            return nil
-        }
-
-        access(self) fun _dryCallRaw(to: EVM.EVMAddress, calldata: [UInt8], gasLimit: UInt64): EVM.Result? {
-            let valueBalance = EVM.Balance(attoflow: 0)
-            if let coa = self.borrowCOA() {
-                return coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                return coa.dryCallWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: 0,
+                    resultTypes: resultTypes
+                )
             }
             return nil
         }
@@ -791,7 +778,7 @@ access(all) contract UniswapV3SwapConnectors {
                     signature: signature,
                     args: args,
                     gasLimit: gasLimit,
-                    value: EVM.Balance(attoflow: value),
+                    value: value,
                     resultTypes: resultTypes
                 )
             }
@@ -818,21 +805,17 @@ access(all) contract UniswapV3SwapConnectors {
         }
 
         access(self) fun getPoolToken0(_ pool: EVM.EVMAddress): EVM.EVMAddress {
-            // token0() selector = 0x0dfe1681
-            let SEL_TOKEN0: [UInt8] = [0x0d, 0xfe, 0x16, 0x81]
-            let res = self._dryCallRaw(
+            let res = self._dryCall(
                 to: pool,
-                calldata: EVMAbiHelpers.buildCalldata(selector: SEL_TOKEN0, args: []),
+                signature: "token0()",
+                args: [],
                 gasLimit: 150_000,
+                resultTypes: [Type<EVM.EVMAddress>()]
             )!
             assert(res.status == EVM.Status.successful, message: "token0() call failed")
 
-            let word = res.data
-            if word.length < 32 { panic("getPoolToken0: invalid ABI word length") }
-
-            let addrSlice = word.slice(from: 12, upTo: 32)
-            let addrBytes = addrSlice.toConstantSized<[UInt8; 20]>()!
-            return EVM.EVMAddress(bytes: addrBytes)
+            assert(res.results.length == 1, message: "token0: invalid ABI-encoded return data")
+            return res.results[0] as! EVM.EVMAddress
         }
 
         access(self) fun isZeroForOne(hopIndex: Int, reverse: Bool): Bool {

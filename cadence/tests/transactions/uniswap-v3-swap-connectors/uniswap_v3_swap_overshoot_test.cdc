@@ -72,7 +72,7 @@ transaction(
                 signature: "transfer(address,uint256)",
                 args: [coaAddr, provisionAmountEVM],
                 gasLimit: 500_000,
-                value: EVM.Balance(attoflow: 0),
+                value: 0,
                 resultTypes: nil
             )
 

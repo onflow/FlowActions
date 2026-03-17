@@ -347,7 +347,7 @@ access(all) contract UniswapV2SwapConnectors {
                         signature: signature,
                         args: args,
                         gasLimit: gasLimit,
-                        value: EVM.Balance(attoflow: value),
+                        value: value,
                         resultTypes: resultTypes
                     )
                 }
@@ -357,7 +357,7 @@ access(all) contract UniswapV2SwapConnectors {
                     signature: signature,
                     args: args,
                     gasLimit: gasLimit,
-                    value: EVM.Balance(attoflow: value),
+                    value: value,
                     resultTypes: resultTypes
                 )
             }

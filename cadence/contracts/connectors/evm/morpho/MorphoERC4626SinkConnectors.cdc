@@ -190,7 +190,7 @@ access(all) contract MorphoERC4626SinkConnectors {
                         signature: signature,
                         args: args,
                         gasLimit: gasLimit,
-                        value: EVM.Balance(attoflow: 0),
+                        value: 0,
                         resultTypes: nil
                     )
                 }
@@ -200,7 +200,7 @@ access(all) contract MorphoERC4626SinkConnectors {
                     signature: signature,
                     args: args,
                     gasLimit: gasLimit,
-                    value: EVM.Balance(attoflow: 0),
+                    value: 0,
                     resultTypes: nil
                 )
             }
@@ -402,7 +402,7 @@ access(all) contract MorphoERC4626SinkConnectors {
                         signature: signature,
                         args: args,
                         gasLimit: gasLimit,
-                        value: EVM.Balance(attoflow: 0),
+                        value: 0,
                         resultTypes: nil
                     )
                 }
@@ -412,7 +412,7 @@ access(all) contract MorphoERC4626SinkConnectors {
                     signature: signature,
                     args: args,
                     gasLimit: gasLimit,
-                    value: EVM.Balance(attoflow: 0),
+                    value: 0,
                     resultTypes: nil
                 )
             }

@@ -28,7 +28,7 @@ transaction(deployerTag: String, deployerEVMAddressHex: String) {
             signature: "addDeployer(string,address)",
             args: [deployerTag, self.targetDeployerEVMAddress],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: nil
         )
         assert(callResult.status == EVM.Status.successful, message: "Failed to add deployer")
@@ -39,13 +39,13 @@ transaction(deployerTag: String, deployerEVMAddressHex: String) {
             signature: "getDeployer(string)",
             args: [deployerTag],
             gasLimit: 15_000_000,
-            value: EVM.Balance(attoflow: 0),
+            value: 0,
             resultTypes: [Type<EVM.EVMAddress>()]
         )
         assert(postDeployerResult.status == EVM.Status.successful, message: "Failed to get deployer")
 
-        assert(postDeployerResult.results!.length == 1, message: "Invalid response from getDeployer call")
-        self.postDeployer = postDeployerResult.results![0] as! EVM.EVMAddress
+        assert(postDeployerResult.results.length == 1, message: "Invalid response from getDeployer call")
+        self.postDeployer = postDeployerResult.results[0] as! EVM.EVMAddress
     }
 
     post {

@@ -70,7 +70,7 @@ transaction(
                 signature: "approve(address,uint256)",
                 args: [v2Router, wflowAmount],
                 gasLimit: 100_000,
-                value: EVM.Balance(attoflow: 0),
+                value: 0,
                 resultTypes: nil
             )
             assert(callRes.status == EVM.Status.successful, message: "WFLOW approve for V2 failed")
@@ -82,7 +82,7 @@ transaction(
                 signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
                 args: [wflowAmount, 0, v2Path, coaAddr, 99999999999],
                 gasLimit: 1_000_000,
-                value: EVM.Balance(attoflow: 0),
+                value: 0,
                 resultTypes: nil
             )
             assert(callRes.status == EVM.Status.successful,
