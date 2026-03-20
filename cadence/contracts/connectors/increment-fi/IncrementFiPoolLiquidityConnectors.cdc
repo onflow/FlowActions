@@ -245,7 +245,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
 
             let pairPublicRef = self.getPairPublicRef()
             let token0Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token0Type.identifier)
-            let token1Key = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.token1Type.identifier)
+
             if (!reverse) {
                 // Calculate how much to zap from token0 to token1
                 let zappedAmount = self.calculateZappedAmount(forProvided: forProvided, pairPublicRef: pairPublicRef)
@@ -309,7 +309,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Converts inToken to LP token
-        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swap(quote _: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let pairPublicRef = self.getPairPublicRef()
             let zappedAmount = self.calculateZappedAmount(forProvided: inVault.balance, pairPublicRef: pairPublicRef)
 
@@ -328,7 +328,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         }
 
         /// Converts back LP token to inToken
-        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote _: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let pairPublicRef = self.getPairPublicRef()
 
             // Remove liquidity
@@ -437,7 +437,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
                         let reserveAft1 = token1Reserve - amountOut
                         let ratioUser = (forProvided - midAmount) / amountOut
                         let ratioPool = reserveAft0 / reserveAft1
-                        var ratioBias = 0.0
+
                         if (ratioUser >= ratioPool) {
                             if (ratioUser - ratioPool) <= SwapConfig.ufix64NonZeroMin {
                                 break
@@ -629,7 +629,7 @@ access(all) contract IncrementFiPoolLiquidityConnectors {
         // Returns the maximum amount of LP tokens that can be minted
         // It's bound by the reserves of token1 that can be swapped to token0
         access(self) fun getMaxLpMintAmount(
-            pairPublicRef: &{SwapInterfaces.PairPublic},
+            pairPublicRef _: &{SwapInterfaces.PairPublic},
         ): UFix64 {
             let quote = self.quoteOut(forProvided: UFix64.max, reverse: false)
             return quote.outAmount

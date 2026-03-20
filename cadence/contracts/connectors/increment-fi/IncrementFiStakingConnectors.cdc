@@ -234,10 +234,10 @@ access(all) contract IncrementFiStakingConnectors {
         /// Withdraws rewards from the staking pool up to the specified maximum amount
         /// Overflow rewards are sent to the appropriate overflow sinks if provided
         ///
-        /// @param maxAmount: The maximum amount of rewards to claim
+        /// @param maxAmount: The maximum amount of rewards to claim. Currently ignored and the entire reward vault is claimed.
         /// @return a Vault containing the claimed rewards
         ///
-        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
+        access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount _: UFix64): @{FungibleToken.Vault} {
             let minimumAvailable = self.minimumAvailable()
             if minimumAvailable == 0.0 {
                 return <- DeFiActionsUtils.getEmptyVault(self.getSourceType())
@@ -245,9 +245,9 @@ access(all) contract IncrementFiStakingConnectors {
 
             if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 if let userCertificate = self.userCertificate.borrow() {
-                    let withdrawAmount = maxAmount < minimumAvailable
-                        ? maxAmount
-                        : minimumAvailable
+                    // let withdrawAmount = maxAmount < minimumAvailable
+                    //     ? maxAmount
+                    //     : minimumAvailable
 
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
                     let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
