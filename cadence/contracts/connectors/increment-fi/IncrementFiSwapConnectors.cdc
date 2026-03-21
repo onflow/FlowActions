@@ -111,7 +111,7 @@ access(all) contract IncrementFiSwapConnectors {
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swap(quote _: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOut = self.quoteOut(forProvided: inVault.balance, reverse: false).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-inVault,
@@ -123,7 +123,7 @@ access(all) contract IncrementFiSwapConnectors {
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
-        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote _: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             let amountOut = self.quoteOut(forProvided: residual.balance, reverse: true).outAmount
             return <- SwapRouter.swapExactTokensForTokens(
                 exactVaultIn: <-residual,
