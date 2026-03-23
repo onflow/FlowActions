@@ -42,12 +42,17 @@ access(all) contract ERC4626Utils {
     /// @return The EVM address of the underlying asset for the given ERC4626 vault
     access(all)
     fun underlyingAssetEVMAddress(vault: EVM.EVMAddress): EVM.EVMAddress? {
-        let callRes = self._dryCall(to: vault, signature: "asset()", args: [], gasLimit: 5_000_000)
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "asset()",
+            args: [],
+            gasLimit: 5_000_000,
+            resultTypes: [Type<EVM.EVMAddress>()]
+        )
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<EVM.EVMAddress>()], data: callRes.data)
-        return decoded[0] as! EVM.EVMAddress
+        return callRes.results[0] as! EVM.EVMAddress
     }
 
     /// Returns the total assets managed by the ERC4626 vault
@@ -57,12 +62,17 @@ access(all) contract ERC4626Utils {
     /// @return The total assets managed by the ERC4626 vault. Callers should anticipate the address of the asset and
     ///         the decimals of the asset being returned.
     access(all) fun totalAssets(vault: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "totalAssets()", args: [], gasLimit: 5_000_000)
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "totalAssets()",
+            args: [],
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
+        )
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let totalAssets = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return totalAssets[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the total shares issued by the ERC4626 vault
@@ -72,12 +82,17 @@ access(all) contract ERC4626Utils {
     /// @return The total shares issued by the ERC4626 vault. Callers should anticipate the address of the asset and
     ///         the decimals of the asset being returned.
     access(all) fun totalShares(vault: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "totalSupply()", args: [], gasLimit: 5_000_000)
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "totalSupply()",
+            args: [],
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
+        )
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let totalAssets = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return totalAssets[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the maximum amount of shares that can be redeemed from the given owner's balance in the ERC4626 vault
@@ -89,12 +104,17 @@ access(all) contract ERC4626Utils {
     ///         Callers should anticipate the address of the shares and the decimals of the shares being returned.
     access(all)
     fun maxRedeem(vault: EVM.EVMAddress, owner: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "maxRedeem(address)", args: [owner], gasLimit: 5_000_000)
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "maxRedeem(address)",
+            args: [owner],
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
+        )
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let maxRedeem = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return maxRedeem[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the maximum amount of assets that can be deposited into the ERC4626 vault
@@ -106,12 +126,17 @@ access(all) contract ERC4626Utils {
     ///         the asset's decimals.
     access(all)
     fun maxDeposit(vault: EVM.EVMAddress, receiver: EVM.EVMAddress): UInt256? {
-        let callRes = self._dryCall(to: vault, signature: "maxDeposit(address)", args: [receiver], gasLimit: 5_000_000)
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "maxDeposit(address)",
+            args: [receiver],
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
+        )
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let maxDeposit = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return maxDeposit[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of assets that would be required to mint the given amount of shares
@@ -128,13 +153,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "previewMint(uint256)",
             args: [shares],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of shares that would be minted for depositing the given amount of assets
@@ -151,13 +176,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "previewDeposit(uint256)",
             args: [assets],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of underlying assets that would be redeemed for the given amount of shares
@@ -174,13 +199,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "previewRedeem(uint256)",
             args: [shares],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of shares that would be required to withdraw the given amount of assets
@@ -197,13 +222,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "previewWithdraw(uint256)",
             args: [assets],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of underlying assets that the given amount of shares would be worth,
@@ -221,13 +246,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "convertToAssets(uint256)",
             args: [shares],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Returns the amount of shares that the given amount of underlying assets would be worth,
@@ -245,13 +270,13 @@ access(all) contract ERC4626Utils {
             to: vault,
             signature: "convertToShares(uint256)",
             args: [assets],
-            gasLimit: 5_000_000
+            gasLimit: 5_000_000,
+            resultTypes: [Type<UInt256>()]
         )
-        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+        if callRes.status != EVM.Status.successful || callRes.results.length == 0 {
             return nil
         }
-        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
-        return decoded[0] as! UInt256
+        return callRes.results[0] as! UInt256
     }
 
     /// Performs a dry call using the calling COA
@@ -260,14 +285,24 @@ access(all) contract ERC4626Utils {
     /// @param signature The signature of the function to dry call
     /// @param args The arguments to pass to the function
     /// @param gasLimit The gas limit for the dry call
+    /// @param resultTypes The Cadence types into which to ABI decode the dry call result data
     ///
     /// @return The result of the dry call
-    access(self) fun _dryCall(to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result {
-        return self.callingCOA.dryCall(
+    access(self)
+    fun _dryCall(
+        to: EVM.EVMAddress,
+        signature: String,
+        args: [AnyStruct],
+        gasLimit: UInt64,
+        resultTypes: [Type]?
+    ): EVM.ResultDecoded {
+        return self.callingCOA.dryCallWithSigAndArgs(
             to: to,
-            data: EVM.encodeABIWithSignature(signature, args),
+            signature: signature,
+            args: args,
             gasLimit: gasLimit,
-            value: EVM.Balance(attoflow: 0)
+            value: 0,
+            resultTypes: resultTypes
         )
     }
 

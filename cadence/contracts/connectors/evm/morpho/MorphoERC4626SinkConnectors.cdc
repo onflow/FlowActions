@@ -114,20 +114,20 @@ access(all) contract MorphoERC4626SinkConnectors {
 
             // approve the ERC4626 vault to spend the assets on deposit
             let uintAmount = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amount, erc20Address: self.assetEVMAddress)
-            let approveRes = self._call(
-                    dry: false,
-                    to: self.assetEVMAddress,
-                    signature: "approve(address,uint256)",
-                    args: [self.vaultEVMAddress, uintAmount],
-                    gasLimit: 500_000
-                )!
+            let approveRes = self._callWithSigAndArgs(
+                dry: false,
+                to: self.assetEVMAddress,
+                signature: "approve(address,uint256)",
+                args: [self.vaultEVMAddress, uintAmount],
+                gasLimit: 500_000
+            )!
             if approveRes.status != EVM.Status.successful {
                 // TODO: consider more graceful handling of this error
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
             // deposit the assets to the ERC4626 vault
-            let depositRes = self._call(
+            let depositRes = self._callWithSigAndArgs(
                 dry: false,
                 to: self.vaultEVMAddress,
                 signature: "deposit(uint256,address)",
@@ -165,25 +165,48 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
             self.uniqueID = id
         }
-        /// Performs a dry call to the ERC4626 vault
+
+        /// Performs a call to the ERC4626 vault
         ///
+        /// @param dry Whether to commit any state changes or not
         /// @param to The address of the ERC4626 vault
         /// @param signature The signature of the function to call
         /// @param args The arguments to pass to the function
         /// @param gasLimit The gas limit to use for the call
         ///
-        /// @return The result of the dry call or `nil` if the COA capability is invalid
+        /// @return The result of the call or `nil` if the COA capability is invalid
         access(self)
-        fun _call(dry: Bool, to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: 0)
+        fun _callWithSigAndArgs(
+            dry: Bool,
+            to: EVM.EVMAddress,
+            signature: String,
+            args: [AnyStruct],
+            gasLimit: UInt64,
+        ): EVM.ResultDecoded? {
             if let coa = self.coa.borrow() {
-                return dry
-                    ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                    : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                if dry {
+                    return coa.dryCallWithSigAndArgs(
+                        to: to,
+                        signature: signature,
+                        args: args,
+                        gasLimit: gasLimit,
+                        value: 0,
+                        resultTypes: nil
+                    )
+                }
+
+                return coa.callWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: 0,
+                    resultTypes: nil
+                )
             }
             return nil
         }
+
         /// Returns an error message for a failed approve call
         ///
         /// @param ufixAmount: the amount of assets to approve
@@ -193,7 +216,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         /// @return an error message for a failed approve call
         ///
         access(self)
-        fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.Result): String {
+        fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.ResultDecoded): String {
             return "Failed to approve ERC4626 vault \(self.vaultEVMAddress.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()), approvee: \(self.vaultEVMAddress.toString()), amount: \(uintAmount). Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)"
         }
         /// Returns an error message for a failed deposit call
@@ -205,7 +228,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         /// @return an error message for a failed deposit call
         ///
         access(self)
-        fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.Result): String {
+        fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.ResultDecoded): String {
             let coaHex = self.coa.borrow()!.address().toString()
             return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vaultEVMAddress.toString()), amount: \(uintAmount), to: \(coaHex). Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)"
         }
@@ -314,7 +337,7 @@ access(all) contract MorphoERC4626SinkConnectors {
             let coa = self.coa.borrow() ?? panic("can't borrow COA")
 
             // redeem the shares from the ERC4626 vault
-            let redeemRes = self._call(
+            let redeemRes = self._callWithSigAndArgs(
                 dry: false,
                 to: self.vaultEVMAddress,
                 signature: "redeem(uint256,address,address)",
@@ -354,25 +377,48 @@ access(all) contract MorphoERC4626SinkConnectors {
         access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
             self.uniqueID = id
         }
-        /// Performs a dry call to the ERC4626 vault
+
+        /// Performs a call to the ERC4626 vault
         ///
+        /// @param dry Whether to commit any state changes or not
         /// @param to The address of the ERC4626 vault
         /// @param signature The signature of the function to call
         /// @param args The arguments to pass to the function
         /// @param gasLimit The gas limit to use for the call
         ///
-        /// @return The result of the dry call or `nil` if the COA capability is invalid
+        /// @return The result of the call or `nil` if the COA capability is invalid
         access(self)
-        fun _call(dry: Bool, to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: 0)
+        fun _callWithSigAndArgs(
+            dry: Bool,
+            to: EVM.EVMAddress,
+            signature: String,
+            args: [AnyStruct],
+            gasLimit: UInt64,
+        ): EVM.ResultDecoded? {
             if let coa = self.coa.borrow() {
-                return dry
-                    ? coa.dryCall(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
-                    : coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                if dry {
+                    return coa.dryCallWithSigAndArgs(
+                        to: to,
+                        signature: signature,
+                        args: args,
+                        gasLimit: gasLimit,
+                        value: 0,
+                        resultTypes: nil
+                    )
+                }
+
+                return coa.callWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: 0,
+                    resultTypes: nil
+                )
             }
             return nil
         }
+
         /// Returns an error message for a failed redeem call
         ///
         /// @param ufixShares: the amount of shares to redeem
@@ -382,7 +428,7 @@ access(all) contract MorphoERC4626SinkConnectors {
         /// @return an error message for a failed redeem call
         ///
         access(self)
-        fun _redeemErrorMessage(ufixShares: UFix64, uintShares: UInt256, redeemRes: EVM.Result): String {
+        fun _redeemErrorMessage(ufixShares: UFix64, uintShares: UInt256, redeemRes: EVM.ResultDecoded): String {
             let coaHex = self.coa.borrow()!.address().toString()
             return "Failed to redeem \(ufixShares) shares \(self.vaultEVMAddress.toString()) from ERC4626 vault for \(self.assetEVMAddress.toString()), amount: \(uintShares), to: \(coaHex). Error code: \(redeemRes.errorCode) Error message: \(redeemRes.errorMessage)"
         }
