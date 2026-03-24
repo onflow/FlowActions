@@ -231,10 +231,11 @@ access(all) contract IncrementFiStakingConnectors {
             return 0.0 // no capacity if the staking pool is not available
         }
 
-        /// Withdraws rewards from the staking pool up to the specified maximum amount
-        /// Overflow rewards are sent to the appropriate overflow sinks if provided
+        /// Withdraws rewards from the staking pool up to the specified maximum amount.
+        /// Panics if the claimed rewards exceed maxAmount, as the staking pool does not support partial claims.
+        /// Callers must ensure maxAmount >= minimumAvailable() to avoid a panic.
         ///
-        /// @param maxAmount: The maximum amount of rewards to claim
+        /// @param maxAmount: The maximum amount of rewards to claim. The full reward balance is claimed and must not exceed this value.
         /// @return a Vault containing the claimed rewards
         ///
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
@@ -245,10 +246,6 @@ access(all) contract IncrementFiStakingConnectors {
 
             if let pool = IncrementFiStakingConnectors.borrowPool(pid: self.pid) {
                 if let userCertificate = self.userCertificate.borrow() {
-                    let withdrawAmount = maxAmount < minimumAvailable
-                        ? maxAmount
-                        : minimumAvailable
-
                     let rewards <- pool.claimRewards(userCertificate: userCertificate)
                     let targetSliceType = SwapConfig.SliceTokenTypeIdentifierFromVaultType(vaultTypeIdentifier: self.vaultType.identifier)
                     
@@ -265,6 +262,10 @@ access(all) contract IncrementFiStakingConnectors {
                     )
                     let reward <- rewards.remove(key: rewards.keys[0])!
                     destroy rewards
+                    assert(
+                        reward.balance <= maxAmount,
+                        message: "Claimed reward balance \(reward.balance) exceeds maxAmount \(maxAmount). The staking pool does not support partial claims — callers must ensure maxAmount >= minimumAvailable()."
+                    )
                     return <- reward
                 }
             }
