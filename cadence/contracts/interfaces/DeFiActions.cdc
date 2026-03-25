@@ -692,8 +692,9 @@ access(all) contract DeFiActions {
     ///
     access(all) resource interface AutoBalancerExecutionCallback {
         /// Called at the end of each rebalance run.
-        /// @param balancerUUID: The AutoBalancer's UUID
-        access(all) fun onExecuted(balancerUUID: UInt64)
+        /// @param resourceUUID: The AutoBalancer resource UUID
+        /// @param uniqueID: The optional DeFiActions UniqueIdentifier.id assigned to this AutoBalancer
+        access(all) fun onExecuted(resourceUUID: UInt64, uniqueID: UInt64?)
     }
 
     /// Public path used for the optional owner-level AutoBalancer execution callback.
@@ -1086,8 +1087,11 @@ access(all) contract DeFiActions {
                     }
                 }
             }
+            // This callback is invoked synchronously from the same execution flow as rebalance().
+            // Downstream integrations may validate against the current block timestamp, so if this
+            // callback ever becomes deferred or asynchronous those integrations must be updated.
             if let callback = self.borrowExecutionCallback() {
-                callback.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
+                callback.onExecuted(resourceUUID: self.uuid, uniqueID: self.uniqueID?.id)
             }
             // clean up internally-managed historical scheduled transactions
             self._cleanupScheduledTransactions()

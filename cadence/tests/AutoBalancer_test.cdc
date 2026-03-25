@@ -188,7 +188,8 @@ access(all) fun test_ExecutionCallbackRuns() {
     let createdEvts = Test.eventsOfType(Type<DeFiActions.CreatedAutoBalancer>())
     Test.assertEqual(1, createdEvts.length)
     let createdEvt = createdEvts[0] as! DeFiActions.CreatedAutoBalancer
-    let balancerUUID = createdEvt.uniqueID ?? 0
+    let balancerUUID = createdEvt.uuid
+    let uniqueID = createdEvt.uniqueID
 
     let interval: UInt64 = 10
     let executionEffort: UInt64 = 1_000
@@ -214,7 +215,8 @@ access(all) fun test_ExecutionCallbackRuns() {
     let invokedEvts = Test.eventsOfType(Type<ExecutionCallbackRecorder.Invoked>())
     Test.assertEqual(1, invokedEvts.length)
     let invokedEvt = invokedEvts[0] as! ExecutionCallbackRecorder.Invoked
-    Test.assertEqual(balancerUUID, invokedEvt.balancerUUID)
+    Test.assertEqual(balancerUUID, invokedEvt.resourceUUID)
+    Test.assertEqual(uniqueID, invokedEvt.uniqueID)
 }
 
 access(all) fun test_ForceRebalanceToSinkSucceeds() {

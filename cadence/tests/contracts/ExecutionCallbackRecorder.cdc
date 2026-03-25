@@ -6,15 +6,15 @@ import "DeFiActions"
 ///
 access(all) contract ExecutionCallbackRecorder {
 
-    access(all) event Invoked(balancerUUID: UInt64)
+    access(all) event Invoked(resourceUUID: UInt64, uniqueID: UInt64?)
 
     access(all) fun createRecorder(): @Recorder {
         return <- create Recorder()
     }
 
     access(all) resource Recorder: DeFiActions.AutoBalancerExecutionCallback {
-        access(all) fun onExecuted(balancerUUID: UInt64) {
-            emit Invoked(balancerUUID: balancerUUID)
+        access(all) fun onExecuted(resourceUUID: UInt64, uniqueID: UInt64?) {
+            emit Invoked(resourceUUID: resourceUUID, uniqueID: uniqueID)
         }
     }
 }
