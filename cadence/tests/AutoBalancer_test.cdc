@@ -168,6 +168,9 @@ access(all) fun test_SetRebalanceSourceSucceeds() {
     Test.assertEqual(0.0, tokenBBalance!)
 }
 
+/// The callback is now discovered dynamically from the owner account at execution time.
+/// This test intentionally publishes the callback after the AutoBalancer is created to
+/// prove we are not relying on a callback capability stored on the resource itself.
 access(all) fun test_ExecutionCallbackRuns() {
     if snapshot < getCurrentBlockHeight() {
         Test.reset(to: snapshot)
@@ -217,6 +220,44 @@ access(all) fun test_ExecutionCallbackRuns() {
     let invokedEvt = invokedEvts[0] as! ExecutionCallbackRecorder.Invoked
     Test.assertEqual(balancerUUID, invokedEvt.resourceUUID)
     Test.assertEqual(uniqueID, invokedEvt.uniqueID)
+}
+
+/// The owner-level callback is optional. Native scheduler execution must continue to work
+/// even if no callback capability is published on the owner account.
+///
+/// This protects generic integrators who use AutoBalancers without any registry/reporting
+/// layer, and it verifies that the runtime lookup fails open instead of breaking execution.
+access(all) fun test_ExecutionCallbackIsOptional() {
+    if snapshot < getCurrentBlockHeight() {
+        Test.reset(to: snapshot)
+    }
+
+    let user = Test.createAccount()
+    transferFlow(signer: serviceAccount, recipient: user.address, amount: 100.0)
+
+    let setupRes = executeTransaction(
+        "../transactions/auto-balance-adapter/create_auto_balancer.cdc",
+        [tokenAIdentifier, nil, 0.9, 1.1, tokenBIdentifier, autoBalancerStoragePath, autoBalancerPublicPath],
+        user
+    )
+    Test.expect(setupRes, Test.beSucceeded())
+
+    let configRes = executeTransaction(
+        "../transactions/auto-balance-adapter/set_recurring_config.cdc",
+        [autoBalancerStoragePath, UInt64(10), UInt8(2), UInt64(1_000), true],
+        user
+    )
+    Test.expect(configRes, Test.beSucceeded())
+
+    // No callback is published here. If runtime lookup is truly optional, the scheduled
+    // execution should still happen and simply skip callback invocation.
+    Test.moveTime(by: 11.0)
+
+    let schedulerExecEvents = Test.eventsOfType(Type<FlowTransactionScheduler.Executed>())
+    Test.assertEqual(1, schedulerExecEvents.length)
+
+    let invokedEvts = Test.eventsOfType(Type<ExecutionCallbackRecorder.Invoked>())
+    Test.assertEqual(0, invokedEvts.length)
 }
 
 access(all) fun test_ForceRebalanceToSinkSucceeds() {
