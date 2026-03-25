@@ -696,6 +696,13 @@ access(all) contract DeFiActions {
         access(all) fun onExecuted(balancerUUID: UInt64)
     }
 
+    /// Public path used for the optional owner-level AutoBalancer execution callback.
+    /// AutoBalancers look up this callback dynamically when they execute so the callback
+    /// can be upgraded without introducing new stored fields on the resource.
+    access(all) view fun executionCallbackPublicPath(): PublicPath {
+        return PublicPath(identifier: "DeFiActionsAutoBalancerExecutionCallback")!
+    }
+
     /// AutoBalancer
     ///
     /// A resource designed to enable permissionless rebalancing of value around a wrapped Vault. An
@@ -737,8 +744,6 @@ access(all) contract DeFiActions {
         access(self) var _recurringConfig: AutoBalancerRecurringConfig?
         /// ScheduledTransaction objects used to manage automated rebalances
         access(self) var _scheduledTransactions: @{UInt64: FlowTransactionScheduler.ScheduledTransaction}
-        /// Optional callback invoked every time rebalance() runs
-        access(self) var _executionCallback: Capability<&{AutoBalancerExecutionCallback}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
         access(contract) var uniqueID: UniqueIdentifier?
 
@@ -783,7 +788,6 @@ access(all) contract DeFiActions {
             self._recurringConfig = recurringConfig
             self._recurringConfig?.setAssignedAutoBalancer(self.uuid)
             self._scheduledTransactions <- {}
-            self._executionCallback = nil
             self.uniqueID = uniqueID
 
             emit CreatedAutoBalancer(
@@ -950,10 +954,17 @@ access(all) contract DeFiActions {
             }
             self._rebalanceRange = range
         }
-        /// Sets the optional callback invoked every time this AutoBalancer runs rebalance.
-        /// Pass nil to clear the callback.
-        access(Set) fun setExecutionCallback(_ cap: Capability<&{AutoBalancerExecutionCallback}>?) {
-            self._executionCallback = cap
+        /// Borrows the optional owner-level callback invoked every time this AutoBalancer
+        /// executes through FlowTransactionScheduler.
+        access(self) view fun borrowExecutionCallback(): &{AutoBalancerExecutionCallback}? {
+            let ownerAddress = self.owner?.address
+            if ownerAddress == nil {
+                return nil
+            }
+
+            return getAccount(ownerAddress!).capabilities.borrow<&{AutoBalancerExecutionCallback}>(
+                DeFiActions.executionCallbackPublicPath()
+            )
         }
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
@@ -1075,10 +1086,8 @@ access(all) contract DeFiActions {
                     }
                 }
             }
-            if let cap = self._executionCallback {
-                if cap.check() {
-                    cap.borrow()!.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
-                }
+            if let callback = self.borrowExecutionCallback() {
+                callback.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
             }
             // clean up internally-managed historical scheduled transactions
             self._cleanupScheduledTransactions()

@@ -203,7 +203,7 @@ access(all) fun test_ExecutionCallbackRuns() {
     // set execution callback (invoked only from executeTransaction, not from rebalance())
     let setCbRes = executeTransaction(
         "./transactions/auto-balance-adapter/set_execution_callback.cdc",
-        [autoBalancerStoragePath],
+        [],
         user
     )
     Test.expect(setCbRes, Test.beSucceeded())
