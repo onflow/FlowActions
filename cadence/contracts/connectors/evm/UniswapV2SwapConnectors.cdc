@@ -201,7 +201,7 @@ access(all) contract UniswapV2SwapConnectors {
         ///
         access(self) fun swapExactTokensForTokens(
             exactVaultIn: @{FungibleToken.Vault},
-            amountOutMin: UFix64,
+            amountOutMin _: UFix64,
             reverse: Bool
         ): @{FungibleToken.Vault} {
             let id = self.uniqueID?.id?.toString() ?? "UNASSIGNED"

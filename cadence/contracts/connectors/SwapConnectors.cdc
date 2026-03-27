@@ -505,7 +505,7 @@ access(all) contract SwapConnectors {
         /// @return a Vault of type `outVault` containing the swapped currency.
         ///
         access(self)
-        fun _swap(quote: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
+        fun _swap(quote _: {DeFiActions.Quote}?, from: @{FungibleToken.Vault}, reverse: Bool): @{FungibleToken.Vault} {
             let range = reverse
                 ? InclusiveRange(self.swappers.length - 1, 0, step: -1)
                 : InclusiveRange(0, self.swappers.length - 1)

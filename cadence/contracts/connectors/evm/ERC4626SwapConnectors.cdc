@@ -289,7 +289,7 @@ access(all) contract ERC4626SwapConnectors {
         ///
         /// @return A vault containing the original input tokens (not supported - always panics)
         ///
-        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+        access(all) fun swapBack(quote _: {DeFiActions.Quote}?, residual _1: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             panic("ERC4626SwapConnectors.Swapper.swapBack() is not supported - ERC4626 Vaults do not support synchronous withdrawals")
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
