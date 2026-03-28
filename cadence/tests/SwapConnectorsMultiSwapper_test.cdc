@@ -18,19 +18,28 @@ fun transferFlow(signer: Test.TestAccount, recipient: Address, amount: UFix64) {
     Test.expect(Test.executeTransaction(txn), Test.beSucceeded())
 }
 
-// inVault: TokenA, outVault: TokenB — shared across all multi-swapper tests
-access(all) let inVaultType  = Type<@TokenA.Vault>()
+access(all)
+fun runTransaction(path: String, signer: Test.TestAccount, arguments: [AnyStruct]): Test.TransactionResult {
+    let txn = Test.Transaction(
+        code: Test.readFile(path),
+        authorizers: [signer.address],
+        signers: [signer],
+        arguments: arguments
+    )
+    return Test.executeTransaction(txn)
+}
+
+access(all) let inVaultType = Type<@TokenA.Vault>()
 access(all) let outVaultType = Type<@TokenB.Vault>()
 
-/// Returns a CapLimitedSwapper config using TokenA → TokenB vaults.
 access(all) fun makeConfig(priceRatio: UFix64, maxOut: UFix64): {String: AnyStruct} {
     return {
-        "inVault":     inVaultType,
-        "outVault":    outVaultType,
+        "inVault": inVaultType,
+        "outVault": outVaultType,
         "inVaultPath": TokenA.VaultStoragePath,
         "outVaultPath": TokenB.VaultStoragePath,
-        "priceRatio":  priceRatio,
-        "maxOut":      maxOut
+        "priceRatio": priceRatio,
+        "maxOut": maxOut
     }
 }
 
@@ -57,12 +66,6 @@ fun setup() {
     transferFlow(signer: serviceAccount, recipient: testTokenAccount.address, amount: 10.0)
 }
 
-/// quoteIn — among two full-coverage routes, the one with the lower inAmount wins.
-///
-/// Swapper 0: priceRatio=0.5 → inAmount = 10.0/0.5 = 20.0  (expensive, full coverage)
-/// Swapper 1: priceRatio=0.8 → inAmount = 10.0/0.8 = 12.5  (cheaper, full coverage)
-/// Expected: index 1, inAmount=12.5, outAmount=10.0
-///
 access(all)
 fun testQuoteInPreferMinInAmongFullCoverage() {
     let forDesired = 10.0
@@ -81,17 +84,10 @@ fun testQuoteInPreferMinInAmongFullCoverage() {
     Test.assertEqual(1, quote.swapperIndex)
     Test.assertEqual(10.0 / 0.8, quote.inAmount)
     Test.assertEqual(forDesired, quote.outAmount)
-    Test.assertEqual(inVaultType,  quote.inType)
+    Test.assertEqual(inVaultType, quote.inType)
     Test.assertEqual(outVaultType, quote.outType)
 }
 
-/// quoteIn — a full-coverage route wins over a partial-coverage route even when the partial
-/// route has a lower inAmount.
-///
-/// Swapper 0: priceRatio=1.0, maxOut=5.0  → partial (outAmount=5.0 < 10.0), inAmount=5.0
-/// Swapper 1: priceRatio=0.5, maxOut=100.0 → full   (outAmount=10.0),        inAmount=20.0
-/// Expected: index 1 (full coverage wins despite higher inAmount)
-///
 access(all)
 fun testQuoteInFullWinsOverPartial() {
     let forDesired = 10.0
@@ -108,15 +104,10 @@ fun testQuoteInFullWinsOverPartial() {
     let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
 
     Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(20.0, quote.inAmount)
     Test.assertEqual(forDesired, quote.outAmount)
 }
 
-/// quoteIn — when no full-coverage route exists, the partial route with the highest outAmount wins.
-///
-/// Swapper 0: priceRatio=0.8, maxOut=3.0 → partial (outAmount=3.0)
-/// Swapper 1: priceRatio=1.0, maxOut=7.0 → partial (outAmount=7.0)
-/// Expected: index 1 (higher outAmount among partials)
-///
 access(all)
 fun testQuoteInPartialFallbackMaxOut() {
     let forDesired = 10.0
@@ -134,15 +125,9 @@ fun testQuoteInPartialFallbackMaxOut() {
 
     Test.assertEqual(1, quote.swapperIndex)
     Test.assertEqual(7.0, quote.outAmount)
-    Test.assertEqual(7.0, quote.inAmount) // 7.0 / priceRatio=1.0
+    Test.assertEqual(7.0, quote.inAmount)
 }
 
-/// quoteOut — the route with the highest outAmount wins.
-///
-/// Swapper 0: priceRatio=0.5, maxOut=100.0 → outAmount=5.0
-/// Swapper 1: priceRatio=0.8, maxOut=100.0 → outAmount=8.0
-/// Expected: index 1 (higher outAmount)
-///
 access(all)
 fun testQuoteOutPreferMaxOut() {
     let forProvided = 10.0
@@ -159,24 +144,79 @@ fun testQuoteOutPreferMaxOut() {
     let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
 
     Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(forProvided, quote.inAmount)
     Test.assertEqual(10.0 * 0.8, quote.outAmount)
-    Test.assertEqual(inVaultType,  quote.inType)
-    Test.assertEqual(outVaultType, quote.outType)
 }
 
-/// quoteOut — a cap constraint causes a higher-ratio route to deliver less output than a
-/// lower-ratio uncapped route, so the uncapped route wins.
-///
-/// Swapper 0: priceRatio=0.5, maxOut=100.0 → outAmount=5.0  (uncapped)
-/// Swapper 1: priceRatio=0.9, maxOut=4.0   → rawOut=9.0, capped to 4.0
-/// Expected: index 0 (outAmount=5.0 > 4.0 after cap)
-///
 access(all)
-fun testQuoteOutCapLimitsRoute() {
+fun testQuoteInReversePreferMinInAmongFullCoverage() {
+    let forDesired = 10.0
+    let configs = [
+        makeConfig(priceRatio: 0.8, maxOut: 100.0),
+        makeConfig(priceRatio: 0.5, maxOut: 100.0)
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_in.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forDesired, true]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(5.0, quote.inAmount)
+    Test.assertEqual(forDesired, quote.outAmount)
+    Test.assertEqual(outVaultType, quote.inType)
+    Test.assertEqual(inVaultType, quote.outType)
+}
+
+access(all)
+fun testQuoteOutReversePreferMaxOut() {
     let forProvided = 10.0
     let configs = [
-        makeConfig(priceRatio: 0.5, maxOut: 100.0),
-        makeConfig(priceRatio: 0.9, maxOut: 4.0)
+        makeConfig(priceRatio: 0.8, maxOut: 100.0),
+        makeConfig(priceRatio: 0.5, maxOut: 100.0)
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_out.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forProvided, true]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(forProvided, quote.inAmount)
+    Test.assertEqual(20.0, quote.outAmount)
+    Test.assertEqual(outVaultType, quote.inType)
+    Test.assertEqual(inVaultType, quote.outType)
+}
+
+access(all)
+fun testQuoteInPartialTieBreaksOnLowerInAmount() {
+    let forDesired = 10.0
+    let configs = [
+        makeConfig(priceRatio: 0.5, maxOut: 5.0),
+        makeConfig(priceRatio: 1.0, maxOut: 5.0)
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_in.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forDesired, false]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(5.0, quote.inAmount)
+    Test.assertEqual(5.0, quote.outAmount)
+}
+
+access(all)
+fun testQuoteOutPreservesProvidedInputOnCappedRoute() {
+    let forProvided = 10.0
+    let configs = [
+        makeConfig(priceRatio: 1.0, maxOut: 4.0)
     ]
 
     let result = executeScript(
@@ -187,5 +227,26 @@ fun testQuoteOutCapLimitsRoute() {
     let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
 
     Test.assertEqual(0, quote.swapperIndex)
-    Test.assertEqual(5.0, quote.outAmount) // 10.0 * 0.5
+    Test.assertEqual(forProvided, quote.inAmount)
+    Test.assertEqual(4.0, quote.outAmount)
+}
+
+access(all)
+fun testSwapWithQuoteOutFallbackSucceedsAgainstStrictInnerSwapper() {
+    let result = runTransaction(
+        path: "./transactions/multi-swapper/mock_strict_swap_quote_out.cdc",
+        signer: testTokenAccount,
+        arguments: [10.0, 1.0, 4.0]
+    )
+    Test.expect(result, Test.beSucceeded())
+}
+
+access(all)
+fun testSwapSourceWithdrawAvailableDoesNotExceedMaxAmount() {
+    let result = runTransaction(
+        path: "./transactions/multi-swapper/mock_swap_source_quote_in_overshoot.cdc",
+        signer: testTokenAccount,
+        arguments: [10.0, 1.0]
+    )
+    Test.expect(result, Test.beSucceeded())
 }
