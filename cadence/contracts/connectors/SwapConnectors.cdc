@@ -186,7 +186,9 @@ access(all) contract SwapConnectors {
 
             let idx = hasFull ? bestIdx : partialIdx
             let inAmt = hasFull ? bestInAmount : partialInAmount
-            let outAmt = hasFull ? bestOutAmount : partialOutAmount
+            let outAmt = hasFull
+                ? (bestOutAmount > forDesired ? forDesired : bestOutAmount)
+                : partialOutAmount
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
@@ -201,7 +203,6 @@ access(all) contract SwapConnectors {
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             var hasBest = false
             var bestIdx = 0
-            var bestInAmount = forProvided
             var bestOutAmount = 0.0
 
             for i in InclusiveRange(0, self.swappers.length - 1) {
@@ -211,7 +212,6 @@ access(all) contract SwapConnectors {
                 if !hasBest || quote.outAmount > bestOutAmount {
                     hasBest = true
                     bestIdx = i
-                    bestInAmount = quote.inAmount
                     bestOutAmount = quote.outAmount
                 }
             }
@@ -219,7 +219,7 @@ access(all) contract SwapConnectors {
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: bestInAmount,
+                inAmount: hasBest ? forProvided : 0.0,
                 outAmount: bestOutAmount,
                 swapperIndex: bestIdx
             )

@@ -18,6 +18,17 @@ fun transferFlow(signer: Test.TestAccount, recipient: Address, amount: UFix64) {
     Test.expect(Test.executeTransaction(txn), Test.beSucceeded())
 }
 
+access(all)
+fun runTransaction(path: String, signer: Test.TestAccount, arguments: [AnyStruct]): Test.TransactionResult {
+    let txn = Test.Transaction(
+        code: Test.readFile(path),
+        authorizers: [signer.address],
+        signers: [signer],
+        arguments: arguments
+    )
+    return Test.executeTransaction(txn)
+}
+
 // inVault: TokenA, outVault: TokenB — shared across all multi-swapper tests
 access(all) let inVaultType  = Type<@TokenA.Vault>()
 access(all) let outVaultType = Type<@TokenB.Vault>()
@@ -188,4 +199,24 @@ fun testQuoteOutCapLimitsRoute() {
 
     Test.assertEqual(0, quote.swapperIndex)
     Test.assertEqual(5.0, quote.outAmount) // 10.0 * 0.5
+}
+
+access(all)
+fun testSwapWithQuoteOutFallbackSucceedsAgainstStrictInnerSwapper() {
+    let result = runTransaction(
+        path: "./transactions/multi-swapper/mock_strict_swap_quote_out.cdc",
+        signer: testTokenAccount,
+        arguments: [10.0, 1.0, 4.0]
+    )
+    Test.expect(result, Test.beSucceeded())
+}
+
+access(all)
+fun testSwapSourceWithdrawAvailableDoesNotExceedMaxAmount() {
+    let result = runTransaction(
+        path: "./transactions/multi-swapper/mock_swap_source_quote_in_overshoot.cdc",
+        signer: testTokenAccount,
+        arguments: [10.0, 1.0]
+    )
+    Test.expect(result, Test.beSucceeded())
 }
