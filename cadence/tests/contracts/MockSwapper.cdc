@@ -267,6 +267,7 @@ access(all) contract MockSwapper {
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre { inVault.getType() == self.inType(): "Wrong in type \(inVault.getType().identifier) - expected \(self.inType().identifier)" }
             let appliedQuote = quote ?? self.quoteOut(forProvided: inVault.balance, reverse: false)
+            // Special behavior for this mock: reject swaps whose input is larger than quote.inAmount.
             assert(inVault.balance <= appliedQuote.inAmount, message: "Swap input exceeds quote.inAmount")
 
             let depositTo = self.inVaultSource.borrow() ?? panic("Invalid borrowed vault source")
@@ -279,6 +280,7 @@ access(all) contract MockSwapper {
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
             pre { residual.getType() == self.outType(): "Wrong out type \(residual.getType().identifier) - expected \(self.outType().identifier)" }
             let appliedQuote = quote ?? self.quoteOut(forProvided: residual.balance, reverse: true)
+            // Same strict check in reverse, so swapBack also fails on quote/input mismatch.
             assert(residual.balance <= appliedQuote.inAmount, message: "SwapBack input exceeds quote.inAmount")
 
             let depositTo = self.outVaultSource.borrow() ?? panic("Invalid borrowed vault source")
@@ -340,6 +342,7 @@ access(all) contract MockSwapper {
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: inAmt,
+                // Special behavior for this mock: quoteIn intentionally reports more out than requested.
                 outAmount: forDesired + self.quoteInOvershoot
             )
         }
