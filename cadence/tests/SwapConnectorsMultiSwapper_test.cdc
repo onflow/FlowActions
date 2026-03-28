@@ -203,6 +203,8 @@ fun testQuoteOutCapLimitsRoute() {
 
 access(all)
 fun testSwapWithQuoteOutFallbackSucceedsAgainstStrictInnerSwapper() {
+    // args = [amountIn, priceRatio, maxOut]
+    // swap 10 TokenA at a 1:1 rate through a route that can output at most 4 TokenB
     let result = runTransaction(
         path: "./transactions/multi-swapper/mock_strict_swap_quote_out.cdc",
         signer: testTokenAccount,
@@ -213,6 +215,8 @@ fun testSwapWithQuoteOutFallbackSucceedsAgainstStrictInnerSwapper() {
 
 access(all)
 fun testSwapSourceWithdrawAvailableDoesNotExceedMaxAmount() {
+    // args = [maxAmount, quoteInOvershoot]
+    // ask for at most 10 TokenB while the mock quoteIn reports 1 extra TokenB
     let result = runTransaction(
         path: "./transactions/multi-swapper/mock_swap_source_quote_in_overshoot.cdc",
         signer: testTokenAccount,

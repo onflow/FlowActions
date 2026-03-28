@@ -10,6 +10,10 @@ import "MockSwapper"
 /// Regression test:
 /// MultiSwapper.swap(quote: nil, ...) should still succeed when the selected
 /// inner route enforces `input <= quote.inAmount`.
+/// Args:
+/// - amountIn: TokenA sent into MultiSwapper
+/// - priceRatio: TokenB out per 1 TokenA in
+/// - maxOut: output cap enforced by the inner route
 transaction(amountIn: UFix64, priceRatio: UFix64, maxOut: UFix64) {
     let tokenBReceiver: &{FungibleToken.Receiver}
     let multiSwapper: SwapConnectors.MultiSwapper
@@ -46,7 +50,7 @@ transaction(amountIn: UFix64, priceRatio: UFix64, maxOut: UFix64) {
             uniqueID: nil
         )
 
-        // Expected output follows the inner swapper's cap.
+        // Expected output = min(amountIn * priceRatio, maxOut).
         self.expectedOut = amountIn * priceRatio > maxOut ? maxOut : amountIn * priceRatio
     }
 

@@ -10,6 +10,9 @@ import "MockSwapper"
 /// Regression test:
 /// SwapSource.withdrawAvailable(maxAmount) must not return more than maxAmount
 /// even if the chosen route's quoteIn reports a slightly larger outAmount.
+/// Args:
+/// - maxAmount: caller's requested maximum TokenB output
+/// - quoteInOvershoot: extra TokenB reported by the mock quoteIn
 transaction(maxAmount: UFix64, quoteInOvershoot: UFix64) {
     let swapSource: SwapConnectors.SwapSource
     let tokenBReceiver: &{FungibleToken.Receiver}
