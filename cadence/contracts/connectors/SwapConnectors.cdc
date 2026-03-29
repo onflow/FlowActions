@@ -148,18 +148,19 @@ access(all) contract SwapConnectors {
         }
         /// The estimated amount required to provide a Vault with the desired output balance.
         ///
-        /// Selection policy (two-tier):
-        ///   1. Full-coverage routes (outAmount >= forDesired): prefer minimum inAmount
-        ///   2. Partial-coverage routes (outAmount < forDesired, pool capped): prefer maximum outAmount
-        /// Full-coverage always wins over partial-coverage regardless of inAmount.
+        /// Swapper quotes are divided into two groups:
+        /// 1. Full group: the pool has enough liquidity to fully fulfill forDesired
+        /// 2. Partial group: the pool can only fulfill part of forDesired
+        ///
+        /// Selection policy:
+        /// - If any swapper is in the full group, return the one with the lowest inAmount
+        /// - Otherwise, return the partial group quote with the highest outAmount (best liquidity),
+        ///   even if it doesn't have the best rate
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             var hasFull = false
             var bestIdx = 0
             var bestInAmount = UFix64.max
             var bestOutAmount = 0.0
-            var partialIdx = 0
-            var partialInAmount = 0.0
-            var partialOutAmount = 0.0
 
             for i in InclusiveRange(0, self.swappers.length - 1) {
                 let quote = (&self.swappers[i] as &{DeFiActions.Swapper})
@@ -167,41 +168,41 @@ access(all) contract SwapConnectors {
                 if quote.inAmount == 0.0 || quote.outAmount == 0.0 { continue }
 
                 if quote.outAmount >= forDesired {
-                    // full coverage — prefer minimum inAmount
+                    // full coverage group - comparing between swappers that can full fulfill the forDesire,
+                    // in this case we prefer the quote with minimum inAmount
                     if !hasFull || quote.inAmount < bestInAmount {
+                        // when hasFull == false, we can skip the second check, because 
+                        // there is no bestInAmount yet, this quote itself will be the best temporarily 
+                        // when hasFull == true, we compare with the previously best quote, if this 
+                        // quote has lower inAmount, then it's better.
                         hasFull = true
                         bestIdx = i
                         bestInAmount = quote.inAmount
                         bestOutAmount = quote.outAmount
                     }
                 } else if !hasFull {
-                    // partial coverage — prefer maximum outAmount (only when no full route found)
-                    if quote.outAmount > partialOutAmount {
-                        partialIdx = i
-                        partialInAmount = quote.inAmount
-                        partialOutAmount = quote.outAmount
+                    // partial coverage group (only when no full route found)
+                    // in this case, prefer maximum outAmount 
+                    if quote.outAmount > bestOutAmount {
+                        bestIdx = i
+                        bestInAmount = quote.inAmount
+                        bestOutAmount = quote.outAmount
                     }
                 }
             }
 
-            let idx = hasFull ? bestIdx : partialIdx
-            let inAmt = hasFull ? bestInAmount : partialInAmount
-            let outAmt = hasFull
-                ? (bestOutAmount > forDesired ? forDesired : bestOutAmount)
-                : partialOutAmount
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: inAmt,
-                outAmount: outAmt,
-                swapperIndex: idx
+                inAmount: bestInAmount,
+                outAmount: bestOutAmount > forDesired ? forDesired : bestOutAmount,
+                swapperIndex: bestIdx
             )
         }
         /// The estimated amount delivered out for a provided input balance.
         ///
         /// Selection policy: prefer maximum outAmount across all routes.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            var hasBest = false
             var bestIdx = 0
             var bestOutAmount = 0.0
 
@@ -209,8 +210,7 @@ access(all) contract SwapConnectors {
                 let quote = (&self.swappers[i] as &{DeFiActions.Swapper})
                     .quoteOut(forProvided: forProvided, reverse: reverse)
                 if quote.inAmount == 0.0 || quote.outAmount == 0.0 { continue }
-                if !hasBest || quote.outAmount > bestOutAmount {
-                    hasBest = true
+                if quote.outAmount > bestOutAmount {
                     bestIdx = i
                     bestOutAmount = quote.outAmount
                 }

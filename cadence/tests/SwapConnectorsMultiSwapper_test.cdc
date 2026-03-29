@@ -125,7 +125,7 @@ fun testQuoteInFullWinsOverPartial() {
 /// quoteIn — when no full-coverage route exists, the partial route with the highest outAmount wins.
 ///
 /// Swapper 0: priceRatio=0.8, maxOut=3.0 → partial (outAmount=3.0)
-/// Swapper 1: priceRatio=1.0, maxOut=7.0 → partial (outAmount=7.0)
+/// Swapper 1: priceRatio=0.7, maxOut=7.0 → partial (outAmount=7.0)
 /// Expected: index 1 (higher outAmount among partials)
 ///
 access(all)
@@ -133,7 +133,7 @@ fun testQuoteInPartialFallbackMaxOut() {
     let forDesired = 10.0
     let configs = [
         makeConfig(priceRatio: 0.8, maxOut: 3.0),
-        makeConfig(priceRatio: 1.0, maxOut: 7.0)
+        makeConfig(priceRatio: 0.7, maxOut: 7.0)
     ]
 
     let result = executeScript(
@@ -145,7 +145,7 @@ fun testQuoteInPartialFallbackMaxOut() {
 
     Test.assertEqual(1, quote.swapperIndex)
     Test.assertEqual(7.0, quote.outAmount)
-    Test.assertEqual(7.0, quote.inAmount) // 7.0 / priceRatio=1.0
+    Test.assertEqual(10.0, quote.inAmount) // 7.0 / priceRatio=0.7
 }
 
 /// quoteOut — the route with the highest outAmount wins.
@@ -223,4 +223,37 @@ fun testSwapSourceWithdrawAvailableDoesNotExceedMaxAmount() {
         arguments: [10.0, 1.0]
     )
     Test.expect(result, Test.beSucceeded())
+}
+
+/// quoteOut — a capacity-capped swapper that consumes less than forProvided (inAmount < forProvided)
+/// must still be preferred when it delivers more output than a swapper that consumes the full input.
+///
+/// This validates that filtering `inAmount < forProvided` (as suggested in review) is wrong:
+/// that filter would discard swapper 0 and return swapper 1's inferior quote.
+///
+/// Swapper 0: priceRatio=0.8, maxOut=4.0
+///   → rawOut = 10.0 * 0.8 = 8.0, capped → outAmount=4.0, inAmount=4.0/0.8=5.0
+///   → inAmount=5.0 < forProvided=10.0, but outAmount=4.0 is the best available
+/// Swapper 1: priceRatio=0.2, maxOut=100.0
+///   → rawOut = 10.0 * 0.2 = 2.0, uncapped → outAmount=2.0, inAmount=10.0
+/// Expected: index 0 (outAmount=4.0 > 2.0), even though inAmount=5.0 < forProvided=10.0
+///
+access(all)
+fun testQuoteOutPartialConsumerWinsIfMoreOutput() {
+    let forProvided = 10.0
+    let configs = [
+        makeConfig(priceRatio: 0.8, maxOut: 4.0),
+        makeConfig(priceRatio: 0.2, maxOut: 100.0)
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_out.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forProvided, false]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(0, quote.swapperIndex)
+    Test.assertEqual(4.0, quote.outAmount)
+    Test.assertEqual(5.0, quote.inAmount) // only 5.0 of the 10.0 provided is consumed
 }
