@@ -148,10 +148,14 @@ access(all) contract SwapConnectors {
         }
         /// The estimated amount required to provide a Vault with the desired output balance.
         ///
-        /// Selection policy (two-tier):
-        ///   1. Full-coverage routes (outAmount >= forDesired): prefer minimum inAmount
-        ///   2. Partial-coverage routes (outAmount < forDesired, pool capped): prefer maximum outAmount
-        /// Full-coverage always wins over partial-coverage regardless of inAmount.
+        /// Swapper quotes are divided into two groups:
+        /// 1. Full group: the pool has enough liquidity to fully fulfill forDesired
+        /// 2. Partial group: the pool can only fulfill part of forDesired
+        ///
+        /// Selection policy:
+        /// - If any swapper is in the full group, return the one with the lowest inAmount
+        /// - Otherwise, return the partial group quote with the highest outAmount (best liquidity),
+        ///   even if it doesn't have the best rate
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
             var hasFull = false
             var bestIdx = 0
@@ -164,15 +168,21 @@ access(all) contract SwapConnectors {
                 if quote.inAmount == 0.0 || quote.outAmount == 0.0 { continue }
 
                 if quote.outAmount >= forDesired {
-                    // full coverage — prefer minimum inAmount
+                    // full coverage group - comparing between swappers that can full fulfill the forDesire,
+                    // in this case we prefer the quote with minimum inAmount
                     if !hasFull || quote.inAmount < bestInAmount {
+                        // when hasFull == false, we can skip the second check, because 
+                        // there is no bestInAmount yet, this quote itself will be the best temporarily 
+                        // when hasFull == true, we compare with the previously best quote, if this 
+                        // quote has lower inAmount, then it's better.
                         hasFull = true
                         bestIdx = i
                         bestInAmount = quote.inAmount
                         bestOutAmount = quote.outAmount
                     }
                 } else if !hasFull {
-                    // partial coverage — prefer maximum outAmount (only when no full route found)
+                    // partial coverage group (only when no full route found)
+                    // in this case, prefer maximum outAmount 
                     if quote.outAmount > bestOutAmount {
                         bestIdx = i
                         bestInAmount = quote.inAmount
