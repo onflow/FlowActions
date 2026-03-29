@@ -157,9 +157,6 @@ access(all) contract SwapConnectors {
             var bestIdx = 0
             var bestInAmount = UFix64.max
             var bestOutAmount = 0.0
-            var partialIdx = 0
-            var partialInAmount = 0.0
-            var partialOutAmount = 0.0
 
             for i in InclusiveRange(0, self.swappers.length - 1) {
                 let quote = (&self.swappers[i] as &{DeFiActions.Swapper})
@@ -176,30 +173,26 @@ access(all) contract SwapConnectors {
                     }
                 } else if !hasFull {
                     // partial coverage — prefer maximum outAmount (only when no full route found)
-                    if quote.outAmount > partialOutAmount {
-                        partialIdx = i
-                        partialInAmount = quote.inAmount
-                        partialOutAmount = quote.outAmount
+                    if quote.outAmount > bestOutAmount {
+                        bestIdx = i
+                        bestInAmount = quote.inAmount
+                        bestOutAmount = quote.outAmount
                     }
                 }
             }
 
-            let idx = hasFull ? bestIdx : partialIdx
-            let inAmt = hasFull ? bestInAmount : partialInAmount
-            let outAmt = hasFull ? bestOutAmount : partialOutAmount
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: inAmt,
-                outAmount: outAmt,
-                swapperIndex: idx
+                inAmount: bestInAmount,
+                outAmount: bestOutAmount,
+                swapperIndex: bestIdx
             )
         }
         /// The estimated amount delivered out for a provided input balance.
         ///
         /// Selection policy: prefer maximum outAmount across all routes.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
-            var hasBest = false
             var bestIdx = 0
             var bestInAmount = forProvided
             var bestOutAmount = 0.0
@@ -208,8 +201,7 @@ access(all) contract SwapConnectors {
                 let quote = (&self.swappers[i] as &{DeFiActions.Swapper})
                     .quoteOut(forProvided: forProvided, reverse: reverse)
                 if quote.inAmount == 0.0 || quote.outAmount == 0.0 { continue }
-                if !hasBest || quote.outAmount > bestOutAmount {
-                    hasBest = true
+                if quote.outAmount > bestOutAmount {
                     bestIdx = i
                     bestInAmount = quote.inAmount
                     bestOutAmount = quote.outAmount
