@@ -347,15 +347,15 @@ access(all) contract DeFiActions {
         /// Provides a quote for how many input tokens can be swapped for `forDesired` output tokens.
         /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `quote.inAmount` input tokens and receive `forDesired` output tokens.
-        /// - reverse=true -> I want to provide `forDesired` output tokens and receive `quote.inAmount` input tokens.
+        /// - reverse=false -> I want to provide `quote.inAmount` `swapper.inType()` tokens and receive `forDesired` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `quote.inAmount` `swapper.outType()` tokens and receive `forDesired` `swapper.inType()` tokens.
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
         /// Provides a quote for how many output tokens can be swapped for `forProvided` input tokens.
         /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `forProvided` input tokens and receive `quote.outAmount` output tokens.
-        /// - reverse=true -> I want to provide `quote.outAmount` output tokens and receive `forProvided` input tokens.
+        /// - reverse=false -> I want to provide `forProvided` `swapper.inType()` tokens and receive `quote.outAmount` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `forProvided` `swapper.outType()` tokens and receive `quote.outAmount` `swapper.inType()` tokens.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
