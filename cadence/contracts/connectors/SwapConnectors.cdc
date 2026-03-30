@@ -213,6 +213,10 @@ access(all) contract SwapConnectors {
                 if quote.outAmount > bestOutAmount {
                     bestIdx = i
                     bestOutAmount = quote.outAmount
+                } else if quote.outAmount == bestOutAmount && quote.inAmount < bestInAmount {
+                    bestIdx = i
+                    bestInAmount = quote.inAmount
+                    bestOutAmount = quote.outAmount
                 }
             }
 
