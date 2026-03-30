@@ -195,7 +195,7 @@ access(all) contract SwapConnectors {
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
                 inAmount: bestInAmount,
-                outAmount: bestOutAmount > forDesired ? forDesired : bestOutAmount,
+                outAmount: bestOutAmount,
                 swapperIndex: bestIdx
             )
         }
@@ -204,6 +204,7 @@ access(all) contract SwapConnectors {
         /// Selection policy: prefer maximum outAmount across all routes.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             var bestIdx = 0
+            var bestInAmount = forProvided
             var bestOutAmount = 0.0
 
             for i in InclusiveRange(0, self.swappers.length - 1) {
@@ -213,6 +214,7 @@ access(all) contract SwapConnectors {
                 if quote.outAmount > bestOutAmount {
                     bestIdx = i
                     bestOutAmount = quote.outAmount
+                    bestInAmount = quote.inAmount
                 } else if quote.outAmount == bestOutAmount && quote.inAmount < bestInAmount {
                     bestIdx = i
                     bestInAmount = quote.inAmount
@@ -223,7 +225,7 @@ access(all) contract SwapConnectors {
             return MultiSwapperQuote(
                 inType: reverse ? self.outType() : self.inType(),
                 outType: reverse ? self.inType() : self.outType(),
-                inAmount: hasBest ? forProvided : 0.0,
+                inAmount: bestInAmount,
                 outAmount: bestOutAmount,
                 swapperIndex: bestIdx
             )
@@ -234,14 +236,16 @@ access(all) contract SwapConnectors {
         /// requested and the optimal Swapper used to fulfill the swap.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
         access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            return <-self._swap(quote: quote, from: <-inVault, reverse: false)
+            let ensuredQuote = quote != nil ? quote : self.quoteOut(forProvided: inVault.balance, reverse: false)
+            return <-self._swap(quote: ensuredQuote, from: <-inVault, reverse: false)
         }
         /// Performs a swap taking a Vault of type outVault, outputting a resulting inVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
         /// to use multiple Flow swap protocols.
         /// NOTE: providing a Quote does not guarantee the fulfilled swap will enforce the quote's defined outAmount
         access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
-            return <-self._swap(quote: quote, from: <-residual, reverse: true)
+            let ensureQuote = quote != nil ? quote : self.quoteOut(forProvided: residual.balance, reverse: true)
+            return <-self._swap(quote: ensureQuote, from: <-residual, reverse: true)
         }
         /// Swaps the provided Vault in the defined direction. If the quote is not a MultiSwapperQuote, a new quote is
         /// requested and the current optimal Swapper used to fulfill the swap.
