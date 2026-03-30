@@ -190,6 +190,39 @@ fun testQuoteOutCapLimitsRoute() {
     Test.assertEqual(5.0, quote.outAmount) // 10.0 * 0.5
 }
 
+/// quoteOut — four swappers: maximize outAmount first, then minimize inAmount as tiebreaker.
+///
+/// S0 (suboptimal):  priceRatio=1.0,  maxOut=100.0 → outAmount=100.0, inAmount=100.0
+/// S1 (optimal):     priceRatio=1.25, maxOut=110.0 → rawOut=125 → capped outAmount=110.0, inAmount=88.0
+/// S2:               priceRatio=1.1,  maxOut=110.0 → rawOut=110 → capped outAmount=110.0, inAmount=100.0
+/// S3 (worst):       priceRatio=2.0,  maxOut=40.0  → rawOut=200 → capped outAmount=40.0,  inAmount=20.0
+///
+/// S1 and S2 tie on outAmount (110.0); S1 wins the tiebreaker (inAmount 88.0 < 100.0).
+/// S0 is eliminated by lower outAmount; S3 by lowest outAmount despite cheapest inAmount.
+/// Expected: index 1 (S1), outAmount=110.0, inAmount=88.0
+///
+access(all)
+fun testQuoteOutMaxOutThenMinIn() {
+    let forProvided = 100.0
+    let configs = [
+        makeConfig(priceRatio: 1.0,  maxOut: 100.0),  // S0
+        makeConfig(priceRatio: 1.25, maxOut: 110.0),  // S1 — optimal
+        makeConfig(priceRatio: 1.1,  maxOut: 110.0),  // S2
+        makeConfig(priceRatio: 2.0,  maxOut: 40.0)    // S3
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_out.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forProvided, false]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(1, quote.swapperIndex)           // S1 wins
+    Test.assertEqual(110.0, quote.outAmount)          // max outAmount
+    Test.assertEqual(88.0, quote.inAmount)            // 110.0 / 1.25
+}
+
 /// quoteOut — a capacity-capped swapper that consumes less than forProvided (inAmount < forProvided)
 /// must still be preferred when it delivers more output than a swapper that consumes the full input.
 ///
