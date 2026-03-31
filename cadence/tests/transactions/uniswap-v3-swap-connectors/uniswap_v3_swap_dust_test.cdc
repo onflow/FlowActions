@@ -65,24 +65,25 @@ transaction(
             coa.depositTokens(vault: <-flowVault, feeProvider: feeRef)
 
             // Approve V2 Router for WFLOW
-            var callRes = coa.call(
+            var callRes = coa.callWithSigAndArgs(
                 to: wflow,
-                data: EVM.encodeABIWithSignature("approve(address,uint256)", [v2Router, wflowAmount]),
+                signature: "approve(address,uint256)",
+                args: [v2Router, wflowAmount],
                 gasLimit: 100_000,
-                value: EVM.Balance(attoflow: 0)
+                value: 0,
+                resultTypes: nil
             )
             assert(callRes.status == EVM.Status.successful, message: "WFLOW approve for V2 failed")
 
             // Swap WFLOW -> tokenIn via V2 swapExactTokensForTokens
             let v2Path = [wflow, tokenIn]
-            callRes = coa.call(
+            callRes = coa.callWithSigAndArgs(
                 to: v2Router,
-                data: EVM.encodeABIWithSignature(
-                    "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-                    [wflowAmount, 0, v2Path, coaAddr, 99999999999]
-                ),
+                signature: "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
+                args: [wflowAmount, 0, v2Path, coaAddr, 99999999999],
                 gasLimit: 1_000_000,
-                value: EVM.Balance(attoflow: 0)
+                value: 0,
+                resultTypes: nil
             )
             assert(callRes.status == EVM.Status.successful,
                 message: "V2 provision swap failed: \(callRes.errorMessage)")

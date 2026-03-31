@@ -131,19 +131,19 @@ access(all) contract ERC4626SinkConnectors {
 
             // approve the ERC4626 vault to spend the assets on deposit
             let uintAmount = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amount, erc20Address: self.assetEVMAddress)
-            let approveRes = self._call(
-                    to: self.assetEVMAddress,
-                    signature: "approve(address,uint256)",
-                    args: [self.vault, uintAmount],
-                    gasLimit: 500_000
-                )!
+            let approveRes = self._callWithSigAndArgs(
+                to: self.assetEVMAddress,
+                signature: "approve(address,uint256)",
+                args: [self.vault, uintAmount],
+                gasLimit: 500_000
+            )!
             if approveRes.status != EVM.Status.successful {
                 // Cadence panic reverts all EVM state changes in this transaction, so no need to bridge token back.
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
             // deposit the assets to the ERC4626 vault
-            let depositRes = self._call(
+            let depositRes = self._callWithSigAndArgs(
                 to: self.vault,
                 signature: "deposit(uint256,address)",
                 args: [uintAmount, self.coa.borrow()!.address()],
@@ -182,6 +182,7 @@ access(all) contract ERC4626SinkConnectors {
         access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) {
             self.uniqueID = id
         }
+
         /// Performs a call to the ERC4626 vault
         ///
         /// @param to The address of the ERC4626 vault
@@ -191,14 +192,25 @@ access(all) contract ERC4626SinkConnectors {
         ///
         /// @return The result of `nil` if the COA capability is invalid
         access(self)
-        fun _call(to: EVM.EVMAddress, signature: String, args: [AnyStruct], gasLimit: UInt64): EVM.Result? {
-            let calldata = EVM.encodeABIWithSignature(signature, args)
-            let valueBalance = EVM.Balance(attoflow: 0)
+        fun _callWithSigAndArgs(
+            to: EVM.EVMAddress,
+            signature: String,
+            args: [AnyStruct],
+            gasLimit: UInt64,
+        ): EVM.ResultDecoded? {
             if let coa = self.coa.borrow() {
-                return coa.call(to: to, data: calldata, gasLimit: gasLimit, value: valueBalance)
+                return coa.callWithSigAndArgs(
+                    to: to,
+                    signature: signature,
+                    args: args,
+                    gasLimit: gasLimit,
+                    value: 0,
+                    resultTypes: nil
+                )
             }
             return nil
         }
+
         /// Returns an error message for a failed approve call
         ///
         /// @param ufixAmount: the amount of assets to approve
@@ -208,7 +220,7 @@ access(all) contract ERC4626SinkConnectors {
         /// @return an error message for a failed approve call
         ///
         access(self)
-        fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.Result): String {
+        fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.ResultDecoded): String {
             return "Failed to approve ERC4626 vault \(self.vault.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()). approvee: \(self.vault.toString()), amount: \(uintAmount). Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)"
         }
         /// Returns an error message for a failed deposit call
@@ -220,7 +232,7 @@ access(all) contract ERC4626SinkConnectors {
         /// @return an error message for a failed deposit call
         ///
         access(self)
-        fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.Result): String {
+        fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.ResultDecoded): String {
             let coaHex = self.coa.borrow()!.address().toString()
             return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString()). amount: \(uintAmount), to: \(coaHex). Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)"
         }
