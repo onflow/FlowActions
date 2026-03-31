@@ -201,16 +201,20 @@ access(all) contract SwapConnectors {
         }
         /// The estimated amount delivered out for a provided input balance.
         ///
-        /// Selection policy: prefer maximum outAmount across all routes.
+        /// Selection policy: among routes where inAmount <= forProvided, prefer the highest outAmount,
+        /// then the lowest inAmount as a tiebreaker. Routes where inAmount > forProvided are excluded —
+        /// they cannot be executed with the provided input and would produce misleadingly high outAmounts.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
             var bestIdx = 0
-            var bestInAmount = forProvided
+            var bestInAmount = 0.0
             var bestOutAmount = 0.0
 
             for i in InclusiveRange(0, self.swappers.length - 1) {
                 let quote = (&self.swappers[i] as &{DeFiActions.Swapper})
                     .quoteOut(forProvided: forProvided, reverse: reverse)
                 if quote.inAmount == 0.0 || quote.outAmount == 0.0 { continue }
+                if quote.inAmount > forProvided { continue }
+
                 if quote.outAmount > bestOutAmount {
                     bestIdx = i
                     bestInAmount = quote.inAmount
