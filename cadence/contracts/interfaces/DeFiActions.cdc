@@ -344,18 +344,26 @@ access(all) contract DeFiActions {
         access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outType(): Type
-        /// Provides a quote for how many input tokens can be swapped for `forDesired` output tokens.
-        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
+        /// Provides a quote for the input and output amounts in the requested swap direction.
+        /// The reverse flag inverts the quoted token types, but quote.inAmount and quote.outAmount
+        /// always describe the amount of quote.inType provided for the amount of quote.outType
+        /// received.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `quote.inAmount` input tokens and receive `forDesired` output tokens.
-        /// - reverse=true -> I want to provide `forDesired` output tokens and receive `quote.inAmount` input tokens.
+        /// - reverse=false -> I want to provide `quote.inAmount` `swapper.inType()` tokens and receive `quote.outAmount` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `quote.inAmount` `swapper.outType()` tokens and receive `quote.outAmount` `swapper.inType()` tokens.
+        /// `forDesired` names the requested output target in the quoted direction; implementations
+        /// may return less when liquidity is capped or slightly more when quote math rounds up.
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
-        /// Provides a quote for how many output tokens can be swapped for `forProvided` input tokens.
-        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
+        /// Provides a quote for the input and output amounts in the requested swap direction.
+        /// The reverse flag inverts the quoted token types, but quote.inAmount and quote.outAmount
+        /// always describe the amount of quote.inType provided for the amount of quote.outType
+        /// received.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `forProvided` input tokens and receive `quote.outAmount` output tokens.
-        /// - reverse=true -> I want to provide `quote.outAmount` output tokens and receive `forProvided` input tokens.
+        /// - reverse=false -> I want to provide `quote.inAmount` `swapper.inType()` tokens and receive `quote.outAmount` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `quote.inAmount` `swapper.outType()` tokens and receive `quote.outAmount` `swapper.inType()` tokens.
+        /// `forProvided` names the requested input amount in the quoted direction; implementations
+        /// may return a smaller executable input amount when liquidity is capped.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
