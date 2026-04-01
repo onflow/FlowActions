@@ -166,10 +166,19 @@ access(all) contract MorphoERC4626SwapConnectors {
         }
 
         access(self) fun quoteRequiredSharesForAssets(desiredAssets: UFix64): {DeFiActions.Quote} {
-            let desiredAssetsEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
+            let assetDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress)
+            let desiredAssetsEVMFloor = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                 desiredAssets,
                 erc20Address: self.assetEVMAddress
             )
+            // Round up if the asset's EVM decimal precision is less than Cadence's 8 decimals.
+            // Truncation would cause the returned shares to produce less than desiredAssets when
+            // redeemed (since redeem is floor-rounding). Ceiling the EVM amount ensures the shares
+            // from previewWithdraw(ceil) will produce >= desiredAssets on redemption.
+            let desiredAssetsFloorBack = EVMAmountUtils.toCadenceOut(desiredAssetsEVMFloor, decimals: assetDecimals)
+            let desiredAssetsEVM = desiredAssetsFloorBack < desiredAssets
+                ? desiredAssetsEVMFloor + 1
+                : desiredAssetsEVMFloor
 
             if let requiredSharesEVM = ERC4626Utils.previewWithdraw(vault: self.vaultEVMAddress, assets: desiredAssetsEVM) {
                 let maxSharesEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
