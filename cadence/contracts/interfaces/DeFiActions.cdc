@@ -344,18 +344,26 @@ access(all) contract DeFiActions {
         access(all) view fun inType(): Type
         /// The type of Vault this Swapper provides when performing a swap
         access(all) view fun outType(): Type
-        /// Provides a quote for how many input tokens can be swapped for `forDesired` output tokens.
-        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
-        /// Interpretation:
-        /// - reverse=false -> I want to provide `quote.inAmount` `swapper.inType()` tokens and receive `forDesired` `swapper.outType()` tokens.
-        /// - reverse=true -> I want to provide `quote.inAmount` `swapper.outType()` tokens and receive `forDesired` `swapper.inType()` tokens.
+        /// Provides a quote for the input required to target `forDesired` output tokens.
+        /// The returned quote always describes the swap in `quote.inType -> quote.outType`.
+        /// - `quote.inAmount` is denominated in `quote.inType`
+        /// - `quote.outAmount` is denominated in `quote.outType`
+        /// - reverse=false -> `quote.inType == swapper.inType()` and `quote.outType == swapper.outType()`
+        /// - reverse=true -> `quote.inType == swapper.outType()` and `quote.outType == swapper.inType()`
+        /// Callers should treat `forDesired` as a target rather than an exact guarantee. Implementations may
+        /// return less output when liquidity is insufficient, or slightly more output when quote refinement or
+        /// rounding causes an exact-output request to overshoot.
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
-        /// Provides a quote for how many output tokens can be swapped for `forProvided` input tokens.
-        /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
-        /// Interpretation:
-        /// - reverse=false -> I want to provide `forProvided` `swapper.inType()` tokens and receive `quote.outAmount` `swapper.outType()` tokens.
-        /// - reverse=true -> I want to provide `forProvided` `swapper.outType()` tokens and receive `quote.outAmount` `swapper.inType()` tokens.
+        /// Provides a quote for the output available for `forProvided` input tokens.
+        /// The returned quote always describes the swap in `quote.inType -> quote.outType`.
+        /// - `quote.inAmount` is denominated in `quote.inType`
+        /// - `quote.outAmount` is denominated in `quote.outType`
+        /// - reverse=false -> `quote.inType == swapper.inType()` and `quote.outType == swapper.outType()`
+        /// - reverse=true -> `quote.inType == swapper.outType()` and `quote.outType == swapper.inType()`
+        /// Callers should treat `forProvided` as the requested input balance, but use the returned quote amounts as
+        /// authoritative. Some implementations may report a smaller executable `quote.inAmount` if a route is capped
+        /// or only partially consumes the provided balance.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
