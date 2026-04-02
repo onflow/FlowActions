@@ -183,7 +183,8 @@ access(all) contract SwapConnectors {
                 } else if !hasFull {
                     // partial coverage group (only when no full route found)
                     // in this case, prefer maximum outAmount 
-                    if quote.outAmount > bestOutAmount {
+                    if quote.outAmount > bestOutAmount
+                        || (quote.outAmount == bestOutAmount && quote.inAmount < bestInAmount) {
                         bestIdx = i
                         bestInAmount = quote.inAmount
                         bestOutAmount = quote.outAmount
