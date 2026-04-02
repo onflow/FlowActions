@@ -190,6 +190,29 @@ fun testQuoteOutCapLimitsRoute() {
     Test.assertEqual(5.0, quote.outAmount) // 10.0 * 0.5
 }
 
+/// quoteIn — when two partial routes tie on outAmount, the one with the lower
+/// inAmount should win.
+///
+access(all)
+fun testQuoteInPartialTieBreaksOnLowerInAmount() {
+    let forDesired = 10.0
+    let configs = [
+        makeConfig(priceRatio: 0.5, maxOut: 5.0),
+        makeConfig(priceRatio: 1.0, maxOut: 5.0)
+    ]
+
+    let result = executeScript(
+        "./scripts/multi-swapper/mock_quote_in.cdc",
+        [testTokenAccount.address, configs, inVaultType, outVaultType, forDesired, false]
+    )
+    Test.expect(result, Test.beSucceeded())
+    let quote = result.returnValue! as! SwapConnectors.MultiSwapperQuote
+
+    Test.assertEqual(1, quote.swapperIndex)
+    Test.assertEqual(5.0, quote.inAmount)
+    Test.assertEqual(5.0, quote.outAmount)
+}
+
 /// quoteOut — four swappers: maximize outAmount first, then minimize inAmount as tiebreaker.
 ///
 /// S0 (suboptimal):  priceRatio=1.0,  maxOut=100.0 → outAmount=100.0, inAmount=100.0
