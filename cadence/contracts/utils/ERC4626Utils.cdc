@@ -205,6 +205,55 @@ access(all) contract ERC4626Utils {
         let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
         return decoded[0] as! UInt256
     }
+
+    /// Returns the amount of underlying assets that the given amount of shares would be worth,
+    /// according to the vault's current exchange rate. Unlike previewRedeem, this does not account
+    /// for vault-specific withdrawal fees.
+    ///
+    /// @param vault The address of the ERC4626 vault
+    /// @param shares The amount of shares to convert (denominated in the share token's decimals)
+    ///
+    /// @return The equivalent amount of underlying assets (denominated in the underlying asset's
+    ///         decimals), or nil if the call fails.
+    access(all)
+    fun convertToAssets(vault: EVM.EVMAddress, shares: UInt256): UInt256? {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "convertToAssets(uint256)",
+            args: [shares],
+            gasLimit: 5_000_000
+        )
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
+    }
+
+    /// Returns the amount of shares that the given amount of underlying assets would be worth,
+    /// according to the vault's current exchange rate. Unlike previewDeposit, this does not account
+    /// for vault-specific deposit fees.
+    ///
+    /// @param vault The address of the ERC4626 vault
+    /// @param assets The amount of assets to convert (denominated in the underlying asset's decimals)
+    ///
+    /// @return The equivalent amount of shares (denominated in the share token's decimals),
+    ///         or nil if the call fails.
+    access(all)
+    fun convertToShares(vault: EVM.EVMAddress, assets: UInt256): UInt256? {
+        let callRes = self._dryCall(
+            to: vault,
+            signature: "convertToShares(uint256)",
+            args: [assets],
+            gasLimit: 5_000_000
+        )
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
+    }
+
     /// Performs a dry call using the calling COA
     ///
     /// @param to The address of the contract to dry call

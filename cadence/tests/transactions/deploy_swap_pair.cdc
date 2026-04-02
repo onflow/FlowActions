@@ -5,7 +5,7 @@ import "TokenB"
 
 transaction(swapPairCode: String) {
     prepare(signer: auth(AddContract) &Account) {
-        signer.contracts.add(
+        let _ = signer.contracts.add(
             name: "SwapPair",
             code: swapPairCode.decodeHex(),
             tokenAVault: <- TokenA.createEmptyVault(vaultType: Type<@TokenA.Vault>()),

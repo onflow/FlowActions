@@ -46,11 +46,11 @@ transaction(amount: UFix64, assetVaultIdentifier: String, erc4626VaultEVMAddress
             // COA not found in standard path - create and publish a public unentitled capability
             signer.storage.save(<-EVM.createCadenceOwnedAccount(), to: coaPath)
             let coaCapability = signer.capabilities.storage.issue<&EVM.CadenceOwnedAccount>(coaPath)
-            signer.capabilities.unpublish(/public/evm)
+            let _ = signer.capabilities.unpublish(/public/evm)
             signer.capabilities.publish(coaCapability, at: /public/evm)
         }
         // get the signer's COA capability
-        let coa = signer.capabilities.storage.issue<auth(EVM.Call) &EVM.CadenceOwnedAccount>(coaPath)
+        let coa = signer.capabilities.storage.issue<auth(EVM.Call, EVM.Bridge) &EVM.CadenceOwnedAccount>(coaPath)
 
         // create the fee source that pays the VM bridge fees
         let feeVault = signer.capabilities.storage.issue<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>(

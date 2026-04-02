@@ -80,7 +80,6 @@ access(all) contract ERC4626SinkConnectors {
         /// Returns an estimate of how much can be withdrawn from the depositing Vault for this Sink to reach capacity
         access(all) fun minimumCapacity(): UFix64 {
             // Check the EVMTokenConnectors Sink has capacity to bridge the assets to EVM
-            // TODO: Update EVMTokenConnector.Sink to return 0.0 if it doesn't have fees to pay for the bridge call
             let coa = self.coa.borrow()
             if coa == nil {
                 return 0.0
@@ -108,7 +107,8 @@ access(all) contract ERC4626SinkConnectors {
             // withdraw the appropriate amount from the referenced vault & deposit to the EVMTokenConnectors Sink
             var amount = capacity <= from.balance ? capacity : from.balance
 
-            // TODO: pass from through and skip the intermediary withdrawal
+            // Intermediary withdrawal is needed to cap the amount at the ERC4626 vault capacity, since
+            // tokenSink.depositCapacity only limits by its own capacity and not the ERC4626 vault's
             let deposit <- from.withdraw(amount: amount)
             self.tokenSink.depositCapacity(from: &deposit as auth(FungibleToken.Withdraw) &{FungibleToken.Vault})
 
@@ -138,7 +138,7 @@ access(all) contract ERC4626SinkConnectors {
                     gasLimit: 500_000
                 )!
             if approveRes.status != EVM.Status.successful {
-                // TODO: consider more graceful handling of this error
+                // Cadence panic reverts all EVM state changes in this transaction, so no need to bridge token back.
                 panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
             }
 
@@ -150,8 +150,8 @@ access(all) contract ERC4626SinkConnectors {
                 gasLimit: 1_000_000
             )!
             if depositRes.status != EVM.Status.successful {
-                // TODO: Consider unwinding the deposit & returning to the from vault
-                //      - would require {Sink, Source} instead of just Sink
+                // No need to revoke the approval: a Cadence panic atomically reverts all EVM
+                // state changes made in this transaction, including the approve() call above.
                 panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
             }
         }
@@ -209,9 +209,7 @@ access(all) contract ERC4626SinkConnectors {
         ///
         access(self)
         fun _approveErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, approveRes: EVM.Result): String {
-            return "Failed to approve ERC4626 vault \(self.vault.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()). "
-                .concat("approvee: \(self.vault.toString()), amount: \(uintAmount). ")
-                .concat("Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)")
+            return "Failed to approve ERC4626 vault \(self.vault.toString()) to spend \(ufixAmount) assets \(self.assetEVMAddress.toString()). approvee: \(self.vault.toString()), amount: \(uintAmount). Error code: \(approveRes.errorCode) Error message: \(approveRes.errorMessage)"
         }
         /// Returns an error message for a failed deposit call
         ///
@@ -224,9 +222,7 @@ access(all) contract ERC4626SinkConnectors {
         access(self)
         fun _depositErrorMessage(ufixAmount: UFix64, uintAmount: UInt256, depositRes: EVM.Result): String {
             let coaHex = self.coa.borrow()!.address().toString()
-            return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString()). "
-                .concat("amount: \(uintAmount), to: \(coaHex). ")
-                .concat("Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)")
+            return "Failed to deposit \(ufixAmount) assets \(self.assetEVMAddress.toString()) to ERC4626 vault \(self.vault.toString()). amount: \(uintAmount), to: \(coaHex). Error code: \(depositRes.errorCode) Error message: \(depositRes.errorMessage)"
         }
     }
 }

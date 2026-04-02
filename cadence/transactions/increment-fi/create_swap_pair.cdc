@@ -34,7 +34,7 @@ transaction(token0Identifier: String, token1Identifier: String, stableMode: Bool
     }
 
     execute {
-        SwapFactory.createPair(
+        let _ = SwapFactory.createPair(
             token0Vault: <-self.token0Vault,
             token1Vault: <-self.token1Vault,
             accountCreationFee: <-self.accountCreationFeeVault,

@@ -47,8 +47,7 @@ access(all) contract IncrementFiFlashloanConnectors {
                 ?? panic("Could not reference SwapPair public capability at address \(pairAddress)")
             let pairInfo = pair.getPairInfoStruct()
             assert(pairInfo.token0Key == type.identifier || pairInfo.token1Key == type.identifier,
-                message: "Provided type is not supported by the SwapPair at address \(pairAddress) - "
-                    .concat("valid types for this SwapPair are \(pairInfo.token0Key) and \(pairInfo.token1Key)"))
+                message: "Provided type is not supported by the SwapPair at address \(pairAddress) - valid types for this SwapPair are \(pairInfo.token0Key) and \(pairInfo.token1Key)")
             self.pairAddress = pairAddress
             self.type = type
             self.executor = executor

@@ -294,16 +294,17 @@ access(all) contract DeFiActions {
     /// graceful fallback on unexpected conditions, executing no-ops or returning an empty Vault instead of reverting.
     ///
     access(all) struct interface Source : IdentifiableStruct {
-        /// Returns the Vault type provided by this Source
+        /// Returns the Vault type the Source claims to offer.
+        /// CAUTION: Untrusted Source implementations may return a different Vault type than claimed in `withdrawAvailable`.
+        /// Users MUST validate the type of all withdrawn funds.
         access(all) view fun getSourceType(): Type
-        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source
+        /// Returns an estimate of how much of the associated Vault Type can be provided by this Source.
         access(all) fun minimumAvailable(): UFix64
-        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be
-        /// returned
+        /// Withdraws the lesser of maxAmount or minimumAvailable(). If none is available, an empty Vault should be returned.
+        /// CAUTION: Untrusted Source implementations may return a different Vault type than claimed in `getSourceType`.
+        /// Users MUST validate the type of all withdrawn funds.
         access(FungibleToken.Withdraw) fun withdrawAvailable(maxAmount: UFix64): @{FungibleToken.Vault} {
             post {
-                result.getType() == self.getSourceType():
-                "Invalid vault provided for withdraw - \(result.getType().identifier) is not \(self.getSourceType().identifier)"
                 DeFiActions.emitWithdrawn(
                     type: result.getType().identifier,
                     amount: result.balance,
@@ -346,15 +347,15 @@ access(all) contract DeFiActions {
         /// Provides a quote for how many input tokens can be swapped for `forDesired` output tokens.
         /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `quote.inAmount` input tokens and receive `forDesired` output tokens.
-        /// - reverse=true -> I want to provide `forDesired` output tokens and receive `quote.inAmount` input tokens.
+        /// - reverse=false -> I want to provide `quote.inAmount` `swapper.inType()` tokens and receive `forDesired` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `quote.inAmount` `swapper.outType()` tokens and receive `forDesired` `swapper.inType()` tokens.
         access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {Quote}
         /// The estimated amount delivered out for a provided input balance
         /// Provides a quote for how many output tokens can be swapped for `forProvided` input tokens.
         /// The reverse flag simply inverts inType/outType and inAmount/outAmount in the quote.
         /// Interpretation:
-        /// - reverse=false -> I want to provide `forProvided` input tokens and receive `quote.outAmount` output tokens.
-        /// - reverse=true -> I want to provide `quote.outAmount` output tokens and receive `forProvided` input tokens.
+        /// - reverse=false -> I want to provide `forProvided` `swapper.inType()` tokens and receive `quote.outAmount` `swapper.outType()` tokens.
+        /// - reverse=true -> I want to provide `forProvided` `swapper.outType()` tokens and receive `quote.outAmount` `swapper.inType()` tokens.
         access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {Quote}
         /// Performs a swap taking a Vault of type inVault, outputting a resulting outVault. Implementations may choose
         /// to swap along a pre-set path or an optimal path of a set of paths or even set of contained Swappers adapted
@@ -653,7 +654,7 @@ access(all) contract DeFiActions {
             txnFunder: {Sink, Source}
         ) {
             pre {
-                interval > UInt64(0):
+                interval > 0:
                 "Invalid interval: \(interval) - must be greater than 0"
                 interval < UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp):
                 "Invalid interval: \(interval) - must be less than the maximum interval of \(UInt64(UFix64.max) - UInt64(getCurrentBlock().timestamp))"
@@ -685,6 +686,14 @@ access(all) contract DeFiActions {
             }
             self.assignedAutoBalancer = uuid
         }
+    }
+
+    /// Callback invoked every time an AutoBalancer executes (runs rebalance).
+    ///
+    access(all) resource interface AutoBalancerExecutionCallback {
+        /// Called at the end of each rebalance run.
+        /// @param balancerUUID: The AutoBalancer's UUID
+        access(all) fun onExecuted(balancerUUID: UInt64)
     }
 
     /// AutoBalancer
@@ -728,6 +737,8 @@ access(all) contract DeFiActions {
         access(self) var _recurringConfig: AutoBalancerRecurringConfig?
         /// ScheduledTransaction objects used to manage automated rebalances
         access(self) var _scheduledTransactions: @{UInt64: FlowTransactionScheduler.ScheduledTransaction}
+        /// Optional callback invoked every time rebalance() runs
+        access(self) var _executionCallback: Capability<&{AutoBalancerExecutionCallback}>?
         /// An optional UniqueIdentifier tying this AutoBalancer to a given stack
         access(contract) var uniqueID: UniqueIdentifier?
 
@@ -772,6 +783,7 @@ access(all) contract DeFiActions {
             self._recurringConfig = recurringConfig
             self._recurringConfig?.setAssignedAutoBalancer(self.uuid)
             self._scheduledTransactions <- {}
+            self._executionCallback = nil
             self.uniqueID = uniqueID
 
             emit CreatedAutoBalancer(
@@ -844,7 +856,7 @@ access(all) contract DeFiActions {
         access(all) fun getComponentInfo(): ComponentInfo {
             // get the inner components
             let oracle = self._borrowOracle()
-            let inner: [ComponentInfo] = [oracle.getComponentInfo()]
+            let inner = [oracle.getComponentInfo()]
 
             // get the info for the optional inner components if they exist
             let maybeSink = self._borrowSink()
@@ -922,8 +934,7 @@ access(all) contract DeFiActions {
                 "Internal AutoBalancer Capability has been set and is still valid - cannot be re-assigned"
                 cap.check(): "Invalid AutoBalancer Capability provided"
                 self.getType() == cap.borrow()!.getType() && self.uuid == cap.borrow()!.uuid:
-                "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - "
-                    .concat("provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)")
+                "Provided Capability does not target this AutoBalancer of type \(self.getType().identifier) with UUID \(self.uuid) - provided Capability for AutoBalancer of type \(cap.borrow()!.getType().identifier) with UUID \(cap.borrow()!.uuid)"
             }
             self._selfCap = cap
         }
@@ -938,6 +949,11 @@ access(all) contract DeFiActions {
                 "Invalid rebalanceRange [lower, upper]: [\(range[0]), \(range[1])] - thresholds must be set such that 0.01 <= range[0] < 1.0 and 1.0 < range[1] < 2.0 relative to value of deposits"
             }
             self._rebalanceRange = range
+        }
+        /// Sets the optional callback invoked every time this AutoBalancer runs rebalance.
+        /// Pass nil to clear the callback.
+        access(Set) fun setExecutionCallback(_ cap: Capability<&{AutoBalancerExecutionCallback}>?) {
+            self._executionCallback = cap
         }
         /// Returns a copy of the struct's UniqueIdentifier, used in extending a stack to identify another connector in
         /// a DeFiActions stack. See DeFiActions.align() for more information.
@@ -1039,7 +1055,7 @@ access(all) contract DeFiActions {
             // execute as declared, otherwise execute as currently configured, otherwise default to false
             let dataDict = data as? {String: AnyStruct} ?? {}
             let force = dataDict["force"] as? Bool ?? self._recurringConfig?.forceRebalance as? Bool ?? false
-            
+
             self.rebalance(force: force)
 
             // If configured as recurring, schedule the next execution only if this is an internally-managed
@@ -1048,22 +1064,27 @@ access(all) contract DeFiActions {
             if self._recurringConfig != nil {
                 let isInternallyManaged = self.borrowScheduledTransaction(id: id) != nil
                 if isInternallyManaged {
-                    let err = self.scheduleNextRebalance(whileExecuting: id)
-                    if err != nil {
+                    if let err = self.scheduleNextRebalance(whileExecuting: id) {
                         emit FailedRecurringSchedule(
                             whileExecuting: id,
                             balancerUUID: self.uuid,
                             address: self.owner?.address,
-                            error: err!,
+                            error: err,
                             uniqueID: self.uniqueID?.id
                         )
                     }
                 }
             }
+            if let cap = self._executionCallback {
+                if cap.check() {
+                    cap.borrow()!.onExecuted(balancerUUID: self.uniqueID?.id ?? 0)
+                }
+            }
             // clean up internally-managed historical scheduled transactions
             self._cleanupScheduledTransactions()
         }
-        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not 
+
+        /// Schedules the next execution of the rebalance if the AutoBalancer is configured as such and there is not
         /// already a scheduled transaction within the desired interval. This method is written to fail as gracefully as
         /// possible, reporting any failures to schedule the next execution to the as an event. This allows
         /// `executeTransaction` to continue execution even if the next execution cannot be scheduled while still
@@ -1074,19 +1095,23 @@ access(all) contract DeFiActions {
         /// @return String?: The error message, or nil if the next execution was scheduled
         ///
         access(Schedule) fun scheduleNextRebalance(whileExecuting: UInt64?): String? {
-            // get the next execution timestamp
-            var timestamp = self.calculateNextExecutionTimestampAsConfigured()
             // perform pre-flight checks before estimating the transaction fees
-            var errorMessage: String? = nil
             if self._recurringConfig == nil {
-                errorMessage = "MISSING_RECURRING_CONFIG"
-            } else if timestamp == nil {
-                errorMessage = "NEXT_EXECUTION_TIMESTAMP_UNAVAILABLE"
+                return "MISSING_RECURRING_CONFIG"
             } else if self._selfCap?.check() != true {
-                errorMessage = "INVALID_SELF_CAPABILITY"
+                return "INVALID_SELF_CAPABILITY"
             }
-            if errorMessage != nil {
-                return errorMessage
+            let config = self._recurringConfig!
+            // get the next execution timestamp
+            var timestamp = self.calculateNextExecutionTimestampAsConfigured()!
+            // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
+            // executed long ago - ensure timestamp is in the future
+            let nextPossibleTimestamp = getCurrentBlock().timestamp.saturatingAdd(1.0)
+            if timestamp < nextPossibleTimestamp {
+                timestamp = nextPossibleTimestamp
+            }
+            if timestamp == UFix64.max {
+                return "INTERVAL_OVERFLOW"
             }
 
             // check for other scheduled transactions within the desired interval
@@ -1097,28 +1122,16 @@ access(all) contract DeFiActions {
                 let scheduledTxn = self.borrowScheduledTransaction(id: id)!
                 if scheduledTxn.status() == FlowTransactionScheduler.Status.Scheduled {
                     // found another scheduled transaction within the configured interval
-                    if scheduledTxn.timestamp <= timestamp! {
+                    if scheduledTxn.timestamp <= timestamp {
                         return nil
                     }
                 }
             }
 
-            // fallback in event there was an issue with assigning the last rebalance timestamp or last rebalance was
-            // executed long ago
-            let config = self._recurringConfig!
-            let now = getCurrentBlock().timestamp
-            if timestamp! < now {
-                // protect overflow & update timestamp value
-                if UInt64(UFix64.max) - UInt64(now) < UInt64(config.interval) {
-                    return "INTERVAL_OVERFLOW"
-                }
-                timestamp = now + UFix64(config.interval)
-            }
-
             // estimate the transaction fees
             let estimate = FlowTransactionScheduler.estimate(
                 data: config.forceRebalance,
-                timestamp: timestamp!,
+                timestamp: timestamp,
                 priority: config.priority,
                 executionEffort: config.executionEffort
             )
@@ -1148,7 +1161,7 @@ access(all) contract DeFiActions {
                 let txn <- FlowTransactionScheduler.schedule(
                         handlerCap: self._selfCap!,
                         data: { "force": config.forceRebalance },
-                        timestamp: timestamp!,
+                        timestamp: timestamp,
                         priority: config.priority,
                         executionEffort: config.executionEffort,
                         fees: <-fees
@@ -1171,24 +1184,20 @@ access(all) contract DeFiActions {
         ///
         /// @param id: The ID of the scheduled transaction
         ///
-        /// @return &FlowTransactionScheduler.ScheduledTransaction?: The reference to the scheduled transaction, or nil 
+        /// @return &FlowTransactionScheduler.ScheduledTransaction?: The reference to the scheduled transaction, or nil
         /// if the scheduled transaction is not found
         ///
         access(all) view fun borrowScheduledTransaction(id: UInt64): &FlowTransactionScheduler.ScheduledTransaction? {
             return &self._scheduledTransactions[id]
         }
         /// Calculates the next execution timestamp for a recurring rebalance if the AutoBalancer is configured as such.
-        /// Returns nil if either unconfigured for recurring rebalancing or the interval is greater than the maximum 
-        /// possible timestamp.
+        /// Returns nil if unconfigured for recurring rebalancing.
         ///
         /// @return UFix64?: The next execution timestamp, or nil if a recurring rebalance is not configured
         ///
         access(all) view fun calculateNextExecutionTimestampAsConfigured(): UFix64? {
             if let config = self._recurringConfig {
-                // protect overflow
-                return (UInt64(UFix64.max) - UInt64(self._lastRebalanceTimestamp)) >= UInt64(config.interval)
-                    ? self._lastRebalanceTimestamp + UFix64(config.interval)
-                    : nil
+                return self._lastRebalanceTimestamp.saturatingAdd(UFix64(config.interval))
             }
             return nil
         }
@@ -1341,18 +1350,18 @@ access(all) contract DeFiActions {
         }
         /// Converts a UFix128 to a UFix64, rounding up if the remainder is greater than or equal to 0.5
         access(all) view fun toUFix64(_ value: UFix128): UFix64 {
-            let truncated: UFix64 = UFix64(value)
-            let truncatedAs128: UFix128 = UFix128(truncated)
-            let remainder: UFix128 = value - truncatedAs128
+            let truncated = UFix64(value)
+            let truncatedAs128 = UFix128(truncated)
+            let remainder = value - truncatedAs128
             let ufix64Step: UFix128 = 0.00000001
-            let ufix64HalfStep: UFix128 = ufix64Step / UFix128(2.0)
+            let ufix64HalfStep: UFix128 = ufix64Step / 2.0
 
-            if remainder == UFix128(0.0) {
+            if remainder == 0.0 {
                 return truncated
             }
 
             view fun roundUp(_ base: UFix64): UFix64 {
-                let increment: UFix64 = 0.00000001
+                let increment = 0.00000001
                 return base >= UFix64.max - increment ? UFix64.max : base + increment
             }
 
@@ -1409,7 +1418,7 @@ access(all) contract DeFiActions {
         if !vaultType.isSubtype(of: Type<@{FungibleToken.Vault}>()) {
             return nil
         }
-        return "DeFiActionAutoBalancer_".concat(vaultType.identifier)
+        return "DeFiActionAutoBalancer_\(vaultType.identifier)"
     }
 
     /// Aligns the UniqueIdentifier of the provided component with the provided component, setting the UniqueIdentifier of

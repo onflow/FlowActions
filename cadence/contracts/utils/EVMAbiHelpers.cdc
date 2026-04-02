@@ -47,11 +47,11 @@ access(all) contract EVMAbiHelpers {
     access(all) fun abiUInt256(_ v: UInt256): [UInt8] { return self.abiWord(v) }
 
     access(all) fun abiBool(_ b: Bool): [UInt8] {
-        return self.abiWord(b ? UInt256(1) : UInt256(0))
+        return self.abiWord(b ? 1 : 0)
     }
 
     access(all) fun toVarBytes(_ a: EVM.EVMAddress): [UInt8] {
-        let fixed: [UInt8; 20] = a.bytes   // NOTE: field, not call
+        let fixed = a.bytes   // NOTE: field, not call
         var out: [UInt8] = []
         var i = 0
         while i < 20 { out.append(fixed[i]); i = i + 1 }

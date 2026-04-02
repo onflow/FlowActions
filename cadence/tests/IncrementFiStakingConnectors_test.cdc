@@ -16,14 +16,14 @@ access(all) let incrementFiStakingAccount = Test.getAccount(Type<Staking>().addr
 access(all) let startHeight = getCurrentBlockHeight()
 
 // Test configuration constants
-access(all) let testDepositAmount: UFix64 = 200.0
+access(all) let testDepositAmount = 200.0
 access(all) let testTimeAdvanceSeconds: Fix64 = 10.0
 
 // Pool configuration values
-access(all) let testRps: UFix64 = 1.0
-access(all) let testSessionInterval: UFix64 = 1.0
-access(all) let testAdminSeedAmount: UFix64 = 1000.0
-access(all) let testLimitAmount: UFix64 = 1000000.0
+access(all) let testRps = 1.0
+access(all) let testSessionInterval = 1.0
+access(all) let testAdminSeedAmount = 1000.0
+access(all) let testLimitAmount = 1000000.0
 
 access(all) fun beforeEach() {
     log("================== Setting up IncrementFiStakingConnectors test ==================")

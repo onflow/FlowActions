@@ -41,9 +41,9 @@ transaction(
         let wflow = FlowEVMBridgeConfig.getEVMAddressAssociated(with: Type<@FlowToken.Vault>())
             ?? panic("WFLOW not in bridge config")
         let inVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenIn)
-            ?? panic("tokenIn not in bridge config: ".concat(tokenInAddr))
+            ?? panic("tokenIn not in bridge config: \(tokenInAddr)")
         let outVaultType = FlowEVMBridgeConfig.getTypeAssociated(with: tokenOut)
-            ?? panic("tokenOut not in bridge config: ".concat(tokenOutAddr))
+            ?? panic("tokenOut not in bridge config: \(tokenOutAddr)")
 
         // --- Fee vault (for bridge operations outside swap) ---
         let bridgeFee = FlowEVMBridgeUtils.calculateBridgeFee(bytes: 256)
@@ -74,31 +74,31 @@ transaction(
             assert(callRes.status == EVM.Status.successful, message: "WFLOW approve for V2 failed")
 
             // Swap WFLOW -> tokenIn via V2 swapExactTokensForTokens
-            let v2Path: [EVM.EVMAddress] = [wflow, tokenIn]
+            let v2Path = [wflow, tokenIn]
             callRes = coa.call(
                 to: v2Router,
                 data: EVM.encodeABIWithSignature(
                     "swapExactTokensForTokens(uint256,uint256,address[],address,uint256)",
-                    [wflowAmount, UInt256(0), v2Path, coaAddr, UInt256(99999999999)]
+                    [wflowAmount, 0, v2Path, coaAddr, 99999999999]
                 ),
                 gasLimit: 1_000_000,
                 value: EVM.Balance(attoflow: 0)
             )
             assert(callRes.status == EVM.Status.successful,
-                message: "V2 provision swap failed: ".concat(callRes.errorMessage))
+                message: "V2 provision swap failed: \(callRes.errorMessage)")
 
             // Bridge all tokenIn from COA -> Cadence
             let tokenInEVMBalance = FlowEVMBridgeUtils.balanceOf(
                 owner: coaAddr, evmContractAddress: tokenIn
             )
-            assert(tokenInEVMBalance > UInt256(0), message: "No tokenIn received from V2 swap")
+            assert(tokenInEVMBalance > 0, message: "No tokenIn received from V2 swap")
 
             let tokenInVault <- coa.withdrawTokens(
                 type: inVaultType,
                 amount: tokenInEVMBalance,
                 feeProvider: feeRef
             )
-            log("Provisioned ".concat(tokenInVault.balance.toString()).concat(" tokenIn"))
+            log("Provisioned \(tokenInVault.balance.toString()) tokenIn")
 
             // Store for subsequent calls
             signer.storage.save(<-tokenInVault, to: /storage/testTokenInVault)
@@ -138,8 +138,8 @@ transaction(
             && quoteIn.outAmount > 0.0
             && tokenInRef.balance >= quoteIn.inAmount
 
-        var vaultBalance: UFix64 = 0.0
-        var outAfterCadence: UFix64 = outBeforeCadence
+        var vaultBalance = 0.0
+        var outAfterCadence = outBeforeCadence
 
         if canSwap {
             // Withdraw exact quoteIn.inAmount and swap
@@ -158,7 +158,7 @@ transaction(
             destroy outVault
         }
 
-        let result: [UFix64] = [
+        let result = [
             desiredOut,
             quoteIn.inAmount,
             quoteIn.outAmount,
@@ -168,7 +168,7 @@ transaction(
         ]
 
         // --- Store result for the test to read ---
-        signer.storage.load<[UFix64]>(from: /storage/swapDustResult)
+        let _ = signer.storage.load<[UFix64]>(from: /storage/swapDustResult)
         signer.storage.save(result, to: /storage/swapDustResult)
 
         // --- Cleanup ---

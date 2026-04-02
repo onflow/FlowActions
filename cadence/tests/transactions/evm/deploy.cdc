@@ -33,10 +33,8 @@ transaction(bytecode: String, gasLimit: UInt64, value: UInt) {
     execute {
 
         // Deposit Flow into the EVM account if necessary otherwise destroy the sent Vault
-        if self.sentVault != nil {
-            self.coa.deposit(from: <-self.sentVault!)
-        } else {
-            destroy self.sentVault
+        if let sentVault <- self.sentVault {
+            self.coa.deposit(from: <-sentVault)
         }
 
         let valueBalance = EVM.Balance(attoflow: value)
@@ -48,7 +46,7 @@ transaction(bytecode: String, gasLimit: UInt64, value: UInt) {
         )
         assert(
             evmResult.status == EVM.Status.successful && evmResult.deployedContract != nil,
-            message: "EVM deployment failed with error code: ".concat(evmResult.errorCode.toString())
+            message: "EVM deployment failed with error code: \(evmResult.errorCode.toString())"
         )
     }
 }

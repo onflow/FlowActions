@@ -72,7 +72,7 @@ access(all) contract ERC4626PriceOracles {
             }
             let totalAssets = ERC4626Utils.totalAssets(vault: self.vault)
             let totalShares = ERC4626Utils.totalShares(vault: self.vault)
-            if totalAssets == nil || totalShares == nil || totalShares == UInt256(0) {
+            if totalAssets == nil || totalShares == nil || totalShares == 0 {
                 return nil
             }
 

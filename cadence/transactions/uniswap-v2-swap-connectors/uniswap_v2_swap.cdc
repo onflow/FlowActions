@@ -35,9 +35,9 @@ transaction(
         let router = EVM.addressFromString(routerAddress)
         
         let tokenInEVMAddr = FlowEVMBridgeConfig.getEVMAddressAssociated(with: tokenInType)
-            ?? panic("Token in type not bridged: ".concat(tokenInType.identifier))
+            ?? panic("Token in type not bridged: \(tokenInType.identifier)")
         let tokenOutEVMAddr = FlowEVMBridgeConfig.getEVMAddressAssociated(with: tokenOutType)
-            ?? panic("Token out type not bridged: ".concat(tokenOutType.identifier))
+            ?? panic("Token out type not bridged: \(tokenOutType.identifier)")
         
         self.swapper = UniswapV2SwapConnectors.Swapper(
             routerAddress: router,
@@ -67,7 +67,7 @@ transaction(
     execute {
         let tokenOutVault <- self.swapper.swap(quote: self.quote, inVault: <-self.tokenInVault)
         self.tokenOut = tokenOutVault.balance
-        log("Swapped ".concat(amount.toString()).concat(" → ").concat(tokenOutVault.balance.toString()))
+        log("Swapped \(amount.toString()) → \(tokenOutVault.balance.toString())")
         destroy tokenOutVault
     }
     

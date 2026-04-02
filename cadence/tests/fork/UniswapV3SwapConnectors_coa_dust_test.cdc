@@ -49,13 +49,13 @@ access(all) fun setup() {
     Test.expect(err, Test.beNil())
     Test.commitBlock()
 
-    err = Test.deployContract(
-        name: "DeFiActions",
-        path: "../../contracts/interfaces/DeFiActions.cdc",
-        arguments: []
-    )
-    Test.expect(err, Test.beNil())
-    Test.commitBlock()
+    // err = Test.deployContract(
+    //     name: "DeFiActions",
+    //     path: "../../contracts/interfaces/DeFiActions.cdc",
+    //     arguments: []
+    // )
+    // Test.expect(err, Test.beNil())
+    // Test.commitBlock()
 
     err = Test.deployContract(
         name: "SwapConnectors",
@@ -143,8 +143,8 @@ access(all) fun runQuoteDustScript(
 ///   - overshoot  = quoteIn.outAmount  - desiredOut         (>= 0, logged)
 ///
 access(all) fun assertQuoteDust(results: [[UFix64]]) {
-    var maxOvershoot: UFix64 = 0.0
-    var testedCount: Int = 0
+    var maxOvershoot = 0.0
+    var testedCount = 0
 
     for row in results {
         let desiredOut   = row[0]
@@ -155,16 +155,15 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 
         // Skip amounts where quoter returned 0
         if quoteInIn == 0.0 || quoteInOut == 0.0 {
-            log("[SKIP] desiredOut=".concat(desiredOut.toString())
-                .concat(" - quoter returned 0 (insufficient liquidity or pool not found)"))
+            log("[SKIP] desiredOut=\(desiredOut.toString()) - quoter returned 0 (insufficient liquidity or pool not found)")
             continue
         }
 
-        let quoteDust: UFix64 = quoteOutOut > quoteInOut
+        let quoteDust = quoteOutOut > quoteInOut
             ? quoteOutOut - quoteInOut
             : 0.0
 
-        let overshoot: UFix64 = quoteInOut >= desiredOut
+        let overshoot = quoteInOut >= desiredOut
             ? quoteInOut - desiredOut
             : 0.0
 
@@ -173,23 +172,17 @@ access(all) fun assertQuoteDust(results: [[UFix64]]) {
 
         // Log full quote details
         log("---")
-        log("[TEST] desiredOut=".concat(desiredOut.toString()))
-        log("  quoteIn(forDesired: ".concat(desiredOut.toString()).concat(")")
-            .concat("  => { inAmount: ").concat(quoteInIn.toString())
-            .concat(", outAmount: ").concat(quoteInOut.toString()).concat(" }"))
-        log("  quoteOut(forProvided: ".concat(quoteInIn.toString()).concat(")")
-            .concat(" => { inAmount: ").concat(quoteOutIn.toString())
-            .concat(", outAmount: ").concat(quoteOutOut.toString()).concat(" }"))
-        log("  quoteDust=".concat(quoteDust.toString())
-            .concat(" | overshoot=").concat(overshoot.toString()))
+        log("[TEST] desiredOut=\(desiredOut.toString())")
+        log("  quoteIn(forDesired: \(desiredOut.toString()))  => { inAmount: \(quoteInIn.toString()), outAmount: \(quoteInOut.toString()) }")
+        log("  quoteOut(forProvided: \(quoteInIn.toString())) => { inAmount: \(quoteOutIn.toString()), outAmount: \(quoteOutOut.toString()) }")
+        log("  quoteDust=\(quoteDust.toString()) | overshoot=\(overshoot.toString())")
 
         // Assert: quote consistency — quoteIn and quoteOut must agree
         Test.assertEqual(0.0, quoteDust)
     }
 
     Test.assert(testedCount > 0, message: "No test amounts could be quoted")
-    log("=== PASSED: max overshoot = ".concat(maxOvershoot.toString())
-        .concat(" across ").concat(testedCount.toString()).concat(" amounts ==="))
+    log("=== PASSED: max overshoot = \(maxOvershoot.toString()) across \(testedCount.toString()) amounts ===")
 }
 
 // --- Tests --------------------------------------------------------------------
@@ -214,7 +207,7 @@ access(all) fun testOvershootingDustIsBounded() {
 
     // Pool liquidity caps at ~0.58 MOET output, so amounts above that are clamped.
     // Focus on the productive range where quoting is uncapped.
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00100000,   // +62 quanta overshoot
         0.00500000,
         0.00987654,   // +30 quanta
@@ -256,7 +249,7 @@ access(all) fun testOvershootingDustIsBoundedReverse() {
     ensureCOA(signer)
 
     // Pool liquidity caps at ~0.62 PYUSD output in this direction.
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00100000,
         0.01000000,
         0.05000000,
@@ -371,22 +364,35 @@ access(all) fun runSwapTests(
         signers: [signer],
         arguments: []
     )
-    Test.executeTransaction(cleanupTxn)
+    let _ = Test.executeTransaction(cleanupTxn)
 
     return results
 }
 
 /// Asserts swap dust/overshoot properties for each result row.
 ///
-/// Verifies:
-///   - vaultBalance == quoteOutAmount (caller gets exactly what was quoted)
-///   - coaDustAfter >= coaDustBefore (overshoot/dust accumulates in COA)
+/// The swap transaction uses amountOutMin = desiredOut (NOT quoteIn.outAmount).
+/// This guarantees outUFix ≈ quoteIn.outAmount > desiredOut = amountOutMin for
+/// any amount where the quoter overshoots, forcing the trimming guard to fire.
+///
+/// With the NEW guard (whole-quantum overshoot passes through):
+///   vaultBalance ≈ quoteOutAmount  (whole-quantum overshoot passed to caller)
+///   COA accumulates only sub-quantum EVM wei (< 1 quantum = 0.00000001)
+///
+/// With the OLD guard (cap at amountOutMin = desiredOut):
+///   vaultBalance = desiredOut < quoteOutAmount  → assertion FAILS
+///   COA accumulates the entire quote overshoot (up to 87 quanta)
+///
+/// Example: EVM overshoot = 0.0000001234, desiredOut = amountOutMin
+///   Whole quanta passed through to caller: 0.00000012  (12 × 0.00000001)
+///   Sub-quantum remainder stays in COA:    0.0000000034
 ///
 access(all) fun assertSwapDust(results: [[UFix64]]) {
-    var testedCount: Int = 0
-    var skippedCount: Int = 0
-    var totalOvershoot: UFix64 = 0.0
-    var totalDustInCOA: UFix64 = 0.0
+    var testedCount = 0
+    var skippedCount = 0
+    var totalQuoteOvershoot = 0.0
+    var totalVaultOvershoot = 0.0
+    var totalDustInCOA = 0.0
 
     for row in results {
         let desiredOut       = row[0]
@@ -401,17 +407,22 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
             let reason = quoteInAmount == 0.0 || quoteOutAmount == 0.0
                 ? "quoter returned 0 (no liquidity)"
                 : "insufficient balance"
-            log("[SKIP] desiredOut=".concat(desiredOut.toString())
-                .concat(" — ").concat(reason))
+            log("[SKIP] desiredOut=\(desiredOut.toString()) — \(reason)")
             continue
         }
 
         testedCount = testedCount + 1
 
-        let overshoot = quoteOutAmount >= desiredOut
+        let quoteOvershoot = quoteOutAmount >= desiredOut
             ? quoteOutAmount - desiredOut
             : 0.0
-        totalOvershoot = totalOvershoot + overshoot
+        totalQuoteOvershoot = totalQuoteOvershoot + quoteOvershoot
+
+        // Whole-quantum overshoot received by caller (sub-quantum remainder stays in COA)
+        let vaultOvershoot = vaultBalance > quoteOutAmount
+            ? vaultBalance - quoteOutAmount
+            : 0.0
+        totalVaultOvershoot = totalVaultOvershoot + vaultOvershoot
 
         let dustInCOA = coaDustAfter >= coaDustBefore
             ? coaDustAfter - coaDustBefore
@@ -419,24 +430,24 @@ access(all) fun assertSwapDust(results: [[UFix64]]) {
         totalDustInCOA = totalDustInCOA + dustInCOA
 
         log("---")
-        log("[SWAP] Desired: ".concat(desiredOut.toString())
-            .concat(", Quote: ").concat(quoteOutAmount.toString())
-            .concat(", Returned: ").concat(vaultBalance.toString()))
-        log("  Overshoot/Dust => quote vs desired: +".concat(overshoot.toString())
-            .concat(", stayed in COA: +").concat(dustInCOA.toString()))
-        log("  COA balance => ".concat(coaDustBefore.toString())
-            .concat(" → ").concat(coaDustAfter.toString()))
+        log("[SWAP] Desired: \(desiredOut.toString()), Quote: \(quoteOutAmount.toString()), Returned: \(vaultBalance.toString())")
+        log("  Quote overshoot vs desired: +\(quoteOvershoot.toString()), whole-quantum overshoot to caller: +\(vaultOvershoot.toString())")
+        log("  COA balance => \(coaDustBefore.toString()) → \(coaDustAfter.toString()) (sub-quantum dust: +\(dustInCOA.toString()))")
 
-        Test.assertEqual(quoteOutAmount, vaultBalance)
+        // Caller must receive at least the quoted amount; whole-quantum overshoot passes through.
+        Test.assert(
+            vaultBalance >= quoteOutAmount,
+            message: "Vault balance \(vaultBalance.toString()) < quoteOutAmount \(quoteOutAmount.toString())"
+        )
 
         Test.assert(coaDustAfter >= coaDustBefore,
-            message: "COA output-token balance decreased — overshoot/dust should accumulate in COA")
+            message: "COA output-token balance decreased — sub-quantum remainder should accumulate in COA")
     }
 
     Test.assert(testedCount > 0, message: "No test amounts could be swapped")
-    log("=== PASSED: ".concat(testedCount.toString()).concat(" swaps, ")
-        .concat(skippedCount.toString()).concat(" skipped ==="))
-    log("=== Total overshoot/dust that stayed in COA: ".concat(totalDustInCOA.toString()).concat(" ==="))
+    log("=== PASSED: \(testedCount.toString()) swaps, \(skippedCount.toString()) skipped ===")
+    log("=== Total whole-quantum overshoot passed to callers: \(totalVaultOvershoot.toString()) ===")
+    log("=== Total sub-quantum dust accumulated in COA: \(totalDustInCOA.toString()) ===")
 }
 
 // --- Swap tests ---------------------------------------------------------------
@@ -452,7 +463,7 @@ access(all) fun testSwapDustStaysInCOA() {
     // Provision MOET via minting
     mintMOETToTestVault(signer: signer, amount: 100.0)
 
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.01,
         0.1,
         1.0
@@ -470,14 +481,20 @@ access(all) fun testSwapDustStaysInCOA() {
 
 /// Demonstrates the trimming guard in action on PYUSD → MOET swaps.
 ///
-/// MOET is an 18-decimal ERC20, so `toCadenceOut` floors actual output to the
-/// nearest 10^10 wei (1 UFix64 quantum).  When the router produces even slightly
-/// more output than the quoter predicted — because ceiled input crosses a
-/// quantum boundary — the trimming guard caps the bridged amount at
-/// `amountOutMin` and the excess stays in the COA.
+/// MOET is an 18-decimal ERC20, so `toCadenceOut` floors the actual EVM output
+/// to the nearest 10^10 wei (1 UFix64 quantum = 0.00000001).  When the router
+/// produces more output than the quoter predicted — because ceiled input crosses
+/// a quantum boundary — the overshoot is handled as follows:
+///
+///   Whole-quantum portion (N × 0.00000001): passed through to caller
+///   Sub-quantum EVM remainder (< 0.00000001): stays in COA
+///
+/// Example: EVM overshoot = 0.0000001234
+///   Caller receives quoteOutAmount + 0.00000012  (12 whole quanta)
+///   COA retains                    0.0000000034  (sub-quantum remainder)
 ///
 /// Many fractional amounts are tested to maximise the chance of hitting
-/// quantum-boundary crossings that produce observable dust.
+/// quantum-boundary crossings that produce observable overshoot.
 ///
 access(all) fun testSwapOvershootStaysInCOA() {
     let signer = Test.getAccount(0x47f544294e3b7656)
@@ -486,24 +503,24 @@ access(all) fun testSwapOvershootStaysInCOA() {
     // Provision PYUSD: mint MOET then swap to PYUSD via V3
     provisionPYUSD(signer: signer, moetMintAmount: 200.0, moetSwapAmount: 100.0)
 
-    let testAmounts: [UFix64] = [
+    let testAmounts = [
         0.00987654,
-        0.01000000,
+        0.01000000,   // +69 quanta quote overshoot (highest observed in quote test)
         0.03456789,
         0.05432109,
         0.10000000,
-        0.12345678,   // dust hit in first run
+        0.12345678,   // +44 quanta quote overshoot — confirmed COA dust accumulation
         0.20000000,
-        0.23456789,   // dust hit
+        0.23456789,   // +8 quanta quote overshoot — confirmed COA dust accumulation
         0.34567890,
         0.45019707,
         0.56789012,
         0.67890123,
-        0.78901234,   // dust hit
-        1.00000000,   // dust hit (even with 0 quote overshoot)
+        0.78901234,   // confirmed COA dust accumulation
+        1.00000000,   // confirmed COA dust accumulation (swap-level overshoot, 0 quote overshoot)
         1.23456789,
         1.50000000,
-        2.34567890,   // dust hit
+        2.34567890,   // confirmed COA dust accumulation
         3.45678901,
         5.00000000
     ]
@@ -517,5 +534,29 @@ access(all) fun testSwapOvershootStaysInCOA() {
     )
 
     assertSwapDust(results: results)
+
+    // Spot-check: 0.01000000 (+69 quanta quote overshoot) and 0.12345678 (+44 quanta)
+    // are confirmed cases where the quoter overshoots the desired output.
+    // Because the swap uses amountOutMin = desiredOut, the trimming guard fires and
+    // the full quote overshoot (in whole quanta) must reach the caller's vault.
+    // With the OLD guard (cap at amountOutMin = desiredOut):
+    //   vaultBalance = desiredOut < quoteOutAmount  → FAILS
+    // With the NEW guard (whole-quantum overshoot passes through):
+    //   vaultBalance ≈ quoteOutAmount, coaDelta < 1 quantum  → PASSES
+    for row in results {
+        let desiredOut     = row[0]
+        let quoteOutAmount = row[2]
+        let vaultBalance   = row[3]
+        let coaDustBefore  = row[4]
+        let coaDustAfter   = row[5]
+        // With the new guard, whole-quantum overshoot reaches the caller.
+        // vaultBalance must be at least quoteOutAmount (= desiredOut + quote_overshoot).
+        Test.assert(vaultBalance >= quoteOutAmount,
+            message: "[\(desiredOut.toString())] vaultBalance \(vaultBalance.toString()) < quoteOutAmount \(quoteOutAmount.toString()) — old cap-at-minimum guard still in effect")
+        // Sub-quantum EVM remainder must be the only thing left in COA.
+        let coaDelta = coaDustAfter > coaDustBefore ? coaDustAfter - coaDustBefore : 0.0
+        Test.assert(coaDelta <= 0.00000001,
+            message: "[\(desiredOut.toString())] COA accumulated \(coaDelta.toString()) MOET — whole-quantum overshoot should have been passed to caller, not left in COA")
+    }
 }
 
