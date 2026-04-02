@@ -125,9 +125,11 @@ access(all) contract EVMTokenConnectors {
 
             // collect VM bridge fees
             let feeAmount = FlowEVMBridgeConfig.baseFee
-            if self.feeSource.minimumAvailable() < feeAmount {
-                return // early return here instead of reverting in bridge scope on insufficient fees
-            }
+            let availableFees = self.feeSource.minimumAvailable()
+            assert(
+                availableFees >= feeAmount,
+                message: "Fee source \(availableFees.toString()) cannot cover bridging base fee \(feeAmount.toString())"
+            )
             let fees <- self.feeSource.withdrawAvailable(maxAmount: feeAmount)
 
             // deposit tokens and handle remaining fees
