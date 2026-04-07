@@ -132,15 +132,16 @@ access(all) contract ERC4626SinkConnectors {
             // approve the ERC4626 vault to spend the assets on deposit
             let uintAmount = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(amount, erc20Address: self.assetEVMAddress)
             let approveRes = self._call(
-                    to: self.assetEVMAddress,
-                    signature: "approve(address,uint256)",
-                    args: [self.vault, uintAmount],
-                    gasLimit: 500_000
-                )!
-            if approveRes.status != EVM.Status.successful {
-                // Cadence panic reverts all EVM state changes in this transaction, so no need to bridge token back.
-                panic(self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes))
-            }
+                to: self.assetEVMAddress,
+                signature: "approve(address,uint256)",
+                args: [self.vault, uintAmount],
+                gasLimit: 500_000
+            )!
+            // Cadence panic reverts all EVM state changes in this transaction, so no need to bridge token back.
+            assert(
+                approveRes.status == EVM.Status.successful,
+                message: self._approveErrorMessage(ufixAmount: amount, uintAmount: uintAmount, approveRes: approveRes)
+            )
 
             // deposit the assets to the ERC4626 vault
             let depositRes = self._call(
@@ -149,11 +150,12 @@ access(all) contract ERC4626SinkConnectors {
                 args: [uintAmount, self.coa.borrow()!.address()],
                 gasLimit: 1_000_000
             )!
-            if depositRes.status != EVM.Status.successful {
-                // No need to revoke the approval: a Cadence panic atomically reverts all EVM
-                // state changes made in this transaction, including the approve() call above.
-                panic(self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes))
-            }
+            // No need to revoke the approval: a Cadence panic atomically reverts all EVM
+            // state changes made in this transaction, including the approve() call above.
+            assert(
+                depositRes.status == EVM.Status.successful,
+                message: self._depositErrorMessage(ufixAmount: amount, uintAmount: uintAmount, depositRes: depositRes)
+            )
         }
         /// Returns a ComponentInfo struct containing information about this component and a list of ComponentInfo for
         /// each inner component in the stack.
