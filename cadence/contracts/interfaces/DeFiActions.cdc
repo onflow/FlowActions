@@ -258,9 +258,12 @@ access(all) contract DeFiActions {
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
-    /// accept for deposit. Implementations should therefore favor graceful fallback on unmet conditions, such as zero
-    /// capacity, executing no-ops instead of reverting. Any errors that hinder liveness, can be surfaced for visibility.
-    ///
+    /// accept for deposit. Implementations should therefore favor graceful fallback on unexpected conditions, executing
+    /// no-ops instead of reverting.
+    /// - A Sink should prioritize liveness where possible, and not panic, for example if it has no funds or cannot
+    ///   access funds.
+    /// - A sink should only panic if not panicking would cause the Sink to have an inconsistent internal state
+    ///   (unsafe or undefined for the Sink to continue in this state).
     access(all) struct interface Sink : IdentifiableStruct {
         /// Returns the Vault type accepted by this Sink
         access(all) view fun getSinkType(): Type
