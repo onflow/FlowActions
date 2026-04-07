@@ -258,8 +258,8 @@ access(all) contract DeFiActions {
     /// A Sink Connector (or just “Sink”) is analogous to the Fungible Token Receiver interface that accepts deposits of
     /// funds. It differs from the standard Receiver interface in that it is a struct interface (instead of resource
     /// interface) and allows for the graceful handling of Sinks that have a limited capacity on the amount they can
-    /// accept for deposit. Implementations should therefore avoid the possibility of reversion with graceful fallback
-    /// on unexpected conditions, executing no-ops instead of reverting.
+    /// accept for deposit. Implementations should therefore favor graceful fallback on unmet conditions, such as zero
+    /// capacity, executing no-ops instead of reverting. Any errors that hinder liveness, can be surfaced for visibility.
     ///
     access(all) struct interface Sink : IdentifiableStruct {
         /// Returns the Vault type accepted by this Sink

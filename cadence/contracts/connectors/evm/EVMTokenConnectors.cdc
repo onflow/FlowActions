@@ -126,6 +126,9 @@ access(all) contract EVMTokenConnectors {
             // collect VM bridge fees
             let feeAmount = FlowEVMBridgeConfig.baseFee
             let availableFees = self.feeSource.minimumAvailable()
+            // We could return early here, but that would silently hide the fact
+            // that `self.feeSource`, which is responsible for paying bridging fees,
+            // has in fact run out of funds.
             assert(
                 availableFees >= feeAmount,
                 message: "Fee source \(availableFees.toString()) cannot cover bridging base fee \(feeAmount.toString())"
