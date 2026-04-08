@@ -112,6 +112,92 @@ access(all) contract MockSwapper {
         access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? { return self.uniqueID }
         access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) { self.uniqueID = id }
     }
+
+    /// TEST-ONLY capacity-limited swapper. Caps outAmount at maxOut in both quoteIn and quoteOut.
+    /// Do NOT use in production.
+    access(all) struct CapLimitedSwapper : DeFiActions.Swapper {
+        access(self) let inVault: Type
+        access(self) let outVault: Type
+        access(self) let inVaultSource: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+        access(self) let outVaultSource: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>
+        access(self) let priceRatio: UFix64 // out per unit in
+        access(self) let maxOut: UFix64     // maximum output this swapper can deliver
+        access(contract) var uniqueID: DeFiActions.UniqueIdentifier?
+
+        init(
+            inVault: Type,
+            outVault: Type,
+            inVaultSource: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+            outVaultSource: Capability<auth(FungibleToken.Withdraw) &{FungibleToken.Vault}>,
+            priceRatio: UFix64,
+            maxOut: UFix64,
+            uniqueID: DeFiActions.UniqueIdentifier?
+        ) {
+            pre {
+                inVault.isSubtype(of: Type<@{FungibleToken.Vault}>()): "inVault must be a FungibleToken Vault"
+                outVault.isSubtype(of: Type<@{FungibleToken.Vault}>()): "outVault must be a FungibleToken Vault"
+                inVaultSource.check(): "Invalid inVaultSource capability"
+                outVaultSource.check(): "Invalid outVaultSource capability"
+                priceRatio > 0.0: "Invalid price ratio"
+                maxOut > 0.0: "Invalid maxOut"
+            }
+            self.inVault = inVault
+            self.outVault = outVault
+            self.inVaultSource = inVaultSource
+            self.outVaultSource = outVaultSource
+            self.priceRatio = priceRatio
+            self.maxOut = maxOut
+            self.uniqueID = uniqueID
+        }
+
+        access(all) view fun inType(): Type { return self.inVault }
+        access(all) view fun outType(): Type { return self.outVault }
+
+        access(all) fun quoteIn(forDesired: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            let actualOut = forDesired > self.maxOut ? self.maxOut : forDesired
+            let inAmt = reverse ? actualOut * self.priceRatio : actualOut / self.priceRatio
+            return BasicQuote(
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
+                inAmount: inAmt,
+                outAmount: actualOut
+            )
+        }
+
+        access(all) fun quoteOut(forProvided: UFix64, reverse: Bool): {DeFiActions.Quote} {
+            let rawOut = reverse ? forProvided / self.priceRatio : forProvided * self.priceRatio
+            let actualOut = rawOut > self.maxOut ? self.maxOut : rawOut
+            let actualIn = reverse ? actualOut * self.priceRatio : actualOut / self.priceRatio
+            return BasicQuote(
+                inType: reverse ? self.outType() : self.inType(),
+                outType: reverse ? self.inType() : self.outType(),
+                inAmount: actualIn,
+                outAmount: actualOut
+            )
+        }
+
+        access(all) fun swap(quote: {DeFiActions.Quote}?, inVault: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre { inVault.getType() == self.inType(): "Wrong in type \(inVault.getType().identifier) - expected \(self.inType().identifier)" }
+            let outAmt = (quote?.outAmount) ?? (inVault.balance * self.priceRatio)
+            let depositTo = self.inVaultSource.borrow() ?? panic("Invalid borrowed vault source")
+            depositTo.deposit(from: <-inVault)
+            let src = self.outVaultSource.borrow() ?? panic("Invalid borrowed vault source")
+            return <- src.withdraw(amount: outAmt)
+        }
+
+        access(all) fun swapBack(quote: {DeFiActions.Quote}?, residual: @{FungibleToken.Vault}): @{FungibleToken.Vault} {
+            pre { residual.getType() == self.outType(): "Wrong out type \(residual.getType().identifier) - expected \(self.outType().identifier)" }
+            let inAmt = (quote?.inAmount) ?? (residual.balance / self.priceRatio)
+            let depositTo = self.outVaultSource.borrow() ?? panic("Invalid borrowed vault source")
+            depositTo.deposit(from: <-residual)
+            let src = self.inVaultSource.borrow() ?? panic("Invalid borrowed vault source")
+            return <- src.withdraw(amount: inAmt)
+        }
+
+        access(all) fun getComponentInfo(): DeFiActions.ComponentInfo {
+            return DeFiActions.ComponentInfo(type: self.getType(), id: self.id(), innerComponents: [])
+        }
+        access(contract) view fun copyID(): DeFiActions.UniqueIdentifier? { return self.uniqueID }
+        access(contract) fun setID(_ id: DeFiActions.UniqueIdentifier?) { self.uniqueID = id }
+    }
 }
-
-
