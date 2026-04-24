@@ -1,6 +1,6 @@
 # DeFiActions
 
-**Composable DeFi primitives for building sophisticated financial workflows on Flow blockchain**
+**Composable DeFi primitives for building sophisticated financial workflows on the Flow network**
 
 > :warning: This repo is in beta and not yet intended for use in production systems.
 
@@ -103,7 +103,7 @@ To understand DeFiActions, start with these key files:
 
 ### Prerequisites
 
-- [Flow CLI](https://docs.onflow.org/flow-cli/install/) installed
+- [Flow CLI](https://developers.flow.com/tools/flow-cli) installed
 - Basic understanding of [Cadence](https://cadence-lang.org/) smart contract language
 
 ### Setup
@@ -158,3 +158,12 @@ Additional usage patterns will be linked here once they become available.
 ## Documentation
 
 - **FLIP Document**: DeFiActions FLIP - TBD
+
+## About Flow
+
+This repo is part of the [Flow network](https://flow.com), a Layer 1 blockchain built for consumer applications, AI agents, and DeFi at scale.
+
+- Developer docs: https://developers.flow.com
+- Cadence language: https://cadence-lang.org
+- Community: [Flow Discord](https://discord.gg/flow) · [Flow Forum](https://forum.flow.com)
+- Governance: [Flow Improvement Proposals](https://github.com/onflow/flips)
