@@ -149,6 +149,12 @@ access(all) contract ERC4626SwapConnectors {
                                 outAmount: ufixActualShares
                             )
                         }
+                        return SwapConnectors.BasicQuote(
+                            inType: self.asset,
+                            outType: self.vaultType,
+                            inAmount: 0.0,
+                            outAmount: 0.0
+                        )
                     }
                     
                     return SwapConnectors.BasicQuote(
@@ -176,18 +182,16 @@ access(all) contract ERC4626SwapConnectors {
                     outAmount: 0.0
                 )
             }
-            
-            // ensure the provided amount is not greater than the maximum deposit capacity
-            let maxCapacity = self.assetSink.minimumCapacity()
+
+            // ensure the provided amount is not greater than the maximum deposit amount
+            let uintMaxDeposit = ERC4626Utils.maxDeposit(vault: self.vault, receiver: self.assetEVMAddress)
             var _forProvided = forProvided
-            if maxCapacity == 0.0 {
-                _forProvided = 0.0
-            } else if _forProvided > maxCapacity {
-                _forProvided = maxCapacity
+            if uintMaxDeposit != nil {
+                let ufixMaxDeposit = FlowEVMBridgeUtils.convertERC20AmountToCadenceAmount(uintMaxDeposit!, erc20Address: self.assetEVMAddress)
+                _forProvided = _forProvided > ufixMaxDeposit ? ufixMaxDeposit : _forProvided
             }
             let uintForProvided = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(_forProvided, erc20Address: self.assetEVMAddress)
 
-            
             if let uintShares = ERC4626Utils.previewDeposit(vault: self.vault, assets: uintForProvided) {
                 let ufixShares = EVMAmountUtils.toCadenceOutForToken(uintShares, erc20Address: self.vault)
                 return SwapConnectors.BasicQuote(
