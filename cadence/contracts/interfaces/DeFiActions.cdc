@@ -1118,7 +1118,7 @@ access(all) contract DeFiActions {
             }
 
             // check for other scheduled transactions within the desired interval
-            for id in self._scheduledTransactions.keys {
+            for id in self._scheduledTransactions {
                 if id == whileExecuting {
                     continue
                 }
@@ -1247,7 +1247,7 @@ access(all) contract DeFiActions {
             let limit = 50
             var iter = 0
             // iterate over the scheduled transactions and remove those that are not scheduled
-            for id in self._scheduledTransactions.keys {
+            for id in self._scheduledTransactions {
                 iter = iter + 1
                 if iter > limit {
                     break
