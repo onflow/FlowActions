@@ -7,6 +7,9 @@ import "DeFiActions"
 
 // testing account
 access(all) let testAccount = Test.getAccount(0x443472749ebdaac8)
+// the MorphoERC4626SwapConnectors contract account, signable on the fork via the local key in flow.json
+// (mainnet-fork-morpho-erc4626-connectors) so tests can write lens config to the contract account's storage
+access(all) let connectorAccount = Test.getAccount(0x251032a66e9700ef)
 // FUSDEV MorphoERC4626 vault (underlying asset: PYUSD0)
 access(all) let morphoERC4626VaultEVMAddressHex = "0xd069d989e2F44B70c65347d1853C0c67e10a9F8D"
 
@@ -75,6 +78,70 @@ access(all) fun testQuoteIn() {
     let quote = quoteInResult.returnValue! as! {DeFiActions.Quote}
     assert(quote.inAmount > 1.0, message: "Share should be at least 1.0 PYUSD0")
 }
+access(all) fun testQuoteOutSharesToAssetsGatedByRedeemableLiquidity() {
+    // a servicable amount quotes normally - the liquidity gate is transparent when the vault can pay out
+    let servicableResult = _executeScript(
+        "./scripts/morpho/quote_out.cdc",
+        [
+            testAccount.address,
+            morphoERC4626VaultEVMAddressHex,
+            1.0
+        ]
+    )
+    Test.expect(servicableResult, Test.beSucceeded())
+    let servicableQuote = servicableResult.returnValue! as! {DeFiActions.Quote}
+    assert(servicableQuote.outAmount > 0.0, message: "1.0 share should quote a non-zero amount of PYUSD0")
+
+    // an amount orders of magnitude beyond the vault's total share supply can never be redeemed - the quote must
+    // gracefully fail with 0.0 (letting MultiSwapper route to another Swapper) instead of advertising NAV that
+    // the vault cannot pay out
+    let unservicableResult = _executeScript(
+        "./scripts/morpho/quote_out.cdc",
+        [
+            testAccount.address,
+            morphoERC4626VaultEVMAddressHex,
+            10_000_000_000.0
+        ]
+    )
+    Test.expect(unservicableResult, Test.beSucceeded())
+    let unservicableQuote = unservicableResult.returnValue! as! {DeFiActions.Quote}
+    assert(unservicableQuote.inAmount == 0.0, message: "Unservicable redemption must quote 0.0 inAmount")
+    assert(unservicableQuote.outAmount == 0.0, message: "Unservicable redemption must quote 0.0 outAmount")
+}
+access(all) fun testQuoteOutGatedByConfiguredVaultV2Lens() {
+    // NOTE: the real VaultV2Lens (0x772F1Fe931F5803f2eD48559a7311574db930070) was deployed after the pinned
+    // fork height, so its integration is verified against live mainnet instead - see the PR description.
+    //
+    // Negative control: configure the vault itself as the lens. VaultV2 hardcodes maxWithdraw to 0, so the
+    // quote can only come back 0.0 if the configured-lens branch executed - the heuristic path would quote
+    // non-zero at this height since idle covers 1.0 share.
+    let setLens = _executeTransaction(
+        "../transactions/evm/morpho/set_vault_v2_lens.cdc",
+        [morphoERC4626VaultEVMAddressHex as String?],
+        connectorAccount
+    )
+    Test.expect(setLens, Test.beSucceeded())
+
+    let quoteResult = _executeScript(
+        "./scripts/morpho/quote_out.cdc",
+        [
+            testAccount.address,
+            morphoERC4626VaultEVMAddressHex,
+            1.0
+        ]
+    )
+    Test.expect(quoteResult, Test.beSucceeded())
+    let quote = quoteResult.returnValue! as! {DeFiActions.Quote}
+    assert(quote.outAmount == 0.0, message: "Configured lens reporting 0 liquidity must zero the quote")
+
+    // clear the config
+    let clearLens = _executeTransaction(
+        "../transactions/evm/morpho/set_vault_v2_lens.cdc",
+        [nil as String?],
+        connectorAccount
+    )
+    Test.expect(clearLens, Test.beSucceeded())
+}
 
 access(all) fun testSwap() {
     let swapRes = _executeTransaction(
@@ -87,11 +154,22 @@ access(all) fun testSwap() {
     )
     Test.expect(swapRes, Test.beSucceeded())
 
+    // swap back the full received share balance: depositing 1.0 PYUSD0 yields slightly fewer than 1.0
+    // share (previewDeposit rounds down, and Cadence<->EVM conversion truncates to the share token's
+    // decimals), so any hardcoded amount is height-dependent
+    let balanceResult = _executeScript(
+        "./scripts/morpho/get_share_balance.cdc",
+        [testAccount.address]
+    )
+    Test.expect(balanceResult, Test.beSucceeded())
+    let shareBalance = balanceResult.returnValue! as! UFix64
+    assert(shareBalance > 0.0, message: "Expected non-zero share balance after swap")
+
     let swapBackRes = _executeTransaction(
         "./transactions/morpho/swap_back.cdc",
         [
             morphoERC4626VaultEVMAddressHex,
-            0.99 // @TODO investigage losses 
+            shareBalance
         ],
         testAccount
     )
