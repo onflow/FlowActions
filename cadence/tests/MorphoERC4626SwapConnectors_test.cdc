@@ -75,6 +75,36 @@ access(all) fun testQuoteIn() {
     let quote = quoteInResult.returnValue! as! {DeFiActions.Quote}
     assert(quote.inAmount > 1.0, message: "Share should be at least 1.0 PYUSD0")
 }
+access(all) fun testQuoteOutSharesToAssetsGatedByRedeemableLiquidity() {
+    // a servicable amount quotes normally - the liquidity gate is transparent when the vault can pay out
+    let servicableResult = _executeScript(
+        "./scripts/morpho/quote_out.cdc",
+        [
+            testAccount.address,
+            morphoERC4626VaultEVMAddressHex,
+            1.0
+        ]
+    )
+    Test.expect(servicableResult, Test.beSucceeded())
+    let servicableQuote = servicableResult.returnValue! as! {DeFiActions.Quote}
+    assert(servicableQuote.outAmount > 0.0, message: "1.0 share should quote a non-zero amount of PYUSD0")
+
+    // an amount orders of magnitude beyond the vault's total share supply can never be redeemed - the quote must
+    // gracefully fail with 0.0 (letting MultiSwapper route to another Swapper) instead of advertising NAV that
+    // the vault cannot pay out
+    let unservicableResult = _executeScript(
+        "./scripts/morpho/quote_out.cdc",
+        [
+            testAccount.address,
+            morphoERC4626VaultEVMAddressHex,
+            10_000_000_000.0
+        ]
+    )
+    Test.expect(unservicableResult, Test.beSucceeded())
+    let unservicableQuote = unservicableResult.returnValue! as! {DeFiActions.Quote}
+    assert(unservicableQuote.inAmount == 0.0, message: "Unservicable redemption must quote 0.0 inAmount")
+    assert(unservicableQuote.outAmount == 0.0, message: "Unservicable redemption must quote 0.0 outAmount")
+}
 
 access(all) fun testSwap() {
     let swapRes = _executeTransaction(
