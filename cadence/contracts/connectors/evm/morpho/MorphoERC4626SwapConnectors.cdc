@@ -23,6 +23,18 @@ import "EVMAmountUtils"
 ///
 access(all) contract MorphoERC4626SwapConnectors {
 
+    /// Returns the VaultV2Lens EVM address configured for this contract, or nil if none is set.
+    ///
+    /// The lens address is read from this contract account's storage rather than contract state so it can be
+    /// set or replaced without a contract update: in-place contract updates reject new contract fields, and a
+    /// new init parameter would break every caller of Swapper.init. Set or clear it with a transaction signed
+    /// by this contract's account (see transactions/evm/morpho/set_vault_v2_lens.cdc).
+    ///
+    /// @return The configured VaultV2Lens EVM address, or nil if unset or the stored value has the wrong type
+    access(all) view fun getVaultV2Lens(): EVM.EVMAddress? {
+        return self.account.storage.copy<EVM.EVMAddress>(from: /storage/MorphoERC4626VaultV2Lens)
+    }
+
     /// Swapper
     ///
     /// An implementation of the DeFiActions.Swapper interface to swap assets to 4626 shares where the input token is
@@ -209,6 +221,11 @@ access(all) contract MorphoERC4626SwapConnectors {
 
         /// Returns true if the ERC4626 vault can currently service a redemption of the given amount of assets.
         ///
+        /// When a VaultV2Lens is configured (see getVaultV2Lens), its maxWithdraw is authoritative: it reports
+        /// idle assets plus the liquidity available through the vault's liquidity adapter, covering
+        /// adapter-backed Vault V2 vaults as well. If no lens is configured or the lens call fails, the
+        /// heuristic below applies.
+        ///
         /// Morpho Vault V2 vaults serve redemptions from their idle asset balance, topped up by a configured
         /// liquidity adapter when idle is insufficient (see VaultV2.exit). When the vault exposes
         /// liquidityAdapter() and it is the zero address, redemptions are served from idle assets only and the
@@ -229,6 +246,14 @@ access(all) contract MorphoERC4626SwapConnectors {
         /// @return true if the redemption is servicable (or servicability cannot be ruled out), false otherwise
         ///
         access(self) fun canServiceRedemption(assetsEVM: UInt256): Bool {
+            // A configured VaultV2Lens is authoritative: it reports idle assets plus the liquidity available
+            // through the vault's liquidity adapter (VaultV2 itself hardcodes maxWithdraw/maxRedeem to 0).
+            // If the lens call fails - e.g. the vault is not a VaultV2 - fall through to the heuristic below.
+            if let lens = MorphoERC4626SwapConnectors.getVaultV2Lens() {
+                if let maxAssets = ERC4626Utils.maxWithdrawViaLens(lens: lens, vault: self.vaultEVMAddress) {
+                    return assetsEVM <= maxAssets
+                }
+            }
             if let adapter = ERC4626Utils.liquidityAdapter(vault: self.vaultEVMAddress) {
                 if adapter.toString() != "0000000000000000000000000000000000000000" {
                     // adapter-backed vault: adapter liquidity is not measured, preserve legacy routing
