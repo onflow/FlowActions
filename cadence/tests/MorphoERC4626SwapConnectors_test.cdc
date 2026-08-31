@@ -154,11 +154,22 @@ access(all) fun testSwap() {
     )
     Test.expect(swapRes, Test.beSucceeded())
 
+    // swap back the full received share balance: depositing 1.0 PYUSD0 yields slightly fewer than 1.0
+    // share (previewDeposit rounds down, and Cadence<->EVM conversion truncates to the share token's
+    // decimals), so any hardcoded amount is height-dependent
+    let balanceResult = _executeScript(
+        "./scripts/morpho/get_share_balance.cdc",
+        [testAccount.address]
+    )
+    Test.expect(balanceResult, Test.beSucceeded())
+    let shareBalance = balanceResult.returnValue! as! UFix64
+    assert(shareBalance > 0.0, message: "Expected non-zero share balance after swap")
+
     let swapBackRes = _executeTransaction(
         "./transactions/morpho/swap_back.cdc",
         [
             morphoERC4626VaultEVMAddressHex,
-            0.99 // @TODO investigage losses
+            shareBalance
         ],
         testAccount
     )
