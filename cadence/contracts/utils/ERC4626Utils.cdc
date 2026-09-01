@@ -97,6 +97,65 @@ access(all) contract ERC4626Utils {
         return maxRedeem[0] as! UInt256
     }
 
+    /// Returns the amount of the underlying asset held by the ERC4626 vault itself, i.e. its idle asset balance.
+    /// For vaults that serve redemptions from idle assets (e.g. a Morpho Vault V2 with no liquidity adapter
+    /// configured), this is the maximum redemption the vault can currently service.
+    ///
+    /// @param vault The address of the ERC4626 vault
+    ///
+    /// @return The vault's idle balance of the underlying asset, in the asset's decimals, or nil if the vault's
+    ///         underlying asset cannot be resolved or the call fails.
+    access(all)
+    fun idleAssets(vault: EVM.EVMAddress): UInt256? {
+        if let asset = self.underlyingAssetEVMAddress(vault: vault) {
+            let callRes = self._dryCall(to: asset, signature: "balanceOf(address)", args: [vault], gasLimit: 5_000_000)
+            if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+                return nil
+            }
+            let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+            return decoded[0] as! UInt256
+        }
+        return nil
+    }
+
+    /// Returns the liquidity adapter configured on a Morpho Vault V2-style ERC4626 vault. A zero address means the
+    /// vault has no liquidity adapter and serves redemptions from its idle asset balance only (see VaultV2.exit).
+    ///
+    /// @param vault The address of the ERC4626 vault
+    ///
+    /// @return The liquidity adapter address, or nil if the vault does not expose liquidityAdapter() (e.g.
+    ///         MetaMorpho V1 or a plain ERC4626) or the call fails. Callers must distinguish nil (unknown) from
+    ///         the zero address (provably no adapter).
+    access(all)
+    fun liquidityAdapter(vault: EVM.EVMAddress): EVM.EVMAddress? {
+        let callRes = self._dryCall(to: vault, signature: "liquidityAdapter()", args: [], gasLimit: 5_000_000)
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<EVM.EVMAddress>()], data: callRes.data)
+        return decoded[0] as! EVM.EVMAddress
+    }
+
+    /// Returns the maximum assets immediately withdrawable from a Morpho Vault V2 vault as reported by a
+    /// VaultV2Lens contract: idle assets plus liquidity available through the vault's liquidity adapter.
+    /// VaultV2 itself hardcodes maxWithdraw/maxRedeem to 0 ("revert-free cannot be guaranteed when calling
+    /// the gate"), so the lens is the supported way to query servicable liquidity.
+    ///
+    /// @param lens The address of the VaultV2Lens contract
+    /// @param vault The address of the VaultV2 vault
+    ///
+    /// @return The withdrawable assets in the underlying asset's decimals, or nil if the call fails - e.g.
+    ///         when the vault is not a VaultV2 (the lens reverts on vaults without liquidityAdapter()).
+    access(all)
+    fun maxWithdrawViaLens(lens: EVM.EVMAddress, vault: EVM.EVMAddress): UInt256? {
+        let callRes = self._dryCall(to: lens, signature: "maxWithdraw(address)", args: [vault], gasLimit: 5_000_000)
+        if callRes.status != EVM.Status.successful || callRes.data.length == 0 {
+            return nil
+        }
+        let decoded = EVM.decodeABI(types: [Type<UInt256>()], data: callRes.data)
+        return decoded[0] as! UInt256
+    }
+
     /// Returns the maximum amount of assets that can be deposited into the ERC4626 vault
     ///
     /// @param vault The address of the ERC4626 vault

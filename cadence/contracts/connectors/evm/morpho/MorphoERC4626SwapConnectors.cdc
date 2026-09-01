@@ -23,6 +23,18 @@ import "EVMAmountUtils"
 ///
 access(all) contract MorphoERC4626SwapConnectors {
 
+    /// Returns the VaultV2Lens EVM address configured for this contract, or nil if none is set.
+    ///
+    /// The lens address is read from this contract account's storage rather than contract state so it can be
+    /// set or replaced without a contract update: in-place contract updates reject new contract fields, and a
+    /// new init parameter would break every caller of Swapper.init. Set or clear it with a transaction signed
+    /// by this contract's account (see transactions/evm/morpho/set_vault_v2_lens.cdc).
+    ///
+    /// @return The configured VaultV2Lens EVM address, or nil if unset or the stored value has the wrong type
+    access(all) view fun getVaultV2Lens(): EVM.EVMAddress? {
+        return self.account.storage.copy<EVM.EVMAddress>(from: /storage/MorphoERC4626VaultV2Lens)
+    }
+
     /// Swapper
     ///
     /// An implementation of the DeFiActions.Swapper interface to swap assets to 4626 shares where the input token is
@@ -181,6 +193,14 @@ access(all) contract MorphoERC4626SwapConnectors {
                 : desiredAssetsEVMFloor
 
             if let requiredSharesEVM = ERC4626Utils.previewWithdraw(vault: self.vaultEVMAddress, assets: desiredAssetsEVM) {
+                if !self.canServiceRedemption(assetsEVM: desiredAssetsEVM) {
+                    return SwapConnectors.BasicQuote(
+                        inType: self.vaultType,
+                        outType: self.assetType,
+                        inAmount: 0.0,
+                        outAmount: 0.0
+                    )
+                }
                 let maxSharesEVM = FlowEVMBridgeUtils.convertCadenceAmountToERC20Amount(
                     UFix64.max,
                     erc20Address: self.vaultEVMAddress
@@ -206,6 +226,56 @@ access(all) contract MorphoERC4626SwapConnectors {
                 inAmount: 0.0,
                 outAmount: 0.0
             )
+        }
+
+        /// Returns true if the ERC4626 vault can currently service a redemption of the given amount of assets.
+        ///
+        /// When a VaultV2Lens is configured (see getVaultV2Lens), its maxWithdraw is authoritative: it reports
+        /// idle assets plus the liquidity available through the vault's liquidity adapter, covering
+        /// adapter-backed Vault V2 vaults as well. If no lens is configured or the lens call fails, the
+        /// heuristic below applies.
+        ///
+        /// Morpho Vault V2 vaults serve redemptions from their idle asset balance, topped up by a configured
+        /// liquidity adapter when idle is insufficient (see VaultV2.exit). When the vault exposes
+        /// liquidityAdapter() and it is the zero address, redemptions are served from idle assets only and the
+        /// redemption is servicable iff it does not exceed the vault's idle balance.
+        ///
+        /// When the vault does not expose liquidityAdapter() (e.g. MetaMorpho V1, plain ERC4626) or has an
+        /// adapter set, adapter/market liquidity cannot be measured generically and the legacy ungated behavior
+        /// is preserved. When the vault has no adapter but the idle balance cannot be queried, the redemption is
+        /// treated as unservicable: a 0.0 quote is a graceful failure that MultiSwapper routes around, while a
+        /// false positive reverts the whole transaction at execution time.
+        ///
+        /// Motivation: previewRedeem/previewWithdraw quote full NAV regardless of liquidity, so the redeem leg
+        /// always won MultiSwapper quote comparisons and then reverted at execution for illiquid vaults (and
+        /// Source.minimumAvailable downstream advertised exits that could not be served).
+        ///
+        /// @param assetsEVM The redemption's asset amount, denominated in the underlying asset's EVM decimals
+        ///
+        /// @return true if the redemption is servicable (or servicability cannot be ruled out), false otherwise
+        ///
+        access(self) fun canServiceRedemption(assetsEVM: UInt256): Bool {
+            // A configured VaultV2Lens is authoritative: it reports idle assets plus the liquidity available
+            // through the vault's liquidity adapter (VaultV2 itself hardcodes maxWithdraw/maxRedeem to 0).
+            // If the lens call fails - e.g. the vault is not a VaultV2 - fall through to the heuristic below.
+            if let lens = MorphoERC4626SwapConnectors.getVaultV2Lens() {
+                if let maxAssets = ERC4626Utils.maxWithdrawViaLens(lens: lens, vault: self.vaultEVMAddress) {
+                    return assetsEVM <= maxAssets
+                }
+            }
+            if let adapter = ERC4626Utils.liquidityAdapter(vault: self.vaultEVMAddress) {
+                if adapter.toString() != "0000000000000000000000000000000000000000" {
+                    // adapter-backed vault: adapter liquidity is not measured, preserve legacy routing
+                    return true
+                }
+                // no adapter: redemptions are served from the vault's idle asset balance only
+                if let idle = ERC4626Utils.idleAssets(vault: self.vaultEVMAddress) {
+                    return assetsEVM <= idle
+                }
+                return false
+            }
+            // vault does not expose liquidityAdapter() - preserve legacy ungated behavior
+            return true
         }
 
         // --------------------------------------------------------------------
@@ -288,6 +358,14 @@ access(all) contract MorphoERC4626SwapConnectors {
             )
 
             if let assetsOutEVM = ERC4626Utils.previewRedeem(vault: self.vaultEVMAddress, shares: providedSharesEVM) {
+                if !self.canServiceRedemption(assetsEVM: assetsOutEVM) {
+                    return SwapConnectors.BasicQuote(
+                        inType: self.vaultType,
+                        outType: self.assetType,
+                        inAmount: 0.0,
+                        outAmount: 0.0
+                    )
+                }
                 let assetDecimals = FlowEVMBridgeUtils.getTokenDecimals(evmContractAddress: self.assetEVMAddress)
                 let assetsOut = EVMAmountUtils.toCadenceOut(
                     assetsOutEVM,
